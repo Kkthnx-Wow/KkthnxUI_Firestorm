@@ -42,6 +42,8 @@ function Module:SynchronizeDisplayState()
 		WorldMapFrame:ClearAllPoints()
 		WorldMapFrame:SetPoint("CENTER", UIParent)
 	end
+
+	K.RestoreMoverFrame(self)
 end
 
 function Module:SetSmallWorldMap()
@@ -265,6 +267,8 @@ function Module:OnEnable()
 	if C["WorldMap"].SmallWorldMap then
 		smallerMapScale = C["WorldMap"].SmallWorldMapScale or 0.9
 
+		K.CreateMoverFrame(WorldMapFrame, nil, true)
+
 		WorldMapFrame.BlackoutFrame.Blackout:SetTexture()
 		WorldMapFrame.BlackoutFrame:EnableMouse(false)
 
@@ -278,6 +282,10 @@ function Module:OnEnable()
 	WorldMapFrame:HookScript("OnHide", Module.WorldMap_OnHide)
 
 	hooksecurefunc(PlayerMovementFrameFader, "AddDeferredFrame", Module.UpdateMapFade)
+
+	if C["General"].NoTutorialButtons then
+		WorldMapFrame.BorderFrame.Tutorial:Kill()
+	end
 
 	local loadWorldMapModules = {
 		"CreateWorldMapReveal",
