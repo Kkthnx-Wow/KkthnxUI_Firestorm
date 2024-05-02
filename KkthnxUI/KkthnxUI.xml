@@ -1,0 +1,21 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
+<Frame name="ExtraMapIconsGlobalPinTemplate" inherits="BaseHighlightableMapPoiPinTemplate" enableMouseClicks="true" enableMouseMotion="true" mixin="ExtraMapIconsGlobalPinMixin" virtual="true" />
+   <!-- Libraries -->
+   <Include file="Libraries\Load_Libraries.xml" />
+   <!-- Engine -->
+   <Script file="Init.lua" />
+   <!-- Settings -->
+   <Script file="Config\Settings.lua" />
+   <!-- Media -->
+   <Script file="Media\Media.lua" />
+   <!-- Locales -->
+   <Include file="Locales\Load_Locales.xml" />
+   <!-- Core -->
+   <Include file="Core\Load_Core.xml" />
+   <!-- Config -->
+   <Include file="Config\Load_Config.xml" />
+   <!-- Modules -->
+   <Include file="Modules\Load_Modules.xml" />
+   <!-- Developer -->
+   <Include file="Developer\Load_Developer.xml" />
+</Ui>
