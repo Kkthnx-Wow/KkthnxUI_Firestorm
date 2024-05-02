@@ -268,42 +268,13 @@ function Module:ItemLevel_UpdateInfo(slotFrame, info, quality)
 	end
 end
 
--- function Module:ItemLevel_RefreshInfo(link, unit, index, slotFrame)
--- 	C_Timer.After(0.1, function()
--- 		local quality = select(3, GetItemInfo(link))
--- 		local info = K.GetItemLevel(link, unit, index, C["Misc"].GemEnchantInfo)
--- 		if info == "tooSoon" then
--- 			return
--- 		end
--- 		Module:ItemLevel_UpdateInfo(slotFrame, info, quality)
--- 	end)
--- end
-
-local itemRefreshCache = {}
-
 function Module:ItemLevel_RefreshInfo(link, unit, index, slotFrame)
-	if not link then
-		return
-	end
-
-	if itemRefreshCache[link] then
-		-- Use cached item information
-		Module:ItemLevel_UpdateInfo(slotFrame, itemRefreshCache[link], slotFrame.quality)
-		return
-	end
-
 	C_Timer.After(0.1, function()
 		local quality = select(3, GetItemInfo(link))
-		if not quality then
-			-- Handle missing item quality
-			return
-		end
 		local info = K.GetItemLevel(link, unit, index, C["Misc"].GemEnchantInfo)
-		if not info or info == "tooSoon" then
-			-- Handle missing or delayed item information
+		if info == "tooSoon" then
 			return
 		end
-		itemRefreshCache[link] = info -- Cache item information
 		Module:ItemLevel_UpdateInfo(slotFrame, info, quality)
 	end)
 end
@@ -348,49 +319,10 @@ function Module:ItemLevel_UpdatePlayer()
 	Module:ItemLevel_SetupLevel(CharacterFrame, "Character", "player")
 end
 
-function Module:CalculateAverageItemLevel(unit)
-	local totalItemLevel = 0
-	local totalItems = 0
-
-	for _, slot in ipairs(inspectSlots) do
-		local link = GetInventoryItemLink(unit, GetInventorySlotInfo(slot .. "Slot"))
-		if link then
-			local itemLevel = K.GetItemLevel(link)
-			if itemLevel and itemLevel > 0 then
-				totalItemLevel = totalItemLevel + itemLevel
-				totalItems = totalItems + 1
-			end
-		end
-	end
-
-	return totalItems > 0 and totalItemLevel / totalItems or 0
-end
-
-local avgItemLevelFontString -- Define the font string variable outside the function
-local avgItemLevelFontStringPosition = { x = 0, y = -4 } -- Cache the font string position
-
-function Module:DisplayAverageItemLevel(unit)
-	if not avgItemLevelFontString then
-		if InspectModelFrameControlFrame then
-			InspectModelFrameControlFrame:HookScript("OnShow", InspectModelFrameControlFrame.Hide)
-		end
-		-- Create font string for average item level if it doesn't exist
-		avgItemLevelFontString = InspectModelFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-		avgItemLevelFontString:SetPoint("TOP", avgItemLevelFontStringPosition.x, avgItemLevelFontStringPosition.y)
-	end
-
-	local avgItemLevel = Module:CalculateAverageItemLevel(unit)
-
-	-- Format average item level text
-	local avgItemLevelText = "Avg iLvl: " .. math.floor(avgItemLevel)
-	avgItemLevelFontString:SetText(avgItemLevelText)
-end
-
 function Module:ItemLevel_UpdateInspect(...)
 	local guid = ...
 	if InspectFrame and InspectFrame.unit and UnitGUID(InspectFrame.unit) == guid then
 		Module:ItemLevel_SetupLevel(InspectFrame, "Inspect", InspectFrame.unit)
-		Module:DisplayAverageItemLevel(InspectFrame.unit)
 	end
 end
 
@@ -558,6 +490,69 @@ function Module:ItemLevel_UpdateLoot()
 	end
 end
 
+local NUM_SLOTS_PER_GUILDBANK_GROUP = 14
+local PET_CAGE = 82800
+
+function Module.ItemLevel_GuildBankShow(event, addon)
+	if addon == "Blizzard_GuildBankUI" then
+		hooksecurefunc(_G.GuildBankFrame, "Update", function(self)
+			if self.mode == "bank" then
+				local tab = GetCurrentGuildBankTab()
+				local button, index, column
+				for i = 1, #self.Columns * NUM_SLOTS_PER_GUILDBANK_GROUP do
+					index = mod(i, NUM_SLOTS_PER_GUILDBANK_GROUP)
+					if index == 0 then
+						index = NUM_SLOTS_PER_GUILDBANK_GROUP
+					end
+					column = ceil((i - 0.5) / NUM_SLOTS_PER_GUILDBANK_GROUP)
+					button = self.Columns[column].Buttons[index]
+
+					if button and button:IsShown() then
+						local link = GetGuildBankItemLink(tab, i)
+						if link then
+							if not button.iLvl then
+								button.iLvl = K.CreateFontString(button, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
+							end
+
+							local level, quality
+							local itemID = tonumber(strmatch(link, "Hitem:(%d+):"))
+
+							if itemID == PET_CAGE then
+								local data = C_TooltipInfo.GetGuildBankItem(tab, i)
+								if data then
+									local speciesID, petLevel, breedQuality = data.battlePetSpeciesID, data.battlePetLevel, data.battlePetBreedQuality
+									if speciesID and speciesID > 0 then
+										level, quality = petLevel, breedQuality
+									end
+								end
+							else
+								level = K.GetItemLevel(link)
+								quality = select(3, GetItemInfo(link))
+							end
+
+							if level and quality then
+								local color = K.QualityColors[quality]
+								button.iLvl:SetText(level)
+								button.iLvl:SetTextColor(color.r, color.g, color.b)
+
+								if button.KKUI_Border and itemID == PET_CAGE then
+									button.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
+								end
+							else
+								button.iLvl:SetText("")
+							end
+						elseif button.iLvl then
+							button.iLvl:SetText("") -- Clear the FontString if the slot is empty
+						end
+					end
+				end
+			end
+		end)
+
+		K:UnregisterEvent(event, Module.ItemLevel_GuildBankShow)
+	end
+end
+
 function Module:CreateSlotItemLevel()
 	if not C["Misc"].ItemLevel then
 		return
@@ -594,6 +589,9 @@ function Module:CreateSlotItemLevel()
 
 	-- iLvl on LootFrame
 	hooksecurefunc(LootFrame.ScrollBox, "Update", Module.ItemLevel_UpdateLoot)
+
+	-- iLvl on GuildBankFrame
+	K:RegisterEvent("ADDON_LOADED", Module.ItemLevel_GuildBankShow)
 end
 
 Module:RegisterMisc("GearInfo", Module.CreateSlotItemLevel)
