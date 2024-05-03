@@ -407,6 +407,7 @@ C["Misc"] = {
 	ShowWowHeadLinks = false,
 	SlotDurability = false,
 	TradeTabs = false,
+	EasyMarking = false,
 	EasyMarkKey = {
 		Options = {
 			["CTRL"] = 1,

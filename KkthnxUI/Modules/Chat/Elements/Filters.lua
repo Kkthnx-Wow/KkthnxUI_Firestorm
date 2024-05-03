@@ -1,4 +1,4 @@
-local K, C = KkthnxUI[1], KkthnxUI[2]
+local K, C = unpack(KkthnxUI)
 local Module = K:GetModule("Chat")
 
 local math_min = math.min
@@ -6,30 +6,28 @@ local gsub = string.gsub
 local pairs, ipairs = pairs, ipairs
 local tremove = table.remove
 
-local IsGuildMember, C_FriendList_IsFriend, IsGUIDInGroup = IsGuildMember, C_FriendList.IsFriend, IsGUIDInGroup
+local IsGuildMember, IsFriend, IsGUIDInGroup = IsGuildMember, C_FriendList.IsFriend, IsGUIDInGroup
 local Ambiguate, GetTime = Ambiguate, GetTime
-local C_BattleNet_GetGameAccountInfoByGUID = C_BattleNet.GetGameAccountInfoByGUID
+local GetGameAccountInfoByGUID = C_BattleNet.GetGameAccountInfoByGUID
 
 -- Filter Chat symbols
 local msgSymbols = { "`", "～", "＠", "＃", "^", "＊", "！", "？", "。", "|", " ", "—", "——", "￥", "’", "‘", "“", "”", "【", "】", "『", "』", "《", "》", "〈", "〉", "（", "）", "〔", "〕", "、", "，", "：", ",", "_", "/", "~" }
 
 local FilterList = {}
+local WhiteFilterList = {}
+
 function Module:UpdateFilterList()
 	K.SplitList(FilterList, C["Chat"].ChatFilterList, true)
 end
 
-local WhiteFilterList = {}
 function Module:UpdateFilterWhiteList()
 	K.SplitList(WhiteFilterList, C["Chat"].ChatFilterWhiteList, true)
 end
 
--- ECF strings compare
--- Define two empty tables to store the results of the string comparison
-local last_table, this_table = {}, {}
-
--- Define a function to compare two strings and return their difference as a fraction
 function Module:CompareStrDiff(string_A, string_B)
 	local length_A, length_B = #string_A, #string_B
+
+	local last_table, this_table = {}, {}
 
 	for j = 0, length_B do
 		last_table[j + 1] = j
@@ -51,14 +49,37 @@ function Module:CompareStrDiff(string_A, string_B)
 	return this_table[length_B + 1] / math.max(length_A, length_B)
 end
 
-C.BadBoys = {} -- debug
-local chatLines, prevLineID, filterResult = {}, 0, false or nil
+C.BadBoys = {} -- Debugging
+
+local chatLines = {}
+local prevLineID, filterResult = 0, false
+
+function Module:UpdateChatFilter(event, msg, author, _, _, _, flag, _, _, _, _, lineID, guid)
+	if lineID == prevLineID then
+		return filterResult
+	end
+
+	prevLineID = lineID
+
+	local name = Ambiguate(author, "none")
+	filterResult = Module:GetFilterResult(event, msg, name, flag, guid)
+
+	if filterResult and filterResult ~= 0 then
+		C.BadBoys[name] = (C.BadBoys[name] or 0) + 1
+	end
+
+	if filterResult == 0 then
+		filterResult = true
+	end
+
+	return filterResult
+end
 
 function Module:GetFilterResult(event, msg, name, flag, guid)
 	if name == K.Name or (event == "CHAT_MSG_WHISPER" and flag == "GM") or flag == "DEV" then
 		-- Ignore messages from self, GMs in whispers, and developers
 		return
-	elseif guid and (IsGuildMember(guid) or C_BattleNet_GetGameAccountInfoByGUID(guid) or C_FriendList_IsFriend(guid) or IsGUIDInGroup(guid)) then
+	elseif guid and (IsGuildMember(guid) or GetGameAccountInfoByGUID(guid) or IsFriend(guid) or IsGUIDInGroup(guid)) then
 		-- Ignore messages from guild members, friends, and group members
 		return
 	end
@@ -72,7 +93,7 @@ function Module:GetFilterResult(event, msg, name, flag, guid)
 		return true
 	end
 
-	local filterMsg = gsub(msg, "|H.-|h(.-)|h", "%1")
+	local filterMsg = msg:gsub("|H.-|h(.-)|h", "%1")
 	filterMsg = gsub(filterMsg, "|c%x%x%x%x%x%x%x%x", "")
 	filterMsg = gsub(filterMsg, "|r", "")
 
@@ -89,6 +110,7 @@ function Module:GetFilterResult(event, msg, name, flag, guid)
 	if event == "CHAT_MSG_CHANNEL" then
 		local matches = 0
 		local found
+
 		for keyword in pairs(WhiteFilterList) do
 			if keyword ~= "" then
 				found = true
@@ -98,6 +120,7 @@ function Module:GetFilterResult(event, msg, name, flag, guid)
 				end
 			end
 		end
+
 		if matches == 0 and found then
 			return 0
 		end
@@ -118,15 +141,20 @@ function Module:GetFilterResult(event, msg, name, flag, guid)
 	end
 
 	-- ECF Repeat Filter
-	local msgTable = { name, {}, GetTime() }
-	if filterMsg == "" then
-		filterMsg = msg
+	local msgTable = #chatLines >= 30 and tremove(chatLines, 1) or {}
+	-- Clear table contents
+	for k in pairs(msgTable) do
+		msgTable[k] = nil
 	end
+	msgTable[1], msgTable[2], msgTable[3] = name, {}, GetTime()
+
 	for i = 1, #filterMsg do
 		msgTable[2][i] = filterMsg:byte(i)
 	end
+
 	local chatLinesSize = #chatLines
 	chatLines[chatLinesSize + 1] = msgTable
+
 	for i = 1, chatLinesSize do
 		local line = chatLines[i]
 		if line[1] == msgTable[1] and ((event == "CHAT_MSG_CHANNEL" and msgTable[3] - line[3] < 0.6) or Module:CompareStrDiff(line[2], msgTable[2]) <= 0.1) then
@@ -134,26 +162,8 @@ function Module:GetFilterResult(event, msg, name, flag, guid)
 			return true
 		end
 	end
-	if chatLinesSize >= 30 then
-		tremove(chatLines, 1)
-	end
-end
 
-function Module:UpdateChatFilter(event, msg, author, _, _, _, flag, _, _, _, _, lineID, guid)
-	if lineID ~= prevLineID then
-		prevLineID = lineID
-
-		local name = Ambiguate(author, "none")
-		filterResult = Module:GetFilterResult(event, msg, name, flag, guid)
-		if filterResult and filterResult ~= 0 then
-			C.BadBoys[name] = (C.BadBoys[name] or 0) + 1
-		end
-		if filterResult == 0 then
-			filterResult = true
-		end
-	end
-
-	return filterResult
+	return
 end
 
 function Module:CreateChatFilter()

@@ -576,6 +576,10 @@ function Module:RaidTool_CreateMenu(parent)
 end
 
 function Module:RaidTool_EasyMarker()
+	if not C["Misc"].EasyMarking then
+		return
+	end
+
 	local menuList = {}
 
 	local function GetMenuTitle(color, text)

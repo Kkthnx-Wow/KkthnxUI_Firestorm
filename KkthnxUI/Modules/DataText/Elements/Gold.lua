@@ -180,9 +180,9 @@ function RebuildCharList()
 end
 
 local title
-local function OnEnter(self)
-	GameTooltip:SetOwner(GoldDataText.Text, "ANCHOR_NONE")
-	GameTooltip:SetPoint(K.GetAnchors(GoldDataText.Text))
+local function OnEnter(self) -- We need self for the bags since we use this on the bags gold info
+	GameTooltip:SetOwner(self, "ANCHOR_NONE") -- Dont change from self, note above
+	GameTooltip:SetPoint(K.GetAnchors(self)) -- Dont change from self, note above
 	GameTooltip:ClearLines()
 
 	GameTooltip:AddLine(K.InfoColor .. CURRENCY)
