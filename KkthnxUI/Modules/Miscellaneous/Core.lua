@@ -153,6 +153,9 @@ function Module:OnEnable()
 
 	local function fixPartyGuidePromote()
 		if not PROMOTE_GUIDE then
+			if K.isDeveloper then
+				K.Print(": Blizzard promote string fixed.")
+			end
 			PROMOTE_GUIDE = PARTY_PROMOTE_GUIDE
 		end
 	end
@@ -266,22 +269,23 @@ function Module:CreateMinimapButtonToggle()
 end
 
 local function MainMenu_OnShow(self)
-	local buttonToReanchor, buttonHeight
+	local buttonToReanchor
+	local buttonHeight = 0
 
 	local isCharacterNewlyBoosted = IsCharacterNewlyBoosted()
 	local canViewSplashScreen = C_SplashScreen.CanViewSplashScreen()
 
 	local function reanchorButtons(offset)
-		local anchorButton = GameMenuButtonWhatsNew
-		local additionalOffset = 54
+		local anchorButton = GameMenuButtonWhatsNew:IsShown() and GameMenuButtonWhatsNew or GameMenuButtonHelp
+		local additionalOffset = 28
 
 		if isCharacterNewlyBoosted or not canViewSplashScreen then
-			anchorButton = GameMenuButtonStore
-			additionalOffset = 48
+			anchorButton = GameMenuButtonStore:IsShown() and GameMenuButtonStore or GameMenuButtonHelp
+			additionalOffset = 28
 		end
 
 		buttonToReanchor = anchorButton
-		buttonHeight = Module.GameMenuButton:GetHeight() + additionalOffset + offset
+		buttonHeight = additionalOffset + offset
 	end
 
 	local function setButtonPosition(button, relativeTo, yOffset)
@@ -290,18 +294,18 @@ local function MainMenu_OnShow(self)
 		end
 	end
 
-	reanchorButtons(0)
+	reanchorButtons(Module.GameMenuButton:GetHeight())
 
 	self:SetHeight(self:GetHeight() + buttonHeight)
 
-	setButtonPosition(_G.GameMenuButtonLogout, Module.GameMenuButton, -14)
-	setButtonPosition(_G.GameMenuButtonStore, _G.GameMenuButtonHelp, -6)
-	setButtonPosition(_G.GameMenuButtonWhatsNew, buttonToReanchor, -6)
-	setButtonPosition(_G.GameMenuButtonEditMode, buttonToReanchor, -24)
-	setButtonPosition(_G.GameMenuButtonSettings, _G.GameMenuButtonEditMode, -6)
-	setButtonPosition(_G.GameMenuButtonMacros, _G.GameMenuButtonSettings, -6)
-	setButtonPosition(_G.GameMenuButtonAddons, _G.GameMenuButtonMacros, -6)
-	setButtonPosition(_G.GameMenuButtonQuit, _G.GameMenuButtonLogout, -6)
+	setButtonPosition(GameMenuButtonLogout, Module.GameMenuButton, -14)
+	setButtonPosition(GameMenuButtonStore, GameMenuButtonHelp, -6)
+	setButtonPosition(GameMenuButtonWhatsNew, buttonToReanchor, -6)
+	setButtonPosition(GameMenuButtonEditMode, buttonToReanchor, -24)
+	setButtonPosition(GameMenuButtonSettings, GameMenuButtonEditMode, -6)
+	setButtonPosition(GameMenuButtonMacros, GameMenuButtonSettings, -6)
+	setButtonPosition(GameMenuButtonAddons, GameMenuButtonMacros, -6)
+	setButtonPosition(GameMenuButtonQuit, GameMenuButtonLogout, -6)
 end
 
 local function Button_OnClick()
@@ -316,13 +320,13 @@ local function Button_OnClick()
 end
 
 function Module:CreateGUIGameMenuButton()
-	local bu = CreateFrame("Button", "KKUI_GameMenuButton", _G.GameMenuFrame, "GameMenuButtonTemplate")
-	bu:SetText(K.Title)
-	bu:SetPoint("TOP", _G.GameMenuButtonAddons, "BOTTOM", 0, -12)
-	bu:SetScript("OnClick", Button_OnClick)
-	bu:SkinButton(true)
+	local gameMenuButton = CreateFrame("Button", "KKUI_GameMenuButton", _G.GameMenuFrame, "GameMenuButtonTemplate")
+	gameMenuButton:SetText(K.Title)
+	gameMenuButton:SetPoint("TOP", _G.GameMenuButtonAddons, "BOTTOM", 0, -12)
+	gameMenuButton:SetScript("OnClick", Button_OnClick)
+	gameMenuButton:SkinButton(true)
 
-	Module.GameMenuButton = bu
+	Module.GameMenuButton = gameMenuButton
 
 	_G.GameMenuFrame:HookScript("OnShow", MainMenu_OnShow)
 end
@@ -745,4 +749,9 @@ end
 
 function Module:UpdateMaxCameraZoom()
 	SetCVar("cameraDistanceMaxZoomFactor", C["Misc"].MaxCameraZoom)
+end
+
+-- Fix missing localization file
+if not GuildControlUIRankSettingsFrameRosterLabel then
+	GuildControlUIRankSettingsFrameRosterLabel = CreateFrame("Frame")
 end

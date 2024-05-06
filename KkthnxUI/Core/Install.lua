@@ -258,6 +258,7 @@ function Module:ForceChatSettings()
 		"OFFICER",
 		"PARTY",
 		"PARTY_LEADER",
+		"PING",
 		"RAID",
 		"RAID_LEADER",
 		"RAID_WARNING",

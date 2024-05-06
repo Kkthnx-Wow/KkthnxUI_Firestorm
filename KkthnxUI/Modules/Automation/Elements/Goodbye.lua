@@ -30,7 +30,7 @@ local AutoThanksList = {
 	"Thanks! You all rocked it.",
 }
 
-local function SetupAutoGoodbye() -- Local function definition
+local function SetupAutoGoodbye()
 	local waitTime = math.random() * (5 - 2) + 2 -- generates a float between 2 and 5
 	C_Timer_After(waitTime, function()
 		if #AutoThanksList > 0 then
@@ -38,7 +38,16 @@ local function SetupAutoGoodbye() -- Local function definition
 			local message = AutoThanksList[messageIndex]
 
 			if message then
-				SendChatMessage(message, IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or "SAY")
+				local channel
+				if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+					channel = "INSTANCE_CHAT"
+				elseif IsInGroup() then
+					channel = "PARTY"
+				else
+					channel = "SAY"
+				end
+
+				SendChatMessage(message, channel)
 			end
 		else
 			print("AutoThanksList is empty? Tell Kkthnx") -- Debugging statement

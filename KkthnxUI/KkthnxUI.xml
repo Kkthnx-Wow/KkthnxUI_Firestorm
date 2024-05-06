@@ -1,5 +1,5 @@
-<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
-<Frame name="ExtraMapIconsGlobalPinTemplate" inherits="BaseHighlightableMapPoiPinTemplate" enableMouseClicks="true" enableMouseMotion="true" mixin="ExtraMapIconsGlobalPinMixin" virtual="true" />
+<?xml version="1.0" encoding="UTF-8"?>
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
    <!-- Libraries -->
    <Include file="Libraries\Load_Libraries.xml" />
    <!-- Engine -->

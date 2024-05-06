@@ -1,38 +1,10 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 
-local Type_StatusBar = Enum.UIWidgetVisualizationType.StatusBar
-local Type_CaptureBar = Enum.UIWidgetVisualizationType.CaptureBar
-local Type_SpellDisplay = Enum.UIWidgetVisualizationType.SpellDisplay
-local Type_DoubleStatusBar = Enum.UIWidgetVisualizationType.DoubleStatusBar
-
-local atlasColors = {
-	["UI-Frame-Bar-Fill-Blue"] = { 0.2, 0.6, 1 },
-	["UI-Frame-Bar-Fill-Red"] = { 0.9, 0.2, 0.2 },
-	["UI-Frame-Bar-Fill-Yellow"] = { 1, 0.6, 0 },
-	["objectivewidget-bar-fill-left"] = { 0.2, 0.6, 1 },
-	["objectivewidget-bar-fill-right"] = { 0.9, 0.2, 0.2 },
-	["EmberCourtScenario-Tracker-barfill"] = { 0.9, 0.2, 0.2 },
-}
-
-local elementsToHide = {
-	"BG",
-	"BGLeft",
-	"BGRight",
-	"BGCenter",
-	"BorderLeft",
-	"BorderRight",
-	"BorderCenter",
-	"Spark",
-	"SparkGlow",
-	"BorderGlow",
-}
-
-local function ReplaceWidgetBarTexture(self, atlas)
-	if atlasColors[atlas] then
-		self:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-		self:SetStatusBarColor(unpack(atlasColors[atlas]))
-	end
-end
+local Type_StatusBar = _G.Enum.UIWidgetVisualizationType.StatusBar
+local Type_CaptureBar = _G.Enum.UIWidgetVisualizationType.CaptureBar
+local Type_SpellDisplay = _G.Enum.UIWidgetVisualizationType.SpellDisplay
+local Type_DoubleStatusBar = _G.Enum.UIWidgetVisualizationType.DoubleStatusBar
+local Type_ItemDisplay = _G.Enum.UIWidgetVisualizationType.ItemDisplay
 
 local function ResetLabelColor(text, _, _, _, _, force)
 	if not force then
@@ -42,27 +14,43 @@ end
 
 local function ReskinWidgetStatusBar(bar)
 	if bar and not bar.styled then
-		for _, elementName in ipairs(elementsToHide) do
-			local element = bar[elementName]
-			if element then
-				element:SetAlpha(0)
-			end
+		if bar.BG then
+			bar.BG:SetAlpha(0)
 		end
-
+		if bar.BGLeft then
+			bar.BGLeft:SetAlpha(0)
+		end
+		if bar.BGRight then
+			bar.BGRight:SetAlpha(0)
+		end
+		if bar.BGCenter then
+			bar.BGCenter:SetAlpha(0)
+		end
+		if bar.BorderLeft then
+			bar.BorderLeft:SetAlpha(0)
+		end
+		if bar.BorderRight then
+			bar.BorderRight:SetAlpha(0)
+		end
+		if bar.BorderCenter then
+			bar.BorderCenter:SetAlpha(0)
+		end
+		if bar.Spark then
+			bar.Spark:SetAlpha(0)
+		end
+		if bar.SparkGlow then
+			bar.SparkGlow:SetAlpha(0)
+		end
+		if bar.BorderGlow then
+			bar.BorderGlow:SetAlpha(0)
+		end
 		if bar.Label then
-			bar.Label:SetDrawLayer("OVERLAY")
-			bar.Label:SetPoint("CENTER", 0, -3)
-			bar.Label:SetFontObject(Game12Font)
+			bar.Label:SetPoint("CENTER", 0, -5)
+			bar.Label:SetFontObject(K.UIFont)
 			ResetLabelColor(bar.Label)
 			hooksecurefunc(bar.Label, "SetTextColor", ResetLabelColor)
 		end
-
 		bar:CreateBorder()
-
-		if bar.GetStatusBarTexture then
-			ReplaceWidgetBarTexture(bar, bar:GetStatusBarTexture())
-			hooksecurefunc(bar, "SetStatusBarTexture", ReplaceWidgetBarTexture)
-		end
 
 		bar.styled = true
 	end
@@ -72,6 +60,7 @@ local function ReskinDoubleStatusBarWidget(self)
 	if not self.styled then
 		ReskinWidgetStatusBar(self.LeftBar)
 		ReskinWidgetStatusBar(self.RightBar)
+
 		self.styled = true
 	end
 end
@@ -102,11 +91,10 @@ local function ReskinPVPCaptureBar(self)
 end
 
 local function ReskinSpellDisplayWidget(spell)
-	if not spell or not spell.bg then
+	if not spell.bg then
 		spell.Border:SetAlpha(0)
 		spell.DebuffBorder:SetAlpha(0)
 		spell.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-
 		spell.bg = CreateFrame("Frame", nil, spell)
 		spell.bg:SetAllPoints(spell.Icon)
 		spell.bg:SetFrameLevel(spell:GetFrameLevel())
@@ -121,10 +109,25 @@ local function ReskinPowerBarWidget(self)
 	end
 
 	for _, widgetFrame in pairs(self.widgetFrames) do
-		if widgetFrame.widgetType == Type_StatusBar and not widgetFrame:IsForbidden() then
-			ReskinWidgetStatusBar(widgetFrame.Bar)
+		if widgetFrame.widgetType == Type_StatusBar then
+			if not widgetFrame:IsForbidden() then
+				ReskinWidgetStatusBar(widgetFrame.Bar)
+			end
 		end
 	end
+end
+
+local function ReskinWidgetItemDisplay(item)
+	if not item.bg then
+		item.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
+
+		item.bg = CreateFrame("Frame", nil, item)
+		item.bg:SetAllPoints(item.Icon)
+		item.bg:SetFrameLevel(item:GetFrameLevel())
+		item.bg:CreateShadow(true)
+		-- Add border color here
+	end
+	item.IconMask:Hide()
 end
 
 local function ReskinWidgetGroups(self)
@@ -141,14 +144,14 @@ local function ReskinWidgetGroups(self)
 				ReskinSpellDisplayWidget(widgetFrame.Spell)
 			elseif widgetType == Type_StatusBar then
 				ReskinWidgetStatusBar(widgetFrame.Bar)
-			elseif widgetType == Type_CaptureBar then
-				ReskinPVPCaptureBar(widgetFrame)
+			elseif widgetType == Type_ItemDisplay then
+				ReskinWidgetItemDisplay(widgetFrame.Item)
 			end
 		end
 	end
 end
 
-table.insert(C.defaultThemes, function()
+tinsert(C.defaultThemes, function()
 	if not C["Skins"].BlizzardFrames then
 		return
 	end
@@ -156,10 +159,25 @@ table.insert(C.defaultThemes, function()
 	hooksecurefunc(_G.UIWidgetTopCenterContainerFrame, "UpdateWidgetLayout", ReskinWidgetGroups)
 	ReskinWidgetGroups(_G.UIWidgetTopCenterContainerFrame)
 
-	hooksecurefunc(_G.UIWidgetBelowMinimapContainerFrame, "UpdateWidgetLayout", ReskinWidgetGroups)
+	hooksecurefunc(_G.UIWidgetBelowMinimapContainerFrame, "UpdateWidgetLayout", function(self)
+		if not self.widgetFrames then
+			return
+		end
+
+		for _, widgetFrame in pairs(self.widgetFrames) do
+			if widgetFrame.widgetType == Type_CaptureBar then
+				if not widgetFrame:IsForbidden() then
+					ReskinPVPCaptureBar(widgetFrame)
+				end
+			end
+		end
+	end)
 
 	hooksecurefunc(_G.UIWidgetPowerBarContainerFrame, "UpdateWidgetLayout", ReskinPowerBarWidget)
 	ReskinPowerBarWidget(_G.UIWidgetPowerBarContainerFrame)
+
+	hooksecurefunc(_G.ObjectiveTrackerUIWidgetContainer, "UpdateWidgetLayout", ReskinPowerBarWidget)
+	ReskinPowerBarWidget(_G.ObjectiveTrackerUIWidgetContainer)
 
 	hooksecurefunc(_G.TopScenarioWidgetContainerBlock.WidgetContainer, "UpdateWidgetLayout", ReskinPowerBarWidget)
 
@@ -169,21 +187,26 @@ table.insert(C.defaultThemes, function()
 		end
 
 		for _, widgetFrame in pairs(self.widgetFrames) do
-			if widgetFrame.widgetType == Type_SpellDisplay and not widgetFrame:IsForbidden() then
-				ReskinSpellDisplayWidget(widgetFrame.Spell)
+			if widgetFrame.widgetType == Type_SpellDisplay then
+				if not widgetFrame:IsForbidden() then
+					ReskinSpellDisplayWidget(widgetFrame.Spell)
+				end
 			end
 		end
 	end)
 
-	-- Fix text showing in two lines on Torghast info if font outline enabled in tooltip
+	-- if font outline enabled in tooltip, fix text shows in two lines on Torghast info
 	hooksecurefunc(_G.UIWidgetTemplateTextWithStateMixin, "Setup", function(self)
 		self.Text:SetWidth(self.Text:GetStringWidth() + 2)
 	end)
 
-	-- Needs review, might remove this in the future
+	-- needs review, might remove this in the future
 	hooksecurefunc(_G.UIWidgetTemplateStatusBarMixin, "Setup", function(self)
-		if not self:IsForbidden() then
-			ReskinWidgetStatusBar(self.Bar)
+		if self:IsForbidden() then
+			return
 		end
+		ReskinWidgetStatusBar(self.Bar)
 	end)
+
+	_G.UIWidgetCenterDisplayFrame.CloseButton:SkinCloseButton()
 end)

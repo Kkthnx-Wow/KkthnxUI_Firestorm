@@ -6,6 +6,7 @@
    <Script file="Changelog.lua" />
    <Script file="Emojis.lua" />
    <Script file="ExtraQuestButton.lua" />
+   <Script file="MapPins.lua" />
    <Script file="MapReveal.lua" />
    <Script file="NameplateAuras.lua" />
    <Script file="RaidUtilityBuffs.lua" />

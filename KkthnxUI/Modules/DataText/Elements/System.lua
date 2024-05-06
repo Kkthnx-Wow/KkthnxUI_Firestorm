@@ -185,15 +185,28 @@ StaticPopupDialogs["CPUUSAGE"] = {
 	whileDead = 1,
 }
 
+-- Cooldown variables
+local lastClickTime = 0
+local clickCooldown = 60 -- Cooldown in seconds
+
 local function OnMouseUp(_, btn)
+	local currentTime = GetTime()
+
 	if btn == "LeftButton" then
 		if scriptProfileStatus then
 			ResetCPUUsage()
 			Module.CheckLoginTime = GetTime()
 		end
+
+		if currentTime - lastClickTime < clickCooldown then
+			return
+		end
+
+		lastClickTime = currentTime
 		local before = gcinfo()
 		collectgarbage("collect")
 		K.Print(string_format(K.InfoColorTint .. "%s:|r %s", L["Memory Collected"], formatMemory(before - gcinfo())))
+
 		OnEnter()
 	elseif btn == "RightButton" and scriptProfileStatus then
 		Module.ShowMemory = not Module.ShowMemory

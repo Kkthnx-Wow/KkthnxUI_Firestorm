@@ -290,6 +290,7 @@ function Module:OnEnable()
 	local loadWorldMapModules = {
 		"CreateWorldMapReveal",
 		"CreateWowHeadLinks",
+		"CreateWorldMapPins",
 	}
 
 	for _, funcName in ipairs(loadWorldMapModules) do
