@@ -579,7 +579,6 @@ function Module:OnEnable()
 	-- Add Elements
 	local loadChatModules = {
 		"ChatWhisperSticky",
-		"CreateChatFilter",
 		"CreateChatHistory",
 		"CreateChatItemLevels",
 		"CreateChatRename",

@@ -131,7 +131,6 @@ C["Announcements"] = {
 -- Automation
 C["Automation"] = {
 	AutoKeystone = false,
-	AutoBlockStrangerInvites = false,
 	AutoCollapse = false,
 	AutoDeclineDuels = false,
 	AutoDeclinePetDuels = false,
@@ -230,19 +229,13 @@ C["Auras"] = {
 
 -- Chat
 C["Chat"] = {
-	BlockSpammer = true,
 	Background = true,
-	BlockStranger = false,
-	ChatFilterList = "%*",
-	ChatFilterWhiteList = "",
 	ChatItemLevel = true,
 	ChatMenu = true,
 	Emojis = false,
 	Enable = true,
-	EnableFilter = true,
 	Fading = true,
 	FadingTimeVisible = 100,
-	FilterMatches = 1,
 	Freedom = true,
 	Height = 170,
 	Lock = true,

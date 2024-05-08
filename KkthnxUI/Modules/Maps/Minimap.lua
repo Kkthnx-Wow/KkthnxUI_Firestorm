@@ -252,21 +252,22 @@ function Module:ReskinRegions()
 	-- Garrison
 	local garrMinimapButton = ExpansionLandingPageMinimapButton
 	if garrMinimapButton then
+		local buttonTextureIcon = "ShipMissionIcon-Combat-Mission"
 		local function updateMinimapButtons(self)
 			self:ClearAllPoints()
-			self:SetPoint("BOTTOMLEFT", Minimap, "BOTTOMLEFT", 4, 2)
-			self:GetNormalTexture():SetAtlas("UI-HUD-UnitFrame-Player-CombatIcon-2x")
-			self:GetPushedTexture():SetAtlas("UI-HUD-UnitFrame-Player-CombatIcon-2x")
-			self:GetHighlightTexture():SetAtlas("UI-HUD-UnitFrame-Player-CombatIcon-2x")
-			self:GetNormalTexture():SetVertexColor(1, 1, 1, 0.9)
+			self:SetPoint("BOTTOMLEFT", Minimap, "BOTTOMLEFT", 4, 4)
+			self:GetNormalTexture():SetAtlas(buttonTextureIcon)
+			self:GetPushedTexture():SetAtlas(buttonTextureIcon)
+			self:GetHighlightTexture():SetAtlas(buttonTextureIcon)
+			self:GetNormalTexture():SetVertexColor(1, 1, 1, 1)
 			self:GetPushedTexture():SetVertexColor(1, 1, 1, 1)
 			self:GetHighlightTexture():SetVertexColor(1, 1, 1, 1)
 
-			self.LoopingGlow:SetAtlas("UI-HUD-UnitFrame-Player-CombatIcon-2x")
-			self.LoopingGlow:SetSize(24, 24)
+			self.LoopingGlow:SetAtlas(buttonTextureIcon)
+			self.LoopingGlow:SetSize(26, 26)
 
 			self:SetHitRectInsets(0, 0, 0, 0)
-			self:SetSize(24, 24)
+			self:SetSize(26, 26)
 		end
 		updateMinimapButtons(garrMinimapButton)
 		garrMinimapButton:HookScript("OnShow", updateMinimapButtons)

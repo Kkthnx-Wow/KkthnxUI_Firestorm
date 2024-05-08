@@ -16,10 +16,11 @@ local function HandleSkillButton(button)
 
 	if button.IconTexture then
 		button.IconTexture:SetTexCoord(unpack(K.TexCoords))
-		button.IconTexture:SetAllPoints(button)
-		if not button.KKUI_Backdrop then
-			button:CreateBackdrop(2, -2, -2, 2)
-			button.KKUI_Backdrop = true
+		button.IconTexture:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -3)
+		button.IconTexture:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -3, 3)
+		if not button.KKUI_Border then
+			button:CreateBorder(nil, nil, nil, nil, -7, nil, nil, nil, nil, 3)
+			button.KKUI_Border = true
 		end
 	end
 

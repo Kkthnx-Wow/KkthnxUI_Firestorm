@@ -59,7 +59,6 @@ function Module:OnEnable()
 
 	-- Second loop: Iterating over loadMiscModules
 	local loadMiscModules = {
-		"CreateBlockStrangerInvites",
 		"CreateBossBanner",
 		"CreateBossEmote",
 		"CreateCustomWaypoint",
@@ -124,14 +123,65 @@ function Module:OnEnable()
 	end
 	enableAutoBubbles()
 
-	-- Instant delete
 	local function modifyDeleteDialog()
-		local deleteDialog = StaticPopupDialogs["DELETE_GOOD_ITEM"]
-		if deleteDialog.OnShow then
-			hooksecurefunc(deleteDialog, "OnShow", function(self)
-				self.editBox:SetText(DELETE_ITEM_CONFIRM_STRING)
-			end)
+		-- Modify DELETE_GOOD_ITEM text to get the confirmation type
+		local confirmationText = DELETE_GOOD_ITEM:gsub("[\r\n]", "@")
+		local _, confirmationType = strsplit("@", confirmationText, 2)
+
+		-- Add hyperlinks to regular item destroy
+		local function setHyperlinkHandlers(dialog)
+			dialog.OnHyperlinkEnter = StaticPopupDialogs["DELETE_GOOD_ITEM"].OnHyperlinkEnter
+			dialog.OnHyperlinkLeave = StaticPopupDialogs["DELETE_GOOD_ITEM"].OnHyperlinkLeave
 		end
+
+		setHyperlinkHandlers(StaticPopupDialogs["DELETE_ITEM"])
+		setHyperlinkHandlers(StaticPopupDialogs["DELETE_QUEST_ITEM"])
+		setHyperlinkHandlers(StaticPopupDialogs["DELETE_GOOD_QUEST_ITEM"])
+
+		-- Create frame to handle events
+		local deleteConfirmationFrame = CreateFrame("FRAME")
+		deleteConfirmationFrame:RegisterEvent("DELETE_ITEM_CONFIRM")
+		deleteConfirmationFrame:SetScript("OnEvent", function()
+			local staticPopup = StaticPopup1
+			local editBox = StaticPopup1EditBox
+			local button = StaticPopup1Button1
+			local popupText = StaticPopup1Text
+
+			-- Check if edit box is shown
+			if editBox:IsShown() then
+				staticPopup:SetHeight(staticPopup:GetHeight() - 14)
+				editBox:Hide()
+				button:Enable()
+				local link = select(3, GetCursorInfo())
+
+				-- Handle battle pets
+				if link then
+					local linkType, linkOptions, name = LinkUtil.ExtractLink(link)
+					if linkType == "battlepet" then
+						local _, level, breedQuality = strsplit(":", linkOptions)
+						local qualityColor = BAG_ITEM_QUALITY_COLORS[tonumber(breedQuality)]
+						link = qualityColor:WrapTextInColorCode(name .. " |n" .. "Level" .. " " .. level .. "Battle Pet")
+					end
+					popupText:SetText(popupText:GetText():gsub(confirmationType, "") .. "|n|n" .. link)
+				end
+			else
+				staticPopup:SetHeight(staticPopup:GetHeight() + 40)
+				editBox:Hide()
+				button:Enable()
+				local link = select(3, GetCursorInfo())
+
+				-- Handle battle pets
+				if link then
+					local linkType, linkOptions, name = LinkUtil.ExtractLink(link)
+					if linkType == "battlepet" then
+						local _, level, breedQuality = strsplit(":", linkOptions)
+						local qualityColor = BAG_ITEM_QUALITY_COLORS[tonumber(breedQuality)]
+						link = qualityColor:WrapTextInColorCode(name .. " |n" .. "Level" .. " " .. level .. "Battle Pet")
+					end
+					popupText:SetText(popupText:GetText():gsub(confirmationType, "") .. "|n|n" .. link)
+				end
+			end
+		end)
 	end
 	modifyDeleteDialog()
 
@@ -680,16 +730,6 @@ do
 		end
 	end
 	K:RegisterEvent("RESURRECT_REQUEST", soundOnResurrect)
-end
-
-function Module:CreateBlockStrangerInvites()
-	K:RegisterEvent("PARTY_INVITE_REQUEST", function(a, b, c, d, e, f, g, guid)
-		if C["Automation"].AutoBlockStrangerInvites and not (C_BattleNet_GetGameAccountInfoByGUID(guid) or C_FriendList_IsFriend(guid) or IsGuildMember(guid)) then
-			_G.DeclineGroup()
-			_G.StaticPopup_Hide("PARTY_INVITE")
-			K.Print("Blocked invite request from a stranger!", a, b, c, d, e, f, g, guid)
-		end
-	end)
 end
 
 -- Make it so we can move this

@@ -152,7 +152,7 @@ function Module:VersionCheck_UpdateGroup()
 	if not IsInGroup() then
 		return
 	end
-	Module:VersionCheck_Send(Module:GetMsgChannel())
+	Module:VersionCheck_Send(IsPartyLFG() and "INSTANCE_CHAT" or IsInRaid() and "RAID" or "PARTY")
 end
 
 function Module:OnEnable()

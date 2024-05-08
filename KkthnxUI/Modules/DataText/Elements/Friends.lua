@@ -591,7 +591,7 @@ local function OnEnter()
 		GameTooltip:ClearLines()
 		GameTooltip:AddDoubleLine(FRIENDS_LIST, string_format("%s: %s/%s", GUILD_ONLINE_LABEL, totalOnline, totalFriends), 0.4, 0.6, 1, 0.4, 0.6, 1)
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(L["No Online"], 1, 1, 1)
+		GameTooltip:AddLine("Guess it's time to talk to the voices in my head.", 1, 1, 1) -- Display the random funny quote about having no friends online
 		GameTooltip:Show()
 		return
 	end

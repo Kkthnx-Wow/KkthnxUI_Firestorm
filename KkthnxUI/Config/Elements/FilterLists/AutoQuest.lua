@@ -2,6 +2,7 @@ local C = KkthnxUI[2]
 
 C.AutoQuestData = {
 	IgnoreQuestNPC = {
+		[143560] = true,
 		[88570] = true,
 		[87391] = true,
 		[111243] = true,
@@ -35,7 +36,6 @@ C.AutoQuestData = {
 	},
 
 	IgnoreGossipNPC = {
-
 		[86945] = true,
 		[86933] = true,
 		[86927] = true,

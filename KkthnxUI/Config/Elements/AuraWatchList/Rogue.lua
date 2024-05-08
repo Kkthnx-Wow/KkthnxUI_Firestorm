@@ -27,7 +27,7 @@ local list = {
 		{ AuraID = 202754, UnitID = "player" }, -- 隐秘刀刃
 		{ AuraID = 193356, UnitID = "player", Text = L["Combo"] }, -- 强势连击，骰子
 		{ AuraID = 193357, UnitID = "player", Text = L["Crit"] }, -- 暗鲨涌动，骰子
-		{ AuraID = 193358, UnitID = "player", Text = L["AttackSpeed"] }, -- 大乱斗，骰子
+		{ AuraID = 193358, UnitID = "player", Text = L["Attack Speed"] }, -- 大乱斗，骰子
 		{ AuraID = 193359, UnitID = "player", Text = L["CD"] }, -- 双巧手，骰子
 		{ AuraID = 199603, UnitID = "player", Text = L["Strike"] }, -- 骷髅黑帆，骰子
 		{ AuraID = 199600, UnitID = "player", Text = L["Power"] }, -- 埋藏的宝藏，骰子

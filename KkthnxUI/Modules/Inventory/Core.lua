@@ -1285,7 +1285,7 @@ function Module:OnEnable()
 			local BoE, BoU = item.bindType == 2, item.bindType == 3
 			if not item.bound and (BoE or BoU) then
 				local color = K.QualityColors[item.quality]
-				self.bindType:SetText(BoE and "BoE" or "BoU") -- Local these asap
+				self.bindType:SetText(BoE and L["BoE"] or L["BoU"]) -- Local these asap
 				self.bindType:SetTextColor(color.r, color.g, color.b)
 			end
 		end
@@ -1416,7 +1416,7 @@ function Module:OnEnable()
 		elseif string_match(name, "Equipment$") then
 			label = BAG_FILTER_EQUIPMENT
 		elseif string_match(name, "EquipSet$") then
-			label = L["Equipement Set"]
+			label = L["Equipment Set"]
 		elseif string_match(name, "Legendary$") then
 			label = LOOT_JOURNAL_LEGENDARIES
 		elseif string_match(name, "Consumable$") then

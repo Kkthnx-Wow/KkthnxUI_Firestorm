@@ -500,7 +500,6 @@ local Automation = function(self)
 
 	-- Invite Management sub-section
 	Window:CreateSection("Invite Management")
-	Window:CreateSwitch("Automation", "AutoBlockStrangerInvites", L["Block Invites From Strangers"])
 	Window:CreateSwitch("Automation", "AutoInvite", L["Accept Invites From Friends & Guild Members"])
 	Window:CreateSwitch("Automation", "AutoDeclineDuels", L["Decline PvP Duels"])
 	Window:CreateSwitch("Automation", "AutoDeclinePetDuels", L["Decline Pet Duels"])
@@ -649,14 +648,6 @@ local Chat = function(self)
 	Window:CreateSection(L["Fading"])
 	Window:CreateSwitch("Chat", "Fading", L["Fade Chat Text"])
 	Window:CreateSlider("Chat", "FadingTimeVisible", L["Fading Chat Visible Time"], 5, 120, 1)
-
-	Window:CreateSection(FILTERS)
-	Window:CreateSwitch("Chat", "EnableFilter", enableTextColor .. L["Enable Chat Filter"])
-	Window:CreateSwitch("Chat", "BlockSpammer", L["Block Repeated Spammer Messages"])
-	Window:CreateSwitch("Chat", "BlockStranger", L["Block Whispers From Strangers"])
-	Window:CreateSlider("Chat", "FilterMatches", L["Filter Matches Number"], 1, 3, 1)
-	Window:CreateEditBox("Chat", "ChatFilterList", L["ChatFilter BlackList"], "Enter words you want blacklisted|n|nUse SPACES between each word|n|nPress enter when you are done", UpdateFilterList)
-	Window:CreateEditBox("Chat", "ChatFilterWhiteList", L["ChatFilter WhiteList"], "Enter words you want whitelisted|n|nUse SPACES between each word|n|nPress enter when you are done", UpdateFilterWhiteList)
 end
 
 local DataText = function(self)

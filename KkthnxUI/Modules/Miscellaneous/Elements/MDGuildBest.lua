@@ -212,7 +212,7 @@ function Module:KeystoneInfo_Create()
 	button:SetScript("OnEnter", function(self)
 		GameTooltip:ClearLines()
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:AddLine(L["Account Keystones"])
+		GameTooltip:AddLine(L["Account Keystone"])
 
 		for fullName, info in pairs(KkthnxUIDB.KeystoneInfo) do
 			local name = Ambiguate(fullName, "none")
