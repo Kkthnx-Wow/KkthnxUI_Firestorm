@@ -166,7 +166,7 @@ function Module:CreateParty()
 	Debuffs.num = 5
 	Debuffs.iconsPerRow = 5
 
-	Module:UpdateAuraContainer(partyWidth - 10, Debuffs, Debuffs.num)
+	Module:UpdateAuraContainer(partyWidth - 14, Debuffs, Debuffs.num)
 
 	Debuffs.PostCreateButton = Module.PostCreateButton
 	Debuffs.PostUpdateButton = Module.PostUpdateButton

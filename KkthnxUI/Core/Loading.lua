@@ -26,7 +26,6 @@ local function KKUI_VerifyDatabase()
 	charData.CustomItems = charData.CustomItems or {}
 	charData.CustomJunkList = charData.CustomJunkList or {}
 	charData.CustomNames = charData.CustomNames or {}
-	charData.DisabledAddOns = charData.DisabledAddOns or {}
 	charData.InternalCD = charData.InternalCD or {}
 	charData.Mover = charData.Mover or {}
 	charData.RevealWorldMap = charData.RevealWorldMap or false

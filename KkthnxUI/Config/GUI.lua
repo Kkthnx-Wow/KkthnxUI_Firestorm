@@ -689,6 +689,8 @@ local General = function(self)
 	Window:CreateSwitch("General", "NoTutorialButtons", L["Disable 'Some' Blizzard Tutorials"])
 	Window:CreateSwitch("General", "VersionCheck", L["Enable Version Checking"])
 
+	Window:CreateDropdown("General", "GlowMode", "Button Glow Mode")
+
 	-- Border Style
 	Window:CreateDropdown("General", "BorderStyle", L["Border Style"])
 

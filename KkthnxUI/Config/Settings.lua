@@ -318,6 +318,15 @@ C["General"] = {
 	Profiles = {
 		Options = {},
 	},
+	GlowMode = {
+		Options = {
+			["Pixel"] = 1,
+			["Autocast"] = 2,
+			["Action Button"] = 3,
+			["Proc Glow"] = 4,
+		},
+		Value = 3,
+	},
 }
 
 -- Loot

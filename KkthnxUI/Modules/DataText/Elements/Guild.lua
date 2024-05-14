@@ -1,7 +1,6 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("DataText")
 
-local table_wipe = table.wipe
 local table_sort = table.sort
 local string_format = string.format
 local select = select
@@ -11,6 +10,7 @@ local CLASS_ABBR = CLASS_ABBR
 local CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
 local C_GuildInfo_GuildRoster = C_GuildInfo.GuildRoster
 local C_PartyInfo_InviteUnit = C_PartyInfo.InviteUnit
+local C_PartyInfo_RequestInviteFromUnit = C_PartyInfo.RequestInviteFromUnit
 local C_Timer_After = C_Timer.After
 local ChatEdit_ActivateChat = ChatEdit_ActivateChat
 local ChatEdit_ChooseBoxForSend = ChatEdit_ChooseBoxForSend
@@ -49,18 +49,31 @@ local prevTime
 local r, g, b = K.r, K.g, K.b
 local GuildDataText
 
-local function rosterButtonOnClick(button)
-	local index = button.index
-	local _, _, name = unpack(guildTable[index])
+local function rosterButtonOnClick(self, button)
+	local index = self.index
+	local _, _, name, _, _, _, _, _, guid = unpack(guildTable[index])
 
 	-- Check if the index is valid
 	if not index or not guildTable[index] then
 		return
 	end
 
+	if not (name and name ~= "") then
+		return
+	end
+
 	if button == "LeftButton" then
 		if IsAltKeyDown() then
-			C_PartyInfo_InviteUnit(name)
+			if guid then
+				local inviteType = GetDisplayedInviteType(guid)
+				if inviteType == "INVITE" or inviteType == "SUGGEST_INVITE" then
+					C_PartyInfo_InviteUnit(name)
+				elseif inviteType == "REQUEST_INVITE" then
+					C_PartyInfo_RequestInviteFromUnit(name)
+				end
+			else
+				C_PartyInfo_InviteUnit(name)
+			end
 		elseif IsShiftKeyDown() then
 			if MailFrame:IsShown() then
 				MailFrameTab_OnClick(nil, 2)
@@ -94,8 +107,8 @@ local noNoteText = "|cff999999" .. NOT_APPLICABLE .. "|r"
 local rankLabel = "|cff999999" .. _G.RANK .. ":|r %s"
 
 -- Event handler for guild roster button hover
-local function rosterButtonOnEnter(button)
-	local index = button.index
+local function rosterButtonOnEnter(self)
+	local index = self.index
 	local _, _, _, _, _, note, officerNote, rank = unpack(guildTable[index])
 
 	-- Check if the index is valid
@@ -361,7 +374,7 @@ local function GuildPanel_Refresh()
 	gRank:SetText(K.InfoColor .. RANK .. ": " .. (guildRank or ""))
 
 	for i = 1, total do
-		local name, rank, _, level, _, zone, note, officerNote, connected, status, class, _, _, mobile = GetGuildRosterInfo(i)
+		local name, rank, _, level, _, zone, note, officerNote, connected, status, class, _, _, mobile, _, _, guid = GetGuildRosterInfo(i)
 		if connected or mobile then
 			if mobile and not connected then
 				zone = REMOTE_CHAT
@@ -399,6 +412,7 @@ local function GuildPanel_Refresh()
 			guildTable[count][6] = note
 			guildTable[count][7] = officerNote
 			guildTable[count][8] = rank
+			guildTable[count][9] = guid
 		end
 	end
 

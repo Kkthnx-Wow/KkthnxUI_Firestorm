@@ -28,7 +28,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ]]
-local MAJOR_VERSION = "LibActionButton-1.0"
+local MAJOR_VERSION = "LibActionButton-1.0-KkthnxUI"
 local MINOR_VERSION = 110
 
 if not LibStub then
@@ -54,7 +54,7 @@ local UseCustomFlyout = WoWRetail
 
 local KeyBound = LibStub("LibKeyBound-1.0", true)
 local CBH = LibStub("CallbackHandler-1.0")
-local LCG = LibStub("LibCustomGlow-1.0-KkthnxUI", true)
+local LCG = LibStub("LibCustomGlow-1.0-KkthnxUI", true) -- KkthnxUI: use LCG mod
 local Masque = LibStub("Masque", true)
 
 lib.eventFrame = lib.eventFrame or CreateFrame("Frame")
@@ -719,8 +719,9 @@ local DiscoverFlyoutSpells, UpdateFlyoutSpells, UpdateFlyoutHandlerScripts, Flyo
 if UseCustomFlyout then
 	-- params: self, flyoutID
 	local FlyoutHandleFunc = [[
-		local SPELLFLYOUT_DEFAULT_SPACING = 6
-		local SPELLFLYOUT_INITIAL_SPACING = 6
+		local SPELLFLYOUT_DEFAULT_SPACING = 4
+		local SPELLFLYOUT_INITIAL_SPACING = 7
+		local SPELLFLYOUT_FINAL_SPACING = 9
 
 		local parent = self:GetAttribute("flyoutParentHandle")
 		if not parent then return end
@@ -845,7 +846,7 @@ if UseCustomFlyout then
 		end
 	]]
 
-	local SPELLFLYOUT_INITIAL_SPACING = 6
+	local SPELLFLYOUT_INITIAL_SPACING = 7
 	local function ShowFlyoutInsecure(self, direction)
 		self.Background.End:ClearAllPoints()
 		self.Background.Start:ClearAllPoints()
@@ -1676,7 +1677,7 @@ function Generic:UpdateAction(force)
 		Update(self)
 	end
 end
-
+-- NDui: add quality border
 local function ClearProfessionQuality(self)
 	if self.ProfessionQuality then
 		self.ProfessionQuality:Hide()
@@ -1694,7 +1695,7 @@ local function UpdateProfessionQuality(self)
 		if quality then
 			if not self.ProfessionQuality then
 				self.ProfessionQuality = CreateFrame("Frame", nil, self)
-				self.ProfessionQuality:SetAllPoints()
+				self.ProfessionQuality:SetInside()
 				local tex = self.ProfessionQuality:CreateTexture(nil, "ARTWORK")
 				tex:SetPoint("TOPLEFT")
 				self.ProfessionQuality.Texture = tex
@@ -2082,13 +2083,13 @@ end
 
 function ShowOverlayGlow(self)
 	if LCG then
-		LCG.ButtonGlow_Start(self)
+		LCG.ShowOverlayGlow(self)
 	end
 end
 
 function HideOverlayGlow(self)
 	if LCG then
-		LCG.ButtonGlow_Stop(self)
+		LCG.HideOverlayGlow(self)
 	end
 end
 
@@ -2580,9 +2581,7 @@ end
 Item.IsConsumableOrStackable = function(self)
 	return IsConsumableItem(self._state_action)
 end
-Item.IsUnitInRange = function(self, unit)
-	return InCombatLockdown() or IsItemInRange(self._state_action, unit)
-end
+--Item.IsUnitInRange           = function(self, unit) return IsItemInRange(self._state_action, unit) end
 Item.SetTooltip = function(self)
 	return GameTooltip:SetHyperlink(self._state_action)
 end

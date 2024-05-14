@@ -264,41 +264,29 @@ end
 -- Class Color and Unit Color Functions
 do
 	function K.ColorClass(class)
-		-- check if the class color exists in the class color table
 		local color = K.ClassColors[class]
-		-- if the class color does not exist, return white
 		if not color then
 			return 1, 1, 1
 		end
-		-- return the red, green, and blue values of the class color
 		return color.r, color.g, color.b
 	end
 
 	function K.UnitColor(unit)
-		-- set the default color to white
 		local r, g, b = 1, 1, 1
-		-- check if the unit is a player
 		if UnitIsPlayer(unit) then
 			local class = select(2, UnitClass(unit))
-			-- check if class exists, and get the color of the class
 			if class then
 				r, g, b = K.ColorClass(class)
 			end
-		-- check if the unit's tap is denied
 		elseif UnitIsTapDenied(unit) then
 			r, g, b = 0.6, 0.6, 0.6
 		else
-			-- get the reaction of the unit to the player
 			local reaction = UnitReaction(unit, "player")
-			-- check if reaction exists, and get the color of the reaction
 			if reaction then
-				local color = K.Colors.reaction[reaction] or FACTION_BAR_COLORS[reaction]
-				r = color.r or color[1] or 1
-				g = color.g or color[2] or 1
-				b = color.b or color[3] or 1
+				local color = FACTION_BAR_COLORS[reaction]
+				r, g, b = color.r, color.g, color.b
 			end
 		end
-		-- return the red, green, and blue values of the color
 		return r, g, b
 	end
 end
@@ -542,46 +530,12 @@ end
 
 -- Overlay Glow Functions
 do
-	function K.CreateGlowFrame(self, size, splus)
-		splus = splus or 8 -- set the additional size to 8 if not specified
+	function K.CreateGlowFrame(self, size)
 		local glowFrame = CreateFrame("Frame", nil, self)
 		glowFrame:SetPoint("CENTER")
-		glowFrame:SetSize(size + splus, size + splus)
+		glowFrame:SetSize(size + 8, size + 8)
 
 		return glowFrame
-	end
-
-	function K.ShowOverlayGlow(self, template, ...)
-		local args = { ... }
-		template = template or "ButtonGlow" -- set the default template to ButtonGlow
-
-		if not K.LibCustomGlow then
-			return
-		end
-
-		if template == "ButtonGlow" then
-			K.LibCustomGlow.ButtonGlow_Start(self, unpack(args))
-		elseif template == "AutoCastGlow" then
-			K.LibCustomGlow.AutoCastGlow_Start(self, unpack(args))
-		elseif template == "PixelGlow" then
-			K.LibCustomGlow.PixelGlow_Start(self, unpack(args))
-		end
-	end
-
-	function K.HideOverlayGlow(self, template)
-		template = template or "ButtonGlow" -- set the default template to ButtonGlow
-
-		if not K.LibCustomGlow then
-			return
-		end
-
-		if template == "ButtonGlow" then
-			K.LibCustomGlow.ButtonGlow_Stop(self)
-		elseif template == "AutoCastGlow" then
-			K.LibCustomGlow.AutoCastGlow_Stop(self)
-		elseif template == "PixelGlow" then
-			K.LibCustomGlow.PixelGlow_Stop(self)
-		end
 	end
 end
 

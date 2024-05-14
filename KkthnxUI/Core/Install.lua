@@ -569,17 +569,12 @@ local function HelloWorld()
 	goTutor:SetSize(110, 22)
 	goTutor:SkinButton()
 
-	if welcome:IsShown() then
-		K.ShowOverlayGlow(goTutor, "AutoCastGlow")
-	end
-
 	goTutor.text = goTutor:CreateFontString(nil, "OVERLAY")
 	goTutor.text:SetFontObject(K.UIFont)
 	goTutor.text:SetPoint("CENTER", 0, -1)
 	goTutor.text:SetText(K.MyClassColor .. START .. "|r")
 
 	goTutor:SetScript("OnClick", function()
-		K.HideOverlayGlow(goTutor, "AutoCastGlow")
 		welcome:Hide()
 		YesTutor()
 	end)

@@ -79,11 +79,11 @@ local K, C, L = Engine[1], Engine[2], Engine[3]
 
 -- Lib Info
 K.LibBase64 = LibStub("LibBase64-1.0-KkthnxUI")
-K.LibActionButton = LibStub("LibActionButton-1.0")
+K.LibActionButton = LibStub("LibActionButton-1.0-KkthnxUI")
 K.LibChangeLog = LibStub("LibChangelog-KkthnxUI")
 K.LibDeflate = LibStub("LibDeflate-KkthnxUI")
 K.LibSharedMedia = LibStub("LibSharedMedia-3.0", true)
-K.LibRangeCheck = LibStub("LibRangeCheck-3.0")
+K.LibRangeCheck = LibStub("LibRangeCheck-3.0-KkthnxUI")
 K.LibSerialize = LibStub("LibSerialize-KkthnxUI")
 K.LibCustomGlow = LibStub("LibCustomGlow-1.0-KkthnxUI", true)
 K.LibUnfit = LibStub("Unfit-1.0-KkthnxUI")
@@ -332,6 +332,11 @@ K:RegisterEvent("PLAYER_LOGIN", function()
 
 	-- Set smoothing amount
 	K:SetSmoothingAmount(C["General"].SmoothAmount)
+
+	if K.LibCustomGlow then
+		K.ShowOverlayGlow = K.LibCustomGlow.ShowOverlayGlow
+		K.HideOverlayGlow = K.LibCustomGlow.HideOverlayGlow
+	end
 
 	-- Enable modules
 	for _, module in ipairs(modulesQueue) do

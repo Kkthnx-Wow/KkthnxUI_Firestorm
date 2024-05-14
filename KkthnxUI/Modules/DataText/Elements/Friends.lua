@@ -305,8 +305,8 @@ local function GetNameAndInviteType(class, charName, guid, factionName)
 	return format("%s%s|r %s", K.RGBToHex(K.ColorClass(K.ClassList[class])), charName, GetButtonTexFromInviteType(guid, factionName))
 end
 
-local function buttonOnClick(self, btn)
-	if btn == "LeftButton" then
+local function buttonOnClick(self, button)
+	if button == "LeftButton" then
 		if IsAltKeyDown() then
 			if self.isBNet then
 				local index = 2

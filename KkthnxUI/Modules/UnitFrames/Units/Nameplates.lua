@@ -281,14 +281,15 @@ function Module:UpdateColor(_, unit)
 			if C["Nameplate"].FriendlyCC then
 				r, g, b = K.UnitColor(unit)
 			else
-				r, g, b = K.Colors.power["MANA"][1], K.Colors.power["MANA"][2], K.Colors.power["MANA"][3]
+				-- r, g, b = K.Colors.power["MANA"][1], K.Colors.power["MANA"][2], K.Colors.power["MANA"][3]
+				r, g, b = 0.3, 0.3, 1
 			end
 		elseif isPlayer and not isFriendly and C["Nameplate"].HostileCC then
 			r, g, b = K.UnitColor(unit)
 		elseif UnitIsTapDenied(unit) and not UnitPlayerControlled(unit) or C.NameplateTrashUnits[npcID] then
 			r, g, b = 0.6, 0.6, 0.6
 		else
-			r, g, b = K.UnitColor(unit)
+			r, g, b = UnitSelectionColor(unit, true)
 			if status and (C["Nameplate"].TankMode or K.Role == "Tank") then
 				if status == 3 then
 					if K.Role ~= "Tank" and revertThreat then
@@ -514,7 +515,7 @@ function Module:UpdateQuestUnit(_, unit)
 
 	if questProgress then
 		self.questCount:SetText(questProgress)
-		self.questIcon:SetAtlas("pvptalents-warmode-swords")
+		self.questIcon:SetAtlas("UI-HUD-MicroMenu-Questlog-Up")
 		self.questIcon:Show()
 	else
 		self.questCount:SetText("")
@@ -528,13 +529,13 @@ function Module:AddQuestIcon(self)
 	end
 
 	self.questIcon = self:CreateTexture(nil, "OVERLAY", nil, 2)
-	self.questIcon:SetPoint("LEFT", self, "RIGHT", 3, 0)
-	self.questIcon:SetSize(28, 25)
-	self.questIcon:SetAtlas("QuestNormal")
+	self.questIcon:SetPoint("LEFT", self.Health, "RIGHT", -4, 0)
+	self.questIcon:SetSize(32, 32)
+	self.questIcon:SetAtlas("UI-HUD-MicroMenu-Questlog-Up")
 	self.questIcon:Hide()
 
-	self.questCount = K.CreateFontString(self, 13, "", "", nil, "LEFT", 0, 0)
-	self.questCount:SetPoint("LEFT", self.questIcon, "RIGHT", -1, 0)
+	self.questCount = K.CreateFontString(self, 13)
+	self.questCount:SetPoint("LEFT", self.questIcon, "RIGHT", -4, 0)
 
 	self:RegisterEvent("QUEST_LOG_UPDATE", Module.UpdateQuestUnit, true)
 end

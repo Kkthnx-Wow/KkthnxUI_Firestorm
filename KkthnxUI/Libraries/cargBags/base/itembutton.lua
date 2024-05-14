@@ -147,5 +147,5 @@ end
 	@return item <table>
 ]]
 function ItemButton:GetInfo(item)
-	return self.implementation:GetItemInfo(self.bagId, self.slotId, item)
+	return self.implementation:GetCustomItemInfo(self.bagId, self.slotId, item)
 end
