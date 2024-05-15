@@ -364,7 +364,7 @@ local function GuildPanel_Refresh()
 		prevTime = thisTime
 	end
 
-	guildTable = {}
+	wipe(guildTable)
 	local count = 0
 	local total, _, online = GetNumGuildMembers()
 	local guildName, guildRank = GetGuildInfo("player")
@@ -373,6 +373,7 @@ local function GuildPanel_Refresh()
 	gOnline:SetText(string_format(K.InfoColor .. "%s:" .. " %d/%d", GUILD_ONLINE_LABEL, online, total))
 	gRank:SetText(K.InfoColor .. RANK .. ": " .. (guildRank or ""))
 
+	-- Declare status variable as string
 	for i = 1, total do
 		local name, rank, _, level, _, zone, note, officerNote, connected, status, class, _, _, mobile, _, _, guid = GetGuildRosterInfo(i)
 		if connected or mobile then
@@ -440,7 +441,7 @@ local function OnEvent(_, event, arg1)
 			GuildPanel_SortUpdate()
 		end
 	else
-		GuildDataText.Text:SetText(GUILD .. ": " .. K.MyClassColor .. NONE)
+		GuildDataText.Text:SetText(GUILD .. ": " .. K.MyClassColor .. NO .. " " .. GUILD)
 	end
 end
 

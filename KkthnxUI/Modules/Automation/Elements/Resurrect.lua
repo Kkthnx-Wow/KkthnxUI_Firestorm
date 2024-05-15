@@ -36,8 +36,6 @@ local localizedBrazierNames = {
 }
 
 local function SetupAutoResurrect(event, arg1)
-	print("event", event)
-	print("arg1", arg1)
 	-- Check if the arg1 is a Pylon or Brazier by comparing it to the localized names.
 	-- If it is, we don't need to do anything and we return
 	if localizedPylonNames[K.Client] == arg1 or localizedBrazierNames[K.Client] == arg1 then

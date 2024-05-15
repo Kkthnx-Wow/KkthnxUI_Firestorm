@@ -281,15 +281,33 @@ function Module:UpdateColor(_, unit)
 			if C["Nameplate"].FriendlyCC then
 				r, g, b = K.UnitColor(unit)
 			else
-				-- r, g, b = K.Colors.power["MANA"][1], K.Colors.power["MANA"][2], K.Colors.power["MANA"][3]
-				r, g, b = 0.3, 0.3, 1
+				r, g, b = K.Colors.power["MANA"][1], K.Colors.power["MANA"][2], K.Colors.power["MANA"][3]
 			end
 		elseif isPlayer and not isFriendly and C["Nameplate"].HostileCC then
 			r, g, b = K.UnitColor(unit)
 		elseif UnitIsTapDenied(unit) and not UnitPlayerControlled(unit) or C.NameplateTrashUnits[npcID] then
 			r, g, b = 0.6, 0.6, 0.6
 		else
-			r, g, b = UnitSelectionColor(unit, true)
+			-- Ill work on this later, I have an idea how I want to handle it.
+			local selectionType = UnitSelectionType(unit, true)
+			-- print(selectionType)
+			if selectionType == 1 then -- Hostile or Unfriendly -- Dumbass orange color.
+				r, g, b = 0.87, 0.44, 0.20
+			else
+				r, g, b = K.UnitColor(unit)
+			end
+
+			-- [0] = { 1.00, 0.18, 0.18 }, -- HOSTILE
+			-- [1] = { 1.00, 0.51, 0.20 }, -- UNFRIENDLY
+			-- [2] = { 1.00, 0.85, 0.20 }, -- NEUTRAL
+			-- [3] = { 0.20, 0.71, 0.00 }, -- FRIENDLY
+			-- [5] = { 0.40, 0.53, 1.00 }, -- PLAYER_EXTENDED
+			-- [6] = { 0.40, 0.20, 1.00 }, -- PARTY
+			-- [7] = { 0.73, 0.20, 1.00 }, -- PARTY_PVP
+			-- [8] = { 0.20, 1.00, 0.42 }, -- FRIEND
+			-- [9] = { 0.60, 0.60, 0.60 }, -- DEAD
+			-- [13] = { 0.10, 0.58, 0.28 }, -- BATTLEGROUND_FRIENDLY_PVP
+
 			if status and (C["Nameplate"].TankMode or K.Role == "Tank") then
 				if status == 3 then
 					if K.Role ~= "Tank" and revertThreat then

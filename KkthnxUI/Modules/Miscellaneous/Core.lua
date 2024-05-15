@@ -203,9 +203,6 @@ function Module:OnEnable()
 
 	local function fixPartyGuidePromote()
 		if not PROMOTE_GUIDE then
-			if K.isDeveloper then
-				K.Print(": Blizzard promote string fixed.")
-			end
 			PROMOTE_GUIDE = PARTY_PROMOTE_GUIDE
 		end
 	end

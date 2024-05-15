@@ -55,11 +55,8 @@ local roleOrder = {
 	["HEALER"] = 2,
 	["DAMAGER"] = 3,
 }
-local roleTexes = {
-	"Interface\\AddOns\\KkthnxUI\\Media\\Chat\\Roles\\Tank",
-	"Interface\\AddOns\\KkthnxUI\\Media\\Chat\\Roles\\Healer",
-	"Interface\\AddOns\\KkthnxUI\\Media\\Chat\\Roles\\Damage",
-}
+
+local indexToRole = { "TANK", "HEALER", "DAMAGER" }
 
 local function sortRoleOrder(a, b)
 	if a and b then
@@ -161,7 +158,8 @@ function Module:ReplaceGroupRoles(numPlayers, _, disabled)
 		if roleInfo then
 			local icon = self.Icons[iconIndex]
 			icon:SetAtlas(LFG_LIST_GROUP_DATA_ATLASES[roleInfo[2]])
-			icon.role:SetTexture(roleTexes[roleInfo[1]])
+			icon.role:SetSize(14, 14)
+			K.ReskinSmallRole(icon.role, indexToRole[roleInfo[1]])
 			icon.leader:SetShown(roleInfo[3])
 			iconIndex = iconIndex - 1
 		end
@@ -277,117 +275,6 @@ function Module:ReplaceFindGroupButton()
 	end)
 end
 
-function Module:AddDungeonsFilter()
-	local mapData
-
-	if K.IsFirestorm then
-		-- Firestorm Patch 10.1.7 Map Data
-		mapData = {
-			[0] = { mapID = 438, aID = 1195 }, -- Summit of Swirling Clouds
-			[1] = { mapID = 206, aID = 462 }, -- Neltharion's Lair
-			[2] = { mapID = 251, aID = 507 }, -- The Underrot
-			[3] = { mapID = 245, aID = 518 }, -- Freehold
-			[4] = { mapID = 403, aID = 1188 }, -- Uldum: Legacy of Tyr
-			[5] = { mapID = 404, aID = 1172 }, -- Nazjatar
-			[6] = { mapID = 405, aID = 1164 }, -- Fernskin Valley
-			[7] = { mapID = 406, aID = 1168 }, -- Hall of Infusion
-		}
-	else
-		-- Other Patch Map Data
-		mapData = {
-			[0] = { aID = 1247, mapID = 463 }, -- Eternal Dawn: Galakrond's Fall
-			[1] = { aID = 1248, mapID = 464 }, -- Eternal Dawn: Rise of Murozond
-			[2] = { aID = 530, mapID = 248 }, -- Waycrest Manor
-			[3] = { aID = 502, mapID = 244 }, -- Atal'Dazar
-			[4] = { aID = 460, mapID = 198 }, -- Darkheart Thicket
-			[5] = { aID = 463, mapID = 199 }, -- Black Rook Hold
-			[6] = { aID = 184, mapID = 168 }, -- The Everbloom
-			[7] = { aID = 1274, mapID = 456 }, -- Throne of the Tides
-		}
-	end
-
-	local function GetDungeonNameByID(mapID)
-		local name = C_ChallengeMode_GetMapUIInfo(mapID)
-		name = gsub(name, ".-" .. HEADER_COLON, "") -- abbr Tazavesh
-		return name
-	end
-
-	local allOn
-	local filterIDs = {}
-
-	local function toggleAll()
-		allOn = not allOn
-		for i = 0, 7 do
-			mapData[i].isOn = allOn
-			filterIDs[mapData[i].aID] = allOn
-		end
-		UIDropDownMenu_Refresh(K.EasyMenu)
-		LFGListSearchPanel_DoSearch(searchPanel)
-	end
-
-	local menuList = {
-		[1] = { text = SPECIFIC_DUNGEONS, isTitle = true, notCheckable = true },
-		[2] = { text = SWITCH, notCheckable = true, keepShownOnClick = true, func = toggleAll },
-	}
-
-	local function onClick(self, index, aID)
-		allOn = true
-		mapData[index].isOn = not mapData[index].isOn
-		filterIDs[aID] = mapData[index].isOn
-		LFGListSearchPanel_DoSearch(searchPanel)
-	end
-
-	local function onCheck(self)
-		return mapData[self.arg1].isOn
-	end
-
-	for i = 0, 7 do
-		local value = mapData[i]
-		menuList[i + 3] = {
-			text = GetDungeonNameByID(value.mapID),
-			arg1 = i,
-			arg2 = value.aID,
-			func = onClick,
-			checked = onCheck,
-			keepShownOnClick = true,
-		}
-		filterIDs[value.aID] = false
-	end
-
-	searchPanel.RefreshButton:HookScript("OnMouseDown", function(self, btn)
-		if btn ~= "RightButton" then
-			return
-		end
-		EasyMenu(menuList, K.EasyMenu, self, 25, 50, "MENU")
-	end)
-
-	searchPanel.RefreshButton:HookScript("OnEnter", function()
-		GameTooltip:AddLine(K.RightButton .. _G.SPECIFIC_DUNGEONS)
-		GameTooltip:Show()
-	end)
-
-	hooksecurefunc("LFGListUtil_SortSearchResults", function(results)
-		if categorySelection.selectedCategory ~= 2 then
-			return
-		end
-		if not allOn then
-			return
-		end
-
-		for i = #results, 1, -1 do
-			local resultID = results[i]
-			local searchResultInfo = C_LFGList_GetSearchResultInfo(resultID)
-			local aID = searchResultInfo and searchResultInfo.activityID
-			if aID and not filterIDs[aID] then
-				tremove(results, i)
-			end
-		end
-		searchPanel.totalResults = #results
-
-		return true
-	end)
-end
-
 local function clickSortButton(self)
 	self.__owner.Sorting.Expression:SetText(self.sortStr)
 	self.__parent.RefreshButton:Click()
@@ -500,8 +387,8 @@ function Module:QuickJoin()
 
 	Module:AddAutoAcceptButton()
 	Module:ReplaceFindGroupButton()
-	Module:AddDungeonsFilter()
 	Module:AddPGFSortingExpression()
 	Module:FixListingTaint()
 end
+
 Module:RegisterMisc("QuickJoin", Module.QuickJoin)

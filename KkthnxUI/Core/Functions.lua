@@ -273,6 +273,7 @@ do
 
 	function K.UnitColor(unit)
 		local r, g, b = 1, 1, 1
+
 		if UnitIsPlayer(unit) then
 			local class = select(2, UnitClass(unit))
 			if class then
@@ -283,10 +284,11 @@ do
 		else
 			local reaction = UnitReaction(unit, "player")
 			if reaction then
-				local color = FACTION_BAR_COLORS[reaction]
-				r, g, b = color.r, color.g, color.b
+				local color = K.Colors.reaction[reaction]
+				r, g, b = color[1], color[2], color[3]
 			end
 		end
+
 		return r, g, b
 	end
 end
@@ -450,6 +452,19 @@ do
 	K:RegisterEvent("PLAYER_LOGIN", CheckRole)
 	K:RegisterEvent("PLAYER_TALENT_UPDATE", CheckRole)
 	K:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", CheckRole)
+
+	-- Role Icons
+	local GroupRoleTex = {
+		TANK = "roleicon-tiny-tank",
+		HEALER = "roleicon-tiny-healer",
+		DAMAGER = "roleicon-tiny-dps",
+		DPS = "roleicon-tiny-dps",
+	}
+
+	function K.ReskinSmallRole(self, role)
+		self:SetTexCoord(0, 1, 0, 1)
+		self:SetAtlas(GroupRoleTex[role])
+	end
 
 	function K.CheckChat()
 		return IsPartyLFG() and "INSTANCE_CHAT" or IsInRaid() and "RAID" or "PARTY"

@@ -356,42 +356,6 @@ K:RegisterEvent("PLAYER_LOGIN", function()
 	end
 end)
 
--- Event return values were wrong: https://wow.gamepedia.com/PLAYER_LEVEL_UP
-K:RegisterEvent("PLAYER_LEVEL_UP", function(_, level)
-	if not K.Level then
-		return
-	end
-
-	K.Level = level
-end)
-
--- Save original Chat_DisplayTimePlayed function
-local originalChatFrame_DisplayTimePlayed = ChatFrame_DisplayTimePlayed
--- Override ChatFrame_DisplayTimePlayed function
-ChatFrame_DisplayTimePlayed = function(_, totalTime, levelTime)
-	-- Get player's money as string
-	local money = GetMoneyString(GetMoney())
-
-	-- Get player's class
-	local localizedClass, englishClass = UnitClass("player")
-	local colorClass = K.ClassColors[englishClass]
-	local colorString = colorClass.colorStr
-
-	-- Create messages using string formatting
-	local totalTimeMessage = string.format("%sTotal time played: %s", K.SystemColor, K.GreyColor .. SecondsToTime(totalTime))
-	local levelTimeMessage = string.format("%sTime played this level: %s", K.SystemColor, K.GreyColor .. SecondsToTime(levelTime))
-	local moneyMessage = string.format("%sMoney: %s", K.SystemColor, K.GreyColor .. money)
-
-	-- Create player info message using string concatenation
-	local playerInfo = string.format("%s %sLevel %d|r |c%s%s|r", K.Name, K.SystemColor, K.Level, colorString, localizedClass)
-
-	-- Print each message on its own line
-	print(playerInfo)
-	print(totalTimeMessage)
-	print(levelTimeMessage)
-	print(moneyMessage)
-end
-
 for i = 1, GetNumAddOns() do
 	local Name, _, _, _, Reason = GetAddOnInfo(i)
 	K.AddOns[string_lower(Name)] = GetAddOnEnableState(K.Name, Name) == 2 and (not Reason or Reason ~= "DEMAND_LOADED")

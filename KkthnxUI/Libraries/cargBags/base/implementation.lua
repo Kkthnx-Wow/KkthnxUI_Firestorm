@@ -342,6 +342,7 @@ function Implementation:GetCustomItemInfo(bagID, slotID, i)
 		local questInfo = C_Container.GetContainerItemQuestInfo(bagID, slotID)
 		i.isQuestItem, i.questID, i.questActive = questInfo.isQuestItem, questInfo.questID, questInfo.isActive
 
+		i.spellID = GetItemSpell(i.link)
 		i.name, _, _, _, i.minlevel, i.type, i.subType, _, i.equipLoc, _, _, i.classID, i.subClassID, i.bindType = GetItemInfo(i.link)
 		i.equipLoc = _G[i.equipLoc] -- INVTYPE to localized string
 
