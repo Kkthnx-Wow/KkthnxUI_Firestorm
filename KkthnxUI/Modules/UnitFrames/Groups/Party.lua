@@ -338,7 +338,7 @@ function Module:CreateParty()
 	PhaseIndicator.PostUpdate = Module.UpdatePhaseIcon
 
 	local SummonIndicator = Health:CreateTexture(nil, "OVERLAY")
-	SummonIndicator:SetSize(20, 20)
+	SummonIndicator:SetSize(30, 30)
 	SummonIndicator:SetPoint("LEFT", 2, 0)
 
 	local RaidTargetIndicator = Overlay:CreateTexture(nil, "OVERLAY")

@@ -61,9 +61,10 @@ table_insert(C.defaultThemes, function()
 		end
 
 		bu.NewSpellHighlightTexture = CreateFrame("Frame", nil, bu, "BackdropTemplate")
+		bu.NewSpellHighlightTexture:SetFrameLevel(bu:GetFrameLevel() + 2)
 		bu.NewSpellHighlightTexture:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 16 })
-		bu.NewSpellHighlightTexture:SetPoint("TOPLEFT", bu, -6, 6)
-		bu.NewSpellHighlightTexture:SetPoint("BOTTOMRIGHT", bu, 6, -6)
+		bu.NewSpellHighlightTexture:SetPoint("TOPLEFT", bu, -7, 7)
+		bu.NewSpellHighlightTexture:SetPoint("BOTTOMRIGHT", bu, 7, -7)
 		bu.NewSpellHighlightTexture:SetBackdropBorderColor(1, 223 / 255, 0)
 		bu.NewSpellHighlightTexture:Hide()
 
