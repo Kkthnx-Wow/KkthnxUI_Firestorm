@@ -1,0 +1,23 @@
+{
+    "Lua.diagnostics.globals": [
+        "ButtonInventorySlot",
+        "BankFrame",
+        "UIErrorsFrame",
+        "StaticPopup_Show",
+        "ERR_NOT_IN_COMBAT",
+        "UISpecialFrames",
+        "ReagentButtonInventorySlot",
+        "BankFrameItemButton_OnEnter",
+        "ContainerFrameItemButtonMixin",
+        "ReagentBankFrame",
+        "EquipmentManager_UnpackLocation",
+        "ITEM_BIND_ON_USE",
+        "ITEM_BIND_ON_EQUIP",
+        "ITEM_BIND_ON_PICKUP",
+        "ITEM_SOULBOUND",
+        "ITEM_BIND_QUEST",
+        "ITEM_ACCOUNTBOUND",
+        "ITEM_BIND_TO_ACCOUNT",
+        "ITEM_BNETACCOUNTBOUND"
+    ]
+}

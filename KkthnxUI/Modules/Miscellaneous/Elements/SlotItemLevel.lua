@@ -740,9 +740,13 @@ function Module.ItemLevel_UpdateTradeTarget(index)
 end
 
 local itemCache = {}
-local CHAT = K:GetModule("Chat")
+local chatModule = K:GetModule("Chat")
 
 function Module.ItemLevel_ReplaceItemLink(link, name)
+	if not chatModule then
+		return
+	end
+
 	if not link then
 		return
 	end
@@ -751,7 +755,7 @@ function Module.ItemLevel_ReplaceItemLink(link, name)
 	if not modLink then
 		local itemLevel = K.GetItemLevel(link)
 		if itemLevel then
-			modLink = gsub(link, "|h%[(.-)%]|h", "|h(" .. itemLevel .. CHAT.IsItemHasGem(link) .. ")" .. name .. "|h")
+			modLink = gsub(link, "|h%[(.-)%]|h", "|h(" .. itemLevel .. chatModule.IsItemHasGem(link) .. ")" .. name .. "|h")
 			itemCache[link] = modLink
 		end
 	end

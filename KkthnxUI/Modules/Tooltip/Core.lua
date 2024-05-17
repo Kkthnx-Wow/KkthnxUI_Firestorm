@@ -75,10 +75,11 @@ end
 
 function Module:GetLevelLine()
 	for i = 2, self:NumLines() do
-		local tiptext = _G["GameTooltipTextLeft" .. i]
+		local tiptext = _G[self:GetName() .. "TextLeft" .. i]
 		if not tiptext then
 			break
 		end
+
 		local linetext = tiptext:GetText()
 		if linetext and strfind(linetext, LEVEL) then
 			return tiptext
