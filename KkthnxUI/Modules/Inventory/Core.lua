@@ -996,9 +996,6 @@ function Module:OnEnable()
 	end
 
 	function Backpack:OnInit()
-		-----
-		-- ADD LATER -- AddNewContainer("Bag", 8, "BagLegendary", filters.bagLegendary)
-		-----
 		AddNewContainer("Bag", 6, "BagReagent", filters.onlyBagReagent)
 		AddNewContainer("Bag", 17, "Junk", filters.bagsJunk)
 		for i = 1, 5 do
@@ -1411,37 +1408,44 @@ function Module:OnEnable()
 		Module.CreateFreeSlots(self)
 
 		local label
-		if string_match(name, "AzeriteItem$") then
+		-- Use patterns with '$' to match the end of the string
+		if name:match("AzeriteItem$") then
 			label = "Azerite Armor"
-		elseif string_match(name, "Equipment$") then
+		elseif name:match("Equipment$") then
 			label = BAG_FILTER_EQUIPMENT
-		elseif string_match(name, "EquipSet$") then
+		elseif name:match("EquipSet$") then
 			label = L["Equipment Set"]
-		elseif string_match(name, "Legendary$") then
-			label = LOOT_JOURNAL_LEGENDARIES
-		elseif string_match(name, "Consumable$") then
-			label = BAG_FILTER_CONSUMABLES
 		elseif name == "Junk" then
 			label = BAG_FILTER_JUNK
-		elseif string_match(name, "Collection") then
-			label = COLLECTIONS
-		elseif string_match(name, "Goods") then
-			label = AUCTION_CATEGORY_TRADE_GOODS
-		elseif string_match(name, "Quest") then
-			label = QUESTS_LABEL
-		elseif string_match(name, "Anima") then
-			label = POWER_TYPE_ANIMA
 		elseif name == "BagRelic" then
 			label = "Korthian Relics"
-		elseif strmatch(name, "Custom%d") then
-			label = GetCustomGroupTitle(settings.Index)
 		elseif name == "BagReagent" then
 			label = "Reagent Bag"
 		elseif name == "BagStone" then
 			label = GetSpellInfo(404861)
+		else
+			-- Use 'string.match' instead of 'string_match' for better performance
+			-- Combine similar patterns to reduce function calls
+			if name:match("Legendary$") then
+				label = LOOT_JOURNAL_LEGENDARIES
+			elseif name:match("Consumable$") then
+				label = BAG_FILTER_CONSUMABLES
+			elseif name:match("Collection") then
+				label = COLLECTIONS
+			elseif name:match("Goods") then
+				label = AUCTION_CATEGORY_TRADE_GOODS
+			elseif name:match("Quest") then
+				label = QUESTS_LABEL
+			elseif name:match("Anima") then
+				label = POWER_TYPE_ANIMA
+			elseif name:match("Custom%d") then
+				-- If 'name' matches the pattern "Custom%d", call GetCustomGroupTitle
+				label = GetCustomGroupTitle(settings.Index)
+			end
 		end
 
 		if label then
+			-- Create font string only if label is found
 			self.label = K.CreateFontString(self, 13, label, "OUTLINE", true, "TOPLEFT", 6, -8)
 			return
 		end

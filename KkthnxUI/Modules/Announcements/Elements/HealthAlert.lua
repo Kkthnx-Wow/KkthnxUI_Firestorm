@@ -10,9 +10,6 @@ local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitIsPlayer, UnitIsDead, UnitExists, UnitName = UnitIsPlayer, UnitIsDead, UnitExists, UnitName
 local DoEmote, PlaySound = DoEmote, PlaySound
 
--- Timer Function
-local C_Timer_NewTicker = C_Timer.NewTicker
-
 local playerNearDeath = false
 local petNearDeath = false
 local validPetClasses = { ["HUNTER"] = true, ["WARLOCK"] = true }
@@ -67,9 +64,11 @@ function Module:SetupHealthAnnounce()
 end
 
 function Module:CreateHealthAnnounce()
-	-- if not C["Announcements"].HealthAlert then
-	-- 	return
-	-- end
+	if not C["Announcements"].HealthAlert then
+		return
+	end
 
-	-- C_Timer_NewTicker(1, Module.SetupHealthAnnounce)
+	C_Timer.NewTicker(1, function()
+		Module:SetupHealthAnnounce()
+	end)
 end

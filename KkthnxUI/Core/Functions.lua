@@ -90,54 +90,40 @@ do
 		end
 	end
 
+	-- Function to get the class icon using atlas textures
 	function K.GetClassIcon(class, iconSize)
 		local size = iconSize or 16
-
 		if class then
-			local L, R, T, B = unpack(CLASS_ICON_TCOORDS[class])
-			if L then
-				local imageSize = 128
-				return "|TInterface\\AddOns\\KkthnxUI\\Media\\Unitframes\\NEW-ICONS-CLASSES:" .. size .. ":" .. size .. ":0:0:" .. imageSize .. ":" .. imageSize .. ":" .. (L * imageSize) .. ":" .. (R * imageSize) .. ":" .. (T * imageSize) .. ":" .. (B * imageSize) .. "|t"
-			end
+			return string.format("|A:groupfinder-icon-class-%s:%d:%d|a ", string.lower(class), size, size)
 		end
 	end
 
+	-- Table for class colors
+	local ClassColors = {
+		DEATHKNIGHT = "|CFFC41F3B",
+		DEMONHUNTER = "|CFFA330C9",
+		DRUID = "|CFFFF7D0A",
+		EVOKER = "|CFF33937F",
+		HUNTER = "|CFFA9D271",
+		MAGE = "|CFF40C7EB",
+		MONK = "|CFF00FF96",
+		PALADIN = "|CFFF58CBA",
+		PRIEST = "|CFFFFFFFF",
+		ROGUE = "|CFFFFF569",
+		SHAMAN = "|CFF0070DE",
+		WARLOCK = "|CFF8787ED",
+		WARRIOR = "|CFFC79C6E",
+	}
+
+	-- Function to get the class color
 	function K.GetClassColor(class)
-		if class then
-			if class == "DEATHKNIGHT" then
-				return "|CFFC41F3B"
-			elseif class == "DEMONHUNTER" then
-				return "|CFFA330C9"
-			elseif class == "DRUID" then
-				return "|CFFFF7D0A"
-			elseif class == "EVOKER" then
-				return "|CFF33937F"
-			elseif class == "HUNTER" then
-				return "|CFFA9D271"
-			elseif class == "MAGE" then
-				return "|CFF40C7EB"
-			elseif class == "MONK" then
-				return "|CFF00FF96"
-			elseif class == "PALADIN" then
-				return "|CFFF58CBA"
-			elseif class == "PRIEST" then
-				return "|CFFFFFFFF"
-			elseif class == "ROGUE" then
-				return "|CFFFFF569"
-			elseif class == "SHAMAN" then
-				return "|CFF0070DE"
-			elseif class == "WARLOCK" then
-				return "|CFF8787ED"
-			elseif class == "WARRIOR" then
-				return "|CFFC79C6E"
-			end
-		end
+		return ClassColors[class]
 	end
 
-	function K.GetClassIconAndColor(class, textColor, iconSize)
+	-- Function to get the class icon and color
+	function K.GetClassIconAndColor(class, iconSize)
 		local classIcon = K.GetClassIcon(class, iconSize)
 		local classColor = K.GetClassColor(class)
-
 		return classIcon .. classColor
 	end
 

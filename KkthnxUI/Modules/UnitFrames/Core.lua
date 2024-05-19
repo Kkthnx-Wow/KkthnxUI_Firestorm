@@ -160,8 +160,39 @@ function Module:ToggleCastBarLatency(frame)
 	end
 end
 
+-- function Module.auraIconSize(w, n, s)
+-- 	return (w - (n - 1) * s) / n
+-- end
+
+-- function Module:UpdateAuraContainer(width, element, maxAuras)
+-- 	local iconsPerRow = element.iconsPerRow
+-- 	local size = iconsPerRow and Module.auraIconSize(width, iconsPerRow, element.spacing) or element.size
+-- 	local maxLines = iconsPerRow and K.Round(maxAuras / iconsPerRow) or 2
+
+-- 	element.size = size
+-- 	element:SetWidth(width)
+-- 	element:SetHeight((size + element.spacing) * maxLines)
+-- end
+
+-- function Module:UpdateIconTexCoord(width, height)
+-- 	local ratio = height / width
+-- 	local mult = (1 - ratio) / 2
+-- 	self.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3] + mult, K.TexCoords[4] - mult)
+-- end
+
+-- Cache the result of auraIconSize calculation
+local auraIconSizeCache = {}
+
 function Module.auraIconSize(w, n, s)
-	return (w - (n - 1) * s) / n
+	if not auraIconSizeCache[w] then
+		auraIconSizeCache[w] = {}
+	end
+
+	if not auraIconSizeCache[w][n] then
+		auraIconSizeCache[w][n] = (w - (n - 1) * s) / n
+	end
+
+	return auraIconSizeCache[w][n]
 end
 
 function Module:UpdateAuraContainer(width, element, maxAuras)
@@ -169,9 +200,11 @@ function Module:UpdateAuraContainer(width, element, maxAuras)
 	local size = iconsPerRow and Module.auraIconSize(width, iconsPerRow, element.spacing) or element.size
 	local maxLines = iconsPerRow and K.Round(maxAuras / iconsPerRow) or 2
 
-	element.size = size
-	element:SetWidth(width)
-	element:SetHeight((size + element.spacing) * maxLines)
+	if element.size ~= size or element:GetWidth() ~= width or element:GetHeight() ~= ((size + element.spacing) * maxLines) then
+		element.size = size
+		element:SetWidth(width)
+		element:SetHeight((size + element.spacing) * maxLines)
+	end
 end
 
 function Module:UpdateIconTexCoord(width, height)

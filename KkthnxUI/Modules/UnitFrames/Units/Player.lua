@@ -43,8 +43,10 @@ function Module:CreatePlayer()
 	local HealPredictionTexture = K.GetTexture(C["General"].Texture)
 
 	local Overlay = CreateFrame("Frame", nil, self) -- We will use this to overlay onto our special borders.
-	Overlay:SetAllPoints()
+	Overlay:SetFrameStrata(self:GetFrameStrata())
 	Overlay:SetFrameLevel(5)
+	Overlay:SetAllPoints()
+	Overlay:EnableMouse(false)
 
 	Module.CreateHeader(self)
 

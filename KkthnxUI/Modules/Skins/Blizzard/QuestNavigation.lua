@@ -7,7 +7,8 @@ local GetDistance, WasClampedToScreen = C_Navigation.GetDistance, C_Navigation.W
 -- Cache math functions
 local math_abs, math_floor = math.abs, math.floor
 
-local lastDistance, lastUpdate
+-- Variables to keep track of distance and update time
+local lastDistance, lastUpdate = nil, 0
 
 local function updateArrival(self, elapsed)
 	if self.isClamped then
@@ -16,11 +17,11 @@ local function updateArrival(self, elapsed)
 		return
 	end
 
-	lastUpdate = (lastUpdate or 0) + elapsed
+	lastUpdate = lastUpdate + elapsed
 
-	-- Update time display only when distance changes
+	-- Update time display only when distance changes and enough time has passed
 	local distance = GetDistance()
-	if distance ~= lastDistance then
+	if distance ~= lastDistance and lastUpdate >= 0.3 then
 		local speed = (((lastDistance or 0) - distance) / lastUpdate) or 0
 		lastDistance = distance
 

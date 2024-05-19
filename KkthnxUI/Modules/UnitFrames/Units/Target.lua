@@ -27,8 +27,10 @@ function Module:CreateTarget()
 	Health:CreateBorder()
 
 	local Overlay = CreateFrame("Frame", nil, self) -- We will use this to overlay onto our special borders.
-	Overlay:SetAllPoints(Health)
-	Overlay:SetFrameLevel(5)
+	Overlay:SetFrameStrata(self:GetFrameStrata())
+	Overlay:SetFrameLevel(6)
+	Overlay:SetAllPoints()
+	Overlay:EnableMouse(false)
 
 	Health.colorTapping = true
 	Health.colorDisconnected = true

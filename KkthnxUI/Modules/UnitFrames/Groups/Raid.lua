@@ -178,9 +178,11 @@ function Module:CreateRaid()
 	Name:SetWordWrap(false)
 	self:Tag(Name, "[lfdrole][name]")
 
-	local Overlay = CreateFrame("Frame", nil, self)
-	Overlay:SetAllPoints(Health)
+	local Overlay = CreateFrame("Frame", nil, self) -- We will use this to overlay onto our special borders.
+	Overlay:SetFrameStrata(self:GetFrameStrata())
 	Overlay:SetFrameLevel(self:GetFrameLevel() + 4)
+	Overlay:SetAllPoints(Health)
+	Overlay:EnableMouse(false)
 
 	local ReadyCheckIndicator = Overlay:CreateTexture(nil, "OVERLAY", nil, 2)
 	ReadyCheckIndicator:SetSize(22, 22)

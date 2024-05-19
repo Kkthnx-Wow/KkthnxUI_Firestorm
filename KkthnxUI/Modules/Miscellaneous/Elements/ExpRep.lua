@@ -348,7 +348,7 @@ local lastMessageTime = 0
 local COOLDOWN_DURATION = 10 -- Cooldown duration in seconds
 
 local function OnExpRepMouseUp(self, button)
-	if IsShiftKeyDown() and button == "RightButton" then
+	if IsAltKeyDown() and button == "RightButton" then
 		local currentTime = GetTime()
 		if currentTime - lastMessageTime >= COOLDOWN_DURATION then
 			if not IsInGroup() then

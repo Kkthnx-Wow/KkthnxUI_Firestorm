@@ -14,10 +14,6 @@ local COOLDOWN_DURATION = 30 -- Cooldown duration in seconds
 local lastKeystoneMessageTime = 0 -- Initialize the last message time
 local lastKeystoneLinkTime = 0 -- Initialize the last link time
 
-local function debugPrint(message)
-	K.Print("[DEBUG - Keystone.lua] " .. message)
-end
-
 local function getKeystoneLink()
 	for bagIndex = 0, NUM_BAG_SLOTS do
 		for slotIndex = 1, C_Container_GetContainerNumSlots(bagIndex) do
@@ -32,7 +28,6 @@ end
 local function sendKeystoneLink(channel)
 	local link = getKeystoneLink()
 	if link then
-		-- debugPrint("Sending keystone link to channel: " .. channel)
 		SendChatMessage(link, channel)
 	end
 end
@@ -40,7 +35,6 @@ end
 function Module.Keystone(event)
 	local currentTime = GetTime()
 	if currentTime - lastKeystoneMessageTime < COOLDOWN_DURATION then
-		-- debugPrint("Cooldown period has not elapsed for Keystone")
 		return
 	end
 
@@ -50,26 +44,21 @@ function Module.Keystone(event)
 	local keystoneLevel = C_MythicPlus_GetOwnedKeystoneLevel()
 
 	if event == "PLAYER_ENTERING_WORLD" then
-		-- debugPrint("Player entering world event.")
 		Module.keystoneCache.mapID = mapID
 		Module.keystoneCache.keystoneLevel = keystoneLevel
 		K:UnregisterEvent("PLAYER_ENTERING_WORLD", Module.Keystone)
 	elseif event == "CHALLENGE_MODE_COMPLETED" or event == "ITEM_CHANGED" then
-		-- debugPrint("Challenge mode completed or item changed event.")
 		if Module.keystoneCache.mapID ~= mapID or Module.keystoneCache.keystoneLevel ~= keystoneLevel then
 			Module.keystoneCache.mapID = mapID
 			Module.keystoneCache.keystoneLevel = keystoneLevel
 
 			local link = getKeystoneLink()
 			if link then
-				-- debugPrint("New keystone found.")
 				local message = string.gsub("My new keystone is %keystone%.", "%%keystone%%", link)
 				C_Timer.After(1, function()
 					if IsPartyLFG() then
-						-- debugPrint("Sending keystone message to INSTANCE_CHAT.")
 						SendChatMessage(message, "INSTANCE_CHAT")
 					elseif IsInGroup() then
-						-- debugPrint("Sending keystone message to PARTY.")
 						SendChatMessage(message, "PARTY")
 					end
 				end)
@@ -81,13 +70,11 @@ end
 function Module.KeystoneLink(message, sender)
 	local currentTime = GetTime()
 	if currentTime - lastKeystoneLinkTime < COOLDOWN_DURATION then
-		-- debugPrint("Cooldown period has not elapsed for KeystoneLink.")
 		return
 	end
 
 	lastKeystoneLinkTime = currentTime
 
-	-- debugPrint("Keystone link event received from " .. sender .. ": " .. message)
 	if strlower(sender) == "!keys" then
 		local channel
 		if message == "CHAT_MSG_PARTY" or message == "CHAT_MSG_PARTY_LEADER" then
@@ -99,7 +86,6 @@ function Module.KeystoneLink(message, sender)
 		end
 
 		if channel then
-			-- debugPrint("Received !keys command. Sending keystone link.")
 			C_Timer.After(1, function() -- Adjust the delay duration as needed
 				sendKeystoneLink(channel)
 			end)

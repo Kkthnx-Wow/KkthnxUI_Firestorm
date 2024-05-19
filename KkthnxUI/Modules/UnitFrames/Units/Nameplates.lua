@@ -71,13 +71,13 @@ function Module:UpdatePlateCVars()
 		return
 	end
 
-	local topInset, bottomInset = -1, -1
 	if C["Nameplate"].InsideView then
-		topInset, bottomInset = 0.05, 0.08
+		SetCVar("nameplateOtherTopInset", 0.05)
+		SetCVar("nameplateOtherBottomInset", 0.08)
+	elseif GetCVar("nameplateOtherTopInset") == "0.05" and GetCVar("nameplateOtherBottomInset") == "0.08" then
+		SetCVar("nameplateOtherTopInset", -1)
+		SetCVar("nameplateOtherBottomInset", -1)
 	end
-
-	SetCVar("nameplateOtherTopInset", topInset)
-	SetCVar("nameplateOtherBottomInset", bottomInset)
 
 	local settings = {
 		namePlateMinScale = C["Nameplate"].MinScale,
@@ -100,8 +100,11 @@ function Module:UpdateClickableSize()
 	end
 
 	local uiScale = C["General"].UIScale
-	C_NamePlate_SetNamePlateEnemySize(C["Nameplate"].HarmWidth * uiScale, C["Nameplate"].HarmHeight * uiScale)
-	C_NamePlate_SetNamePlateFriendlySize(C["Nameplate"].HelpWidth * uiScale, C["Nameplate"].HelpHeight * uiScale)
+	local harmWidth, harmHeight = C["Nameplate"].HarmWidth, C["Nameplate"].HarmHeight
+	local helpWidth, helpHeight = C["Nameplate"].HelpWidth, C["Nameplate"].HelpHeight
+
+	C_NamePlate_SetNamePlateEnemySize(harmWidth * uiScale, harmHeight * uiScale)
+	C_NamePlate_SetNamePlateFriendlySize(helpWidth * uiScale, helpHeight * uiScale)
 end
 
 function Module:UpdatePlateClickThru()
@@ -116,15 +119,15 @@ end
 function Module:SetupCVars()
 	Module:UpdatePlateCVars()
 	local settings = {
-		nameplateOverlapH = 0.8,
-		nameplateSelectedAlpha = 1,
-		showQuestTrackingTooltips = 1,
-		nameplateSelectedScale = 1,
-		nameplateLargerScale = 1,
-		nameplateGlobalScale = 1,
-		nameplateShowSelf = 0,
-		nameplateResourceOnTarget = 0,
-		nameplatePlayerMaxDistance = 60,
+		nameplateOverlapH = 0.8, -- Controls the horizontal overlap of nameplates. A lower value means nameplates will be more spaced out horizontally.
+		nameplateSelectedAlpha = 1, -- Sets the transparency level for the selected nameplate (the one currently targeted). A value of 1 means fully opaque.
+		showQuestTrackingTooltips = 1, -- Enables (1) or disables (0) the display of quest-related information in tooltips.
+		nameplateSelectedScale = 1.1, -- Determines the scale of the selected nameplate. A value greater than 1 enlarges the nameplate.
+		nameplateLargerScale = 1.1, -- Adjusts the scale of larger nameplates, such as for bosses or important enemies. Default is 1 (normal size).
+		nameplateGlobalScale = 1, -- Sets the overall scale for all nameplates. Default is 1 (normal size).
+		nameplateShowSelf = 0, -- Toggles the visibility of the player's own nameplate. 0 means the player's nameplate will not be shown.
+		nameplateResourceOnTarget = 0, -- Controls whether class resources (e.g., combo points, runes) are displayed on the target's nameplate. 0 means resources are shown below the character, not on the target.
+		nameplatePlayerMaxDistance = 60, -- Sets the maximum distance at which player nameplates are visible. The default value is 60 yards.
 	}
 
 	for cvar, value in pairs(settings) do
@@ -503,16 +506,15 @@ function Module:UpdateQuestUnit(_, unit)
 	end
 
 	unit = unit or self.unit
-
-	local questProgress
+	local startLooking, isLootQuest, questProgress -- FIXME: isLootQuest in old expansion
 	local prevDiff = 0
-	local data = C_TooltipInfo.GetUnit(unit)
 
+	local data = C_TooltipInfo.GetUnit(unit)
 	if data then
 		for i = 1, #data.lines do
 			local lineData = data.lines[i]
 			if lineData.type == 8 then
-				local text = lineData.leftText
+				local text = lineData.leftText -- progress string
 				if text then
 					local current, goal = strmatch(text, "(%d+)/(%d+)")
 					local progress = strmatch(text, "(%d+)%%")
@@ -523,8 +525,9 @@ function Module:UpdateQuestUnit(_, unit)
 							prevDiff = diff
 						end
 					elseif progress and prevDiff == 0 then
-						questProgress = progress .. "%"
-						break -- Exit loop if progress is found
+						if floor(100 - progress) > 0 then
+							questProgress = progress .. "%" -- lower priority on progress, keep looking
+						end
 					end
 				end
 			end
@@ -537,7 +540,12 @@ function Module:UpdateQuestUnit(_, unit)
 		self.questIcon:Show()
 	else
 		self.questCount:SetText("")
-		self.questIcon:Hide()
+		if isLootQuest then
+			self.questIcon:SetAtlas("adventureguide-microbutton-alert")
+			self.questIcon:Show()
+		else
+			self.questIcon:Hide()
+		end
 	end
 end
 
@@ -547,13 +555,13 @@ function Module:AddQuestIcon(self)
 	end
 
 	self.questIcon = self:CreateTexture(nil, "OVERLAY", nil, 2)
-	self.questIcon:SetPoint("LEFT", self.Health, "RIGHT", -4, 0)
-	self.questIcon:SetSize(32, 32)
-	self.questIcon:SetAtlas("UI-HUD-MicroMenu-Questlog-Up")
+	self.questIcon:SetPoint("LEFT", self, "RIGHT", -6, 0)
+	self.questIcon:SetSize(26, 32)
+	self.questIcon:SetAtlas("adventureguide-microbutton-alert")
 	self.questIcon:Hide()
 
-	self.questCount = K.CreateFontString(self, 13)
-	self.questCount:SetPoint("LEFT", self.questIcon, "RIGHT", -4, 0)
+	self.questCount = K.CreateFontString(self, 14, "", nil, "LEFT", 0, 0)
+	self.questCount:SetPoint("LEFT", self.questIcon, "RIGHT", -3, 0)
 
 	self:RegisterEvent("QUEST_LOG_UPDATE", Module.UpdateQuestUnit, true)
 end
@@ -648,7 +656,7 @@ end
 function Module:AddCreatureIcon(self)
 	local ClassifyIndicator = self:CreateTexture(nil, "ARTWORK")
 	ClassifyIndicator:SetTexture(K.MediaFolder .. "Nameplates\\star")
-	ClassifyIndicator:SetPoint("RIGHT", self.nameText, "LEFT", -2, 1)
+	ClassifyIndicator:SetPoint("RIGHT", self.nameText, "LEFT", 10, 0)
 	ClassifyIndicator:SetSize(16, 16)
 	ClassifyIndicator:Hide()
 
@@ -1043,10 +1051,10 @@ function Module:UpdateNameplateSize()
 
 	--self.nameText:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
 	if self.plateType == "NameOnly" then
-		self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
+		self:Tag(self.nameText, "[nprare][color][name] [nplevel]")
 		self.npcTitle:UpdateTag()
 	else
-		self:Tag(self.nameText, "[name]")
+		self:Tag(self.nameText, "[nprare][name]")
 	end
 
 	-- self.npcTitle:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize - 1, "")
@@ -1066,7 +1074,7 @@ end
 
 function Module:RefreshNameplats()
 	for nameplate in pairs(platesList) do
-		--Module.UpdateNameplateSize(nameplate)
+		Module.UpdateNameplateSize(nameplate)
 		Module.UpdateUnitClassify(nameplate)
 		Module.UpdateNameplateAuras(nameplate)
 		Module.UpdateTargetIndicator(nameplate)
@@ -1099,8 +1107,8 @@ function Module:UpdatePlateByType()
 
 	name:SetShown(not self.widgetsOnly)
 	name:ClearAllPoints()
-	self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
-	self.npcTitle:UpdateTag()
+	-- self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
+	-- self.npcTitle:UpdateTag()
 	raidtarget:ClearAllPoints()
 
 	if self.plateType == "NameOnly" then
@@ -1121,7 +1129,7 @@ function Module:UpdatePlateByType()
 		raidtarget:SetPoint("BOTTOM", name, "TOP", 0, 6)
 
 		if questIcon then
-			questIcon:SetPoint("LEFT", name, "RIGHT", 0, 0)
+			questIcon:SetPoint("LEFT", name, "RIGHT", -6, 0)
 		end
 
 		if self.widgetContainer then
@@ -1138,7 +1146,7 @@ function Module:UpdatePlateByType()
 		name:SetJustifyH("LEFT")
 		name:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
 		name:SetPoint("BOTTOMRIGHT", level, "TOPRIGHT", -21, 4)
-		self:Tag(self.nameText, "[name]")
+		-- self:Tag(self.nameText, "[name]")
 
 		level:Show()
 		hpval:Show()
@@ -1157,7 +1165,7 @@ function Module:UpdatePlateByType()
 		end
 	end
 
-	--Module.UpdateNameplateSize(self)
+	Module.UpdateNameplateSize(self)
 	Module.UpdateTargetIndicator(self)
 	Module.ToggleNameplateAuras(self)
 end
