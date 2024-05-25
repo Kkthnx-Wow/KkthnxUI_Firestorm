@@ -322,7 +322,7 @@ function Module:CreateParty()
 	end
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
-	AssistantIndicator:SetSize(12, 12)
+	AssistantIndicator:SetSize(15, 15)
 	if partyPortraitStyle == "NoPortraits" or partyPortraitStyle == "OverlayPortrait" then
 		AssistantIndicator:SetPoint("TOPLEFT", Health, 0, 8)
 	else

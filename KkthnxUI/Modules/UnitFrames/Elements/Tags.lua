@@ -168,6 +168,17 @@ oUF.Tags.Methods["afkdnd"] = function(unit)
 end
 oUF.Tags.Events["afkdnd"] = "PLAYER_FLAGS_CHANGED"
 
+-- oUF.Tags.Methods["DDG"] = function(unit)
+-- 	if UnitIsDead(unit) then
+-- 		return "|cffCFCFCF" .. DEAD .. "|r"
+-- 	elseif UnitIsGhost(unit) then
+-- 		return "|cffCFCFCF" .. L["Ghost"] .. "|r"
+-- 	elseif not UnitIsConnected(unit) and GetNumArenaOpponentSpecs() == 0 then
+-- 		return "|cffCFCFCF" .. PLAYER_OFFLINE .. "|r"
+-- 	end
+-- end
+-- oUF.Tags.Events["DDG"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION PLAYER_FLAGS_CHANGED"
+
 oUF.Tags.Methods["DDG"] = function(unit)
 	if UnitIsDead(unit) then
 		return "|cffCFCFCF" .. DEAD .. "|r"
@@ -175,9 +186,16 @@ oUF.Tags.Methods["DDG"] = function(unit)
 		return "|cffCFCFCF" .. L["Ghost"] .. "|r"
 	elseif not UnitIsConnected(unit) and GetNumArenaOpponentSpecs() == 0 then
 		return "|cffCFCFCF" .. PLAYER_OFFLINE .. "|r"
+	elseif UnitIsAFK(unit) then
+		return "|cffCFCFCF <" .. AFK .. ">|r"
+	elseif UnitIsDND(unit) then
+		return "|cffCFCFCF <" .. DND .. ">|r"
+	else
+		return ""
 	end
 end
-oUF.Tags.Events["DDG"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION PLAYER_FLAGS_CHANGED"
+
+oUF.Tags.Events["DDG"] = "PLAYER_FLAGS_CHANGED UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION"
 
 -- Level tags
 oUF.Tags.Methods["fulllevel"] = function(unit)

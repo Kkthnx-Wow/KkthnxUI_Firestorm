@@ -31,7 +31,6 @@
    <Script file="Chat\Elements\History.lua" />
    <Script file="Chat\Elements\ILevel.lua" />
    <Script file="Chat\Elements\Rename.lua" />
-   <Script file="Chat\Elements\RoleIcon.lua" />
    <Script file="Chat\Elements\URL.lua" />
    <!-- Inventory -->
    <Script file="Inventory\Core.lua" />
@@ -189,6 +188,7 @@
    <Include file="Skins\Addons\RareScanner.lua" />
    <Include file="Skins\Addons\Simulationcraft.lua" />
    <Include file="Skins\Addons\WeakAuras.lua" />
+   <Include file="Skins\Addons\Nekometer.lua" />
    <!-- Disabled/Broken/WIP AddOns -->
    <!-- <Include file="Skins\Addons\RaiderIO.lua" /> -->
 </Ui>

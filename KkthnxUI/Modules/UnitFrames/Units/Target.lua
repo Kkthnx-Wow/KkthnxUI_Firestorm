@@ -350,6 +350,14 @@ function Module:CreateTarget()
 		LeaderIndicator:SetPoint("TOPRIGHT", Health, 0, 10)
 	end
 
+	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
+	AssistantIndicator:SetSize(16, 16)
+	if AssistantIndicator ~= "NoPortraits" and targetPortraitStyle ~= "OverlayPortrait" then
+		AssistantIndicator:SetPoint("TOPRIGHT", self.Portrait, 0, 10)
+	else
+		AssistantIndicator:SetPoint("TOPRIGHT", Health, 0, 10)
+	end
+
 	local RaidTargetIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	if targetPortraitStyle ~= "NoPortraits" and targetPortraitStyle ~= "OverlayPortrait" then
 		RaidTargetIndicator:SetPoint("TOP", self.Portrait, "TOP", 0, 8)
@@ -412,6 +420,7 @@ function Module:CreateTarget()
 	self.Name = Name
 	self.Level = Level
 	self.LeaderIndicator = LeaderIndicator
+	self.AssistantIndicator = AssistantIndicator
 	self.RaidTargetIndicator = RaidTargetIndicator
 	self.ReadyCheckIndicator = ReadyCheckIndicator
 	self.ResurrectIndicator = ResurrectIndicator

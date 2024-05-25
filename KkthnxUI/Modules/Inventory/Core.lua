@@ -1218,7 +1218,7 @@ function Module:OnEnable()
 
 	function MyButton:OnUpdateButton(item)
 		if self.JunkIcon then
-			if (MerchantFrame:IsShown() or customJunkEnable) and (item.quality == Enum.ItemQuality.Poor or KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[item.id]) and item.hasPrice then
+			if (item.quality == Enum.ItemQuality.Poor or KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[item.id]) and item.hasPrice then
 				self.JunkIcon:Show()
 			else
 				self.JunkIcon:Hide()
@@ -1424,8 +1424,6 @@ function Module:OnEnable()
 		elseif name == "BagStone" then
 			label = GetSpellInfo(404861)
 		else
-			-- Use 'string.match' instead of 'string_match' for better performance
-			-- Combine similar patterns to reduce function calls
 			if name:match("Legendary$") then
 				label = LOOT_JOURNAL_LEGENDARIES
 			elseif name:match("Consumable$") then

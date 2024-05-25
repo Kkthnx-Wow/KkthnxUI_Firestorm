@@ -629,7 +629,6 @@ local Chat = function(self)
 	-- Chat appearance
 	Window:CreateSection("Appearance")
 	Window:CreateSwitch("Chat", "Emojis", L["Show Emojis In Chat"] .. emojiExampleIcon)
-	Window:CreateSwitch("Chat", "RoleIcons", L["Show Role Icons In Chat"])
 	Window:CreateSwitch("Chat", "ChatItemLevel", L["Show ItemLevel on ChatFrames"])
 	Window:CreateDropdown("Chat", "TimestampFormat", L["Custom Chat Timestamps"])
 

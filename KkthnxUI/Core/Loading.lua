@@ -144,9 +144,10 @@ local function KKUI_LoadAddon()
 end
 
 local function KKUI_OnEvent(_, event, addonName)
-	KKUI_VerifyDatabase()
+	-- KKUI_VerifyDatabase()
 
 	if event == "VARIABLES_LOADED" then
+		KKUI_VerifyDatabase()
 		KKUI_LoadVariables()
 	elseif event == "ADDON_LOADED" and addonName == "KkthnxUI" then
 		KKUI_LoadAddon()

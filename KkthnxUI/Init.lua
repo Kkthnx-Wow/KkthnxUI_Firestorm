@@ -356,6 +356,11 @@ K:RegisterEvent("PLAYER_LOGIN", function()
 	end
 end)
 
+-- https://wowpedia.fandom.com/wiki/PLAYER_LEVEL_UP
+K:RegisterEvent("PLAYER_LEVEL_UP", function(_, level)
+	K.Level = level
+end)
+
 for i = 1, GetNumAddOns() do
 	local Name, _, _, _, Reason = GetAddOnInfo(i)
 	K.AddOns[string_lower(Name)] = GetAddOnEnableState(K.Name, Name) == 2 and (not Reason or Reason ~= "DEMAND_LOADED")
