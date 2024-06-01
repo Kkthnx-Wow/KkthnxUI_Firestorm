@@ -133,20 +133,11 @@ do
 			return
 		end
 
-		local width = info.width
-		local height = info.height
-		local left = info.leftTexCoord
-		local right = info.rightTexCoord
-		local top = info.topTexCoord
-		local bottom = info.bottomTexCoord
+		local width, height, txLeft, txRight, txTop, txBottom = info.width, info.height, info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord
+		local atlasWidth = width / (txRight - txLeft)
+		local atlasHeight = height / (txBottom - txTop)
 
-		local atlasWidth = width / (right - left)
-		local atlasHeight = height / (bottom - top)
-
-		sizeX = sizeX or 0
-		sizeY = sizeY or 0
-
-		return string_format("|T%s:%d:%d:0:0:%d:%d:%d:%d:%d:%d|t", file, sizeX, sizeY, atlasWidth, atlasHeight, atlasWidth * left, atlasWidth * right, atlasHeight * top, atlasHeight * bottom)
+		return format("|T%s:%d:%d:0:0:%d:%d:%d:%d:%d:%d|t", file, (sizeX or 0), (sizeY or 0), atlasWidth, atlasHeight, atlasWidth * txLeft, atlasWidth * txRight, atlasHeight * txTop, atlasHeight * txBottom)
 	end
 end
 
@@ -485,19 +476,14 @@ do
 			return
 		end
 
-		-- Set the GameTooltip's owner and relative position to the 'self' object.
-		GameTooltip:SetOwner(self, "ANCHOR_NONE")
-		GameTooltip:SetPoint(K.GetAnchors(self))
+		GameTooltip:SetOwner(self, self.anchor)
 		GameTooltip:ClearLines()
 
 		-- Check for various conditions to display the proper content
 		if self.title then
 			GameTooltip:AddLine(self.title)
 		end
-
-		if self.text and string_find(self.text, "|H.+|h") then
-			GameTooltip:SetHyperlink(self.text)
-		elseif tonumber(self.text) then
+		if tonumber(self.text) then
 			GameTooltip:SetSpellByID(self.text)
 		elseif self.text then
 			local r, g, b = 1, 1, 1
@@ -515,7 +501,7 @@ do
 		GameTooltip:Show()
 	end
 
-	function K.AddTooltip(self, anchor, text, color)
+	function K.AddTooltip(self, anchor, text, color, showTips)
 		if not self then
 			return
 		end
@@ -523,6 +509,10 @@ do
 		self.anchor = anchor
 		self.text = text
 		self.color = color
+
+		if showTips then
+			self.title = "Tips"
+		end
 
 		self:SetScript("OnEnter", tooltipOnEnter)
 		self:SetScript("OnLeave", K.HideTooltip)

@@ -68,15 +68,15 @@ function Module:CreateTargetOfTarget()
 
 	if targetOfTargetPortraitStyle == "NoPortraits" or targetOfTargetPortraitStyle == "OverlayPortrait" then
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(Name, "[name] [fulllevel][afkdnd]")
+			self:Tag(Name, "[name] [fulllevel]")
 		else
-			self:Tag(Name, "[color][name] [fulllevel][afkdnd]")
+			self:Tag(Name, "[color][name] [fulllevel]")
 		end
 	else
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(Name, "[name][afkdnd]")
+			self:Tag(Name, "[name]")
 		else
-			self:Tag(Name, "[color][name][afkdnd]")
+			self:Tag(Name, "[color][name]")
 		end
 	end
 	Name:SetShown(not C["Unitframe"].HideTargetOfTargetName)

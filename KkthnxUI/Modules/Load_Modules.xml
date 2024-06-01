@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-   <Frame name="KKUI_MapsGlobalPinTemplate" inherits="BaseHighlightableMapPoiPinTemplate" enableMouseClicks="true" enableMouseMotion="true" mixin="KKUI_MapsGlobalPinTemplateMixin" virtual="true" />
    <!-- DataText -->
    <Script file="DataText\Core.lua" />
    <Script file="DataText\Elements\Coords.lua" />
@@ -61,7 +60,6 @@
    <Script file="Maps\MiniMap.lua" />
    <Script file="Maps\WorldMap.lua" />
    <Script file="Maps\Elements\CollectButtons.lua" />
-   <Script file="Maps\Elements\MapPins.lua" />
    <Script file="Maps\Elements\MapReveal.lua" />
    <Script file="Maps\Elements\WowHeadLink.lua" />
    <!-- Unitframes Plugins -->

@@ -1,7 +1,7 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("Announcements")
 
--- Use local functions directly instead of assigning them to variables
+-- Cache frequently used API functions locally for performance
 local C_Map_GetBestMapForUnit = C_Map.GetBestMapForUnit
 local C_Texture_GetAtlasInfo = C_Texture.GetAtlasInfo
 local C_VignetteInfo_GetVignetteInfo = C_VignetteInfo.GetVignetteInfo
@@ -10,18 +10,18 @@ local GetInstanceInfo = GetInstanceInfo
 local UIErrorsFrame = UIErrorsFrame
 local date = date
 
+-- Cache for rare alerts
 local RareAlertCache = {}
-local isIgnoredZone = {
-	[1153] = true, -- Horde Fortress
-	[1159] = true, -- Alliance fortress
-	[1803] = true, -- Yongquan Beach
-	[1876] = true, -- Tribal torrent
-	[1943] = true, -- Alliance Rapids
-	[2111] = true, -- Black coast front
+local ignoredZones = {
+	[1153] = true, -- Horde Garrison
+	[1159] = true, -- Alliance Garrison
+	[1803] = true, -- Ashran
+	[1876] = true, -- Horde Seething Shore
+	[1943] = true, -- Alliance Seething Shore
+	[2111] = true, -- Darkshore Warfront
 }
-
-local isIgnoredIDs = { -- todo: add option for this
-	[5485] = true,
+local ignoredVignetteIDs = {
+	[5485] = true, -- Walrus Tool Box
 }
 
 -- Function to check if the vignette atlas is useful
@@ -32,75 +32,57 @@ end
 
 -- Function to handle rare alerts
 function Module:RareAlert_Update(id)
-	-- Check if the ID exists or is already in the cache
-	if not id or RareAlertCache[id] then
-		return
-	end
-
-	local info = C_VignetteInfo_GetVignetteInfo(id)
-	-- Check if the info exists, the atlas is useful, and the ID is not ignored
-	if not info or not isUsefulAtlas(info) or isIgnoredIDs[id] then
-		return
-	end
-
-	-- Get additional info about the vignette
-	local vignetteName = info.name
-	local atlasInfo = C_Texture_GetAtlasInfo(info.atlasName)
-	if not atlasInfo then
-		return
-	end
-
-	local tex = K.GetTextureStrByAtlas(atlasInfo)
-	if not tex then
-		return
-	end
-
-	-- Display alert message
-	UIErrorsFrame:AddMessage(K.SystemColor .. tex .. L["Rare Spotted"] .. K.InfoColor .. "[" .. (vignetteName or "") .. "]" .. K.SystemColor .. "!")
-
-	if C["Announcements"].AlertInChat then
-		local currentTime = C["Chat"].TimestampFormat.Value == 1 and K.GreyColor .. "[" .. date("%H:%M:%S") .. "]" or ""
-		local mapID = C_Map_GetBestMapForUnit("player")
-		local position = mapID and C_VignetteInfo_GetVignettePosition(info.vignetteGUID, mapID)
-		local nameString = ""
-		if position then
-			local x, y = position:GetXY()
-			nameString = string.format(Module.RareString, mapID, x * 10000, y * 10000, info.name, x * 100, y * 100, "")
+	if id and not RareAlertCache[id] then
+		local info = C_VignetteInfo_GetVignetteInfo(id)
+		if not info or not isUsefulAtlas(info) or ignoredVignetteIDs[info.vignetteID] then
+			return
 		end
-		K.Print(currentTime .. K.SystemColor .. tex .. L["Rare Spotted"] .. K.InfoColor .. (nameString or vignetteName or "") .. K.SystemColor .. "!")
+
+		local atlasInfo = C_Texture_GetAtlasInfo(info.atlasName)
+		if not atlasInfo then
+			return
+		end
+
+		local textureStr = K.GetTextureStrByAtlas(atlasInfo)
+		if not textureStr then
+			return
+		end
+
+		UIErrorsFrame:AddMessage(K.InfoColor .. L["Rare Spotted"] .. textureStr .. (info.name or ""))
+
+		if C["Announcements"].AlertInChat then
+			local currentTime = C["Chat"].TimestampFormat.Value == 1 and "|cff00ff00[" .. date("%H:%M:%S") .. "]|r" or ""
+			local nameString
+			local mapID = C_Map_GetBestMapForUnit("player")
+			local position = mapID and C_VignetteInfo_GetVignettePosition(info.vignetteGUID, mapID)
+			if position then
+				local x, y = position:GetXY()
+				nameString = string.format(Module.RareString, mapID, x * 10000, y * 10000, info.name, x * 100, y * 100, "")
+			end
+			print(currentTime .. " -> " .. textureStr .. K.InfoColor .. (nameString or info.name or ""))
+		end
+
+		if not C["Announcements"].AlertInWild or Module.RareInstType == "none" then
+			PlaySound(23404, "master")
+		end
+
+		RareAlertCache[id] = true
 	end
 
-	-- Play sound alert if enabled
-	if not C["Announcements"].AlertInWild or Module.RareInstType == "none" then
-		PlaySound(37881, "master")
-	end
-
-	RareAlertCache[id] = true
-
-	-- Limit the size of the cache
 	if #RareAlertCache > 666 then
-		table.wipe(RareAlertCache)
+		wipe(RareAlertCache)
 	end
 end
 
 -- Function to check the instance type for rare alerts
 function Module:RareAlert_CheckInstance()
-	local _, instanceType, _, _, maxPlayers, _, _, instID = GetInstanceInfo()
-	local shouldIgnore = (instID and isIgnoredZone[instID]) or (instanceType == "scenario" and (maxPlayers == 3 or maxPlayers == 6))
-
-	if shouldIgnore then
-		-- Unregister event if the instance should be ignored
-		if Module.RareInstType ~= "none" then
-			K:UnregisterEvent("VIGNETTE_MINIMAP_UPDATED", Module.RareAlert_Update)
-			Module.RareInstType = "none"
-		end
+	local _, instanceType, _, _, maxPlayers, _, _, instanceID = GetInstanceInfo()
+	if (instanceID and ignoredZones[instanceID]) or (instanceType == "scenario" and (maxPlayers == 3 or maxPlayers == 6)) then
+		K:UnregisterEvent("VIGNETTE_MINIMAP_UPDATED", Module.RareAlert_Update)
 	else
-		-- Register event if the instance should not be ignored
-		if Module.RareInstType ~= instanceType then
-			K:RegisterEvent("VIGNETTE_MINIMAP_UPDATED", Module.RareAlert_Update)
-			Module.RareInstType = instanceType
-		end
+		K:RegisterEvent("VIGNETTE_MINIMAP_UPDATED", Module.RareAlert_Update)
 	end
+	Module.RareInstType = instanceType
 end
 
 -- Function to create rare announcements

@@ -1125,10 +1125,22 @@ function Module:OnEnable()
 		self.usableTexture:SetVertexColor(1, 0, 0)
 		self.usableTexture:SetBlendMode("MOD")
 
-		if showNewItem then
-			self.glowFrame = CreateFrame("Frame", nil, self)
-			self.glowFrame:SetPoint("CENTER")
-			self.glowFrame:SetSize(iconSize + 8, iconSize + 8)
+		if showNewItem and not self.glowFrame then
+			self.glowFrame = CreateFrame("Frame", nil, self, "BackdropTemplate")
+			self.glowFrame:SetFrameLevel(self:GetFrameLevel() + 2)
+			self.glowFrame:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 16 })
+			self.glowFrame:SetBackdropBorderColor(1, 223 / 255, 0, 1)
+			self.glowFrame:SetPoint("TOPLEFT", self, -6, 6)
+			self.glowFrame:SetPoint("BOTTOMRIGHT", self, 6, -6)
+
+			self.glowFrame.Animation = self.glowFrame.Animation or self.glowFrame:CreateAnimationGroup()
+			self.glowFrame.Animation:SetLooping("BOUNCE")
+
+			self.glowFrame.Animation.FadeOut = self.glowFrame.Animation.FadeOut or self.glowFrame.Animation:CreateAnimation("Alpha")
+			self.glowFrame.Animation.FadeOut:SetFromAlpha(1)
+			self.glowFrame.Animation.FadeOut:SetToAlpha(0.1)
+			self.glowFrame.Animation.FadeOut:SetDuration(0.6)
+			self.glowFrame.Animation.FadeOut:SetSmoothing("IN_OUT")
 		end
 
 		self:HookScript("OnClick", Module.ButtonOnClick)
@@ -1146,25 +1158,31 @@ function Module:OnEnable()
 	end
 
 	function MyButton:ItemOnEnter()
-		if self.glowFrame then
-			K.HideOverlayGlow(self.glowFrame)
-			C_NewItems_RemoveNewItem(self.bagId, self.slotId)
+		if self.glowFrame and self.glowFrame.Animation then
+			local isNewItem = C_NewItems.IsNewItem(self.bagId, self.slotId)
+			local isAnimationPlaying = self.glowFrame.Animation:IsPlaying()
+
+			if not isNewItem and isAnimationPlaying then
+				self.glowFrame.Animation:Stop()
+				self.glowFrame:Hide()
+				C_NewItems_RemoveNewItem(self.bagId, self.slotId)
+			end
 		end
 	end
 
 	local bagTypeColor = {
-		[0] = { 1, 1, 1, 0.3 }, -- 容器
-		[1] = false, -- 灵魂袋
-		[2] = { 0, 0.5, 0, 0.25 }, -- 草药袋
-		[3] = { 0.8, 0, 0.8, 0.25 }, -- 附魔袋
-		[4] = { 1, 0.8, 0, 0.25 }, -- 工程袋
-		[5] = { 0, 0.8, 0.8, 0.25 }, -- 宝石袋
-		[6] = { 0.5, 0.4, 0, 0.25 }, -- 矿石袋
-		[7] = { 0.8, 0.5, 0.5, 0.25 }, -- 制皮包
-		[8] = { 0.8, 0.8, 0.8, 0.25 }, -- 铭文包
-		[9] = { 0.4, 0.6, 1, 0.25 }, -- 工具箱
-		[10] = { 0.8, 0, 0, 0.25 }, -- 烹饪包
-		[11] = { 0.2, 0.8, 0.2, 0.25 }, -- 材料包
+		[0] = { 1, 1, 1, 0.3 }, -- Container
+		[1] = false, -- Soul Bag
+		[2] = { 0, 0.5, 0, 0.25 }, -- Herb Bag
+		[3] = { 0.8, 0, 0.8, 0.25 }, -- Enchanting Bag
+		[4] = { 1, 0.8, 0, 0.25 }, -- Engineering Bag
+		[5] = { 0, 0.8, 0.8, 0.25 }, -- Gem Bag
+		[6] = { 0.5, 0.4, 0, 0.25 }, -- Mining Bag
+		[7] = { 0.8, 0.5, 0.5, 0.25 }, -- Leatherworking Bag
+		[8] = { 0.8, 0.8, 0.8, 0.25 }, -- Inscription Bag
+		[9] = { 0.4, 0.6, 1, 0.25 }, -- Toolbox
+		[10] = { 0.8, 0, 0, 0.25 }, -- Cooking Bag
+		[11] = { 0.2, 0.8, 0.2, 0.25 }, -- Material Bag
 	}
 
 	local function isItemNeedsLevel(item)
@@ -1289,16 +1307,19 @@ function Module:OnEnable()
 
 		if self.glowFrame then
 			if C_NewItems_IsNewItem(item.bagId, item.slotId) then
-				local color = K.QualityColors[item.quality]
+				local color = K.QualityColors[item.quality] or {}
 				if item.questID or item.isQuestItem then
-					K.ShowOverlayGlow(self.glowFrame, C["General"].GlowMode.Value == 4 and { color = { 1, 0.82, 0.2, 1 } } or { 1, 0.82, 0.2, 1 })
-				elseif color and item.quality and item.quality > -1 then
-					K.ShowOverlayGlow(self.glowFrame, C["General"].GlowMode.Value == 4 and { color = { color.r, color.g, color.b, 1 } } or { color.r, color.g, color.b, 1 })
+					self.glowFrame:SetBackdropBorderColor(1, 0.82, 0.2, 1)
+				elseif color.r and color.g and color.b then
+					self.glowFrame:SetBackdropBorderColor(color.r, color.g, color.b, 1)
 				else
-					K.ShowOverlayGlow(self.glowFrame)
+					self.glowFrame:SetBackdropBorderColor(1, 223 / 255, 0, 1)
 				end
+				self.glowFrame:Show()
+				self.glowFrame.Animation:Play()
 			else
-				K.HideOverlayGlow(self.glowFrame)
+				self.glowFrame:Hide()
+				self.glowFrame.Animation:Stop()
 			end
 		end
 

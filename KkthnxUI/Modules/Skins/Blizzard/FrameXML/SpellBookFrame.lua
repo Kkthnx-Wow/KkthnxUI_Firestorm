@@ -30,6 +30,95 @@ local function HandleSkillButton(button)
 	end
 end
 
+local function ReskinSpellButton(spellButton)
+	if not spellButton then
+		return
+	end
+
+	local iconTexture = _G[spellButton:GetName() .. "IconTexture"]
+	local slotFrame = _G[spellButton:GetName() .. "SlotFrame"]
+	local bu = spellButton
+
+	slotFrame:SetAlpha(0)
+	bu.EmptySlot:SetAlpha(0)
+	bu.UnlearnedFrame:SetAlpha(0)
+	bu.SpellHighlightTexture:SetAlpha(0)
+	bu:SetCheckedTexture(0)
+	bu:SetPushedTexture(0)
+	bu:SetHighlightTexture(0)
+
+	iconTexture:SetTexCoord(unpack(K.TexCoords))
+
+	if not bu.bg then
+		bu.bg = CreateFrame("Frame", nil, bu)
+		bu.bg:SetFrameLevel(bu:GetFrameLevel())
+		bu.bg:SetAllPoints(iconTexture)
+		bu.bg:CreateBorder(nil, nil, nil, nil, nil, nil, K.MediaFolder .. "Skins\\UI-Spellbook-SpellBackground", nil, nil, nil, { 1, 1, 1 })
+		bu.bg = true
+	end
+
+	bu.NewSpellHighlightTexture = CreateFrame("Frame", nil, bu, "BackdropTemplate")
+	bu.NewSpellHighlightTexture:SetFrameLevel(bu:GetFrameLevel() + 2)
+	bu.NewSpellHighlightTexture:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 16 })
+	bu.NewSpellHighlightTexture:SetPoint("TOPLEFT", bu, -7, 7)
+	bu.NewSpellHighlightTexture:SetPoint("BOTTOMRIGHT", bu, 7, -7)
+	bu.NewSpellHighlightTexture:SetBackdropBorderColor(1, 223 / 255, 0)
+	bu.NewSpellHighlightTexture:Hide()
+
+	hooksecurefunc(bu.SpellHighlightTexture, "SetShown", function(_, value)
+		if value and not bu.NewSpellHighlightTexture:IsShown() then
+			bu.NewSpellHighlightTexture:Show()
+		end
+	end)
+
+	hooksecurefunc(bu.SpellHighlightTexture, "Hide", function()
+		if bu.NewSpellHighlightTexture:IsShown() then
+			bu.NewSpellHighlightTexture:Hide()
+		end
+	end)
+end
+
+local function ReskinProfessionButton(professionButton)
+	local statusBar = professionButton.statusBar
+	statusBar:StripTextures()
+	statusBar:SetHeight(16)
+	statusBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+	statusBar:GetStatusBarTexture():SetGradient("VERTICAL", CreateColor(0, 0.6, 0, 1), CreateColor(0, 0.8, 0, 1))
+	statusBar.rankText:SetPoint("CENTER")
+	statusBar:CreateBorder()
+
+	if professionButton.SpellButton1 then
+		HandleSkillButton(professionButton.SpellButton1)
+	end
+	if professionButton.SpellButton2 then
+		HandleSkillButton(professionButton.SpellButton2)
+	end
+end
+
+local function ReskinProfessionIcons(professionIndex)
+	local professionButton = _G["PrimaryProfession" .. professionIndex]
+	local iconBorder = _G["PrimaryProfession" .. professionIndex .. "IconBorder"]
+	local professionIcon = professionButton.icon
+
+	iconBorder:Hide()
+	professionButton.professionName:ClearAllPoints()
+	professionButton.professionName:SetPoint("TOPLEFT", 100, -4)
+	professionIcon:SetAlpha(1)
+	professionIcon:SetDesaturated(false)
+	professionIcon:SetTexCoord(unpack(K.TexCoords))
+
+	local bg = CreateFrame("Frame", nil, professionButton)
+	bg:SetAllPoints(professionIcon)
+	bg:SetFrameLevel(professionButton:GetFrameLevel())
+	bg:CreateBorder()
+end
+
+local function HideTutorialButtons()
+	if C["General"].NoTutorialButtons then
+		_G.SpellBookFrameTutorialButton:Hide()
+	end
+end
+
 table_insert(C.defaultThemes, function()
 	if not C["Skins"].BlizzardFrames then
 		return
@@ -38,81 +127,15 @@ table_insert(C.defaultThemes, function()
 	local professionTexture = K.GetTexture(C["General"].Texture)
 
 	for i = 1, SPELLS_PER_PAGE do
-		local bu = _G["SpellButton" .. i]
-		local ic = _G["SpellButton" .. i .. "IconTexture"]
-
-		local slotFrame = _G["SpellButton" .. i .. "SlotFrame"]
-		slotFrame:SetAlpha(0)
-		bu.EmptySlot:SetAlpha(0)
-		bu.UnlearnedFrame:SetAlpha(0)
-		bu.SpellHighlightTexture:SetAlpha(0)
-		bu:SetCheckedTexture(0)
-		bu:SetPushedTexture(0)
-		bu:SetHighlightTexture(0)
-
-		ic:SetTexCoord(unpack(K.TexCoords))
-
-		if not bu.bg then
-			bu.bg = CreateFrame("Frame", nil, bu)
-			bu.bg:SetFrameLevel(bu:GetFrameLevel())
-			bu.bg:SetAllPoints(ic)
-			bu.bg:CreateBorder(nil, nil, nil, nil, nil, nil, K.MediaFolder .. "Skins\\UI-Spellbook-SpellBackground", nil, nil, nil, { 1, 1, 1 })
-			bu.bg = true
-		end
-
-		bu.NewSpellHighlightTexture = CreateFrame("Frame", nil, bu, "BackdropTemplate")
-		bu.NewSpellHighlightTexture:SetFrameLevel(bu:GetFrameLevel() + 2)
-		bu.NewSpellHighlightTexture:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 16 })
-		bu.NewSpellHighlightTexture:SetPoint("TOPLEFT", bu, -7, 7)
-		bu.NewSpellHighlightTexture:SetPoint("BOTTOMRIGHT", bu, 7, -7)
-		bu.NewSpellHighlightTexture:SetBackdropBorderColor(1, 223 / 255, 0)
-		bu.NewSpellHighlightTexture:Hide()
-
-		hooksecurefunc(bu.SpellHighlightTexture, "SetShown", function(_, value)
-			if value and not bu.NewSpellHighlightTexture:IsShown() then
-				bu.NewSpellHighlightTexture:Show()
-			end
-		end)
-
-		hooksecurefunc(bu.SpellHighlightTexture, "Hide", function()
-			if bu.NewSpellHighlightTexture:IsShown() then
-				bu.NewSpellHighlightTexture:Hide()
-			end
-		end)
+		ReskinSpellButton(_G["SpellButton" .. i])
 	end
 
 	local professions = { "PrimaryProfession1", "PrimaryProfession2", "SecondaryProfession1", "SecondaryProfession2", "SecondaryProfession3" }
-	for i, button in pairs(professions) do
-		local bu = _G[button]
-		local sb = bu.statusBar
-		sb:StripTextures()
-		sb:SetHeight(16)
-		sb:SetStatusBarTexture(professionTexture)
-		sb:GetStatusBarTexture():SetGradient("VERTICAL", CreateColor(0, 0.6, 0, 1), CreateColor(0, 0.8, 0, 1))
-		sb.rankText:SetPoint("CENTER")
-		sb:CreateBorder()
-		if i > 2 then
-			sb:ClearAllPoints()
-			sb:SetPoint("BOTTOMLEFT", 16, 3)
+	for i, profession in pairs(professions) do
+		ReskinProfessionButton(_G[profession])
+		if i <= 2 then
+			ReskinProfessionIcons(i)
 		end
-
-		HandleSkillButton(bu.SpellButton1)
-		HandleSkillButton(bu.SpellButton2)
-	end
-
-	for i = 1, 2 do
-		local bu = _G["PrimaryProfession" .. i]
-		_G["PrimaryProfession" .. i .. "IconBorder"]:Hide()
-		bu.professionName:ClearAllPoints()
-		bu.professionName:SetPoint("TOPLEFT", 100, -4)
-		bu.icon:SetAlpha(1)
-		bu.icon:SetDesaturated(false)
-		bu.icon:SetTexCoord(unpack(K.TexCoords))
-
-		local bg = CreateFrame("Frame", nil, bu)
-		bg:SetAllPoints(bu.icon)
-		bg:SetFrameLevel(bu:GetFrameLevel())
-		bg:CreateBorder()
 	end
 
 	hooksecurefunc("FormatProfession", function(frame, index)
@@ -128,7 +151,5 @@ table_insert(C.defaultThemes, function()
 		end
 	end)
 
-	if C["General"].NoTutorialButtons then
-		_G.SpellBookFrameTutorialButton:Hide()
-	end
+	HideTutorialButtons()
 end)

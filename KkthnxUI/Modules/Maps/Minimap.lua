@@ -564,7 +564,7 @@ function Module:ShowCalendar()
 			GameTimeFrame:SetSize(22, 22)
 
 			calendarText:ClearAllPoints()
-			calendarText:SetPoint("CENTER", 0, -5)
+			calendarText:SetPoint("CENTER", 0, -4)
 			calendarText:SetFontObject(K.UIFont)
 			calendarText:SetFont(select(1, calendarText:GetFont()), 12, select(3, calendarText:GetFont()))
 			calendarText:SetTextColor(0, 0, 0)

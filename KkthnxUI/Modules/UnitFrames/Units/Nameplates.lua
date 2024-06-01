@@ -1043,31 +1043,17 @@ function Module:UpdateNameplateAuras()
 end
 
 function Module:UpdateNameplateSize()
-	-- local plateHeight = C["Nameplate"].PlateHeight
-	-- local nameTextSize = C["Nameplate"].NameTextSize
-	-- local iconSize = plateHeight * 2 + 3
-
-	-- self:SetSize(C["Nameplate"].PlateWidth, plateHeight)
-
-	--self.nameText:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
 	if self.plateType == "NameOnly" then
 		self:Tag(self.nameText, "[nprare][color][name] [nplevel]")
 		self.npcTitle:UpdateTag()
 	else
+		self.nameText:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
+		self.nameText:SetPoint("BOTTOMRIGHT", self.levelText, "TOPRIGHT", -21, 4)
 		self:Tag(self.nameText, "[nprare][name]")
+
+		self:Tag(self.healthValue, "[nphp]")
+		self.healthValue:UpdateTag()
 	end
-
-	-- self.npcTitle:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize - 1, "")
-	-- self.tarName:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize + 4, "")
-
-	-- self.Castbar.Icon:SetSize(iconSize, iconSize)
-	-- self.Castbar:SetHeight(plateHeight)
-	-- self.Castbar.Time:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
-	-- self.Castbar.Text:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
-	-- self.Castbar.spellTarget:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize + 3, "")
-
-	-- self.healthValue:SetFont(select(1, KkthnxUIFont:GetFont()), C["Nameplate"].HealthTextSize, "")
-	-- self.healthValue:UpdateTag()
 
 	self.nameText:UpdateTag()
 end
@@ -1107,8 +1093,6 @@ function Module:UpdatePlateByType()
 
 	name:SetShown(not self.widgetsOnly)
 	name:ClearAllPoints()
-	-- self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
-	-- self.npcTitle:UpdateTag()
 	raidtarget:ClearAllPoints()
 
 	if self.plateType == "NameOnly" then
@@ -1146,7 +1130,6 @@ function Module:UpdatePlateByType()
 		name:SetJustifyH("LEFT")
 		name:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
 		name:SetPoint("BOTTOMRIGHT", level, "TOPRIGHT", -21, 4)
-		-- self:Tag(self.nameText, "[name]")
 
 		level:Show()
 		hpval:Show()

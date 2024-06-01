@@ -85,15 +85,15 @@ function Module:CreateFocus()
 
 	if focusPortraitStyle == "NoPortraits" then
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name] [fulllevel][afkdnd]")
+			self:Tag(self.Name, "[name] [fulllevel]")
 		else
-			self:Tag(self.Name, "[color][name] [fulllevel][afkdnd]")
+			self:Tag(self.Name, "[color][name] [fulllevel]")
 		end
 	else
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name][afkdnd]")
+			self:Tag(self.Name, "[name]")
 		else
-			self:Tag(self.Name, "[color][name][afkdnd]")
+			self:Tag(self.Name, "[color][name]")
 		end
 	end
 

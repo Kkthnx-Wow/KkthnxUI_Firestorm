@@ -98,13 +98,13 @@ end
 function Module:InsertFactionFrame(faction)
 	if not self.factionFrame then
 		local f = self:CreateTexture(nil, "OVERLAY")
-		f:SetPoint("TOPRIGHT", 6, -6)
+		f:SetPoint("TOPRIGHT", -10, -10)
 		f:SetBlendMode("ADD")
-		f:SetScale(0.2)
-		f:SetAlpha(0.7)
+		-- f:SetScale(0.9)
+		-- f:SetAlpha(0.7)
 		self.factionFrame = f
 	end
-	self.factionFrame:SetTexture("Interface\\Timer\\" .. faction .. "-Logo")
+	self.factionFrame:SetAtlas("MountJournalIcons-" .. faction, true) --  charcreatetest-logo-horde
 	self.factionFrame:Show()
 end
 

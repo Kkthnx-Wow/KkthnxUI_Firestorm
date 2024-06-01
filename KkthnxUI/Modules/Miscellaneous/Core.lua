@@ -315,67 +315,30 @@ function Module:CreateMinimapButtonToggle()
 	Module:ToggleMinimapIcon()
 end
 
-local function MainMenu_OnShow(self)
-	local buttonToReanchor
-	local buttonHeight = 0
-
-	local isCharacterNewlyBoosted = IsCharacterNewlyBoosted()
-	local canViewSplashScreen = C_SplashScreen.CanViewSplashScreen()
-
-	local function reanchorButtons(offset)
-		local anchorButton = GameMenuButtonWhatsNew:IsShown() and GameMenuButtonWhatsNew or GameMenuButtonHelp
-		local additionalOffset = 28
-
-		if isCharacterNewlyBoosted or not canViewSplashScreen then
-			anchorButton = GameMenuButtonStore:IsShown() and GameMenuButtonStore or GameMenuButtonHelp
-			additionalOffset = 28
-		end
-
-		buttonToReanchor = anchorButton
-		buttonHeight = additionalOffset + offset
-	end
-
-	local function setButtonPosition(button, relativeTo, yOffset)
-		if button and button:IsShown() then
-			button:SetPoint("TOP", relativeTo, "BOTTOM", 0, yOffset)
-		end
-	end
-
-	reanchorButtons(Module.GameMenuButton:GetHeight())
-
-	self:SetHeight(self:GetHeight() + buttonHeight)
-
-	setButtonPosition(GameMenuButtonLogout, Module.GameMenuButton, -14)
-	setButtonPosition(GameMenuButtonStore, GameMenuButtonHelp, -6)
-	setButtonPosition(GameMenuButtonWhatsNew, buttonToReanchor, -6)
-	setButtonPosition(GameMenuButtonEditMode, buttonToReanchor, -24)
-	setButtonPosition(GameMenuButtonSettings, GameMenuButtonEditMode, -6)
-	setButtonPosition(GameMenuButtonMacros, GameMenuButtonSettings, -6)
-	setButtonPosition(GameMenuButtonAddons, GameMenuButtonMacros, -6)
-	setButtonPosition(GameMenuButtonQuit, GameMenuButtonLogout, -6)
-end
-
-local function Button_OnClick()
-	if InCombatLockdown() then
-		UIErrorsFrame:AddMessage(K.InfoColor .. ERR_NOT_IN_COMBAT)
-		return
-	end
-
-	K["GUI"]:Toggle()
-	HideUIPanel(_G.GameMenuFrame)
-	PlaySound(_G.SOUNDKIT.IG_MAINMENU_OPTION)
-end
-
 function Module:CreateGUIGameMenuButton()
 	local gameMenuButton = CreateFrame("Button", "KKUI_GameMenuButton", _G.GameMenuFrame, "GameMenuButtonTemplate")
 	gameMenuButton:SetText(K.Title)
 	gameMenuButton:SetPoint("TOP", _G.GameMenuButtonAddons, "BOTTOM", 0, -12)
-	gameMenuButton:SetScript("OnClick", Button_OnClick)
-	gameMenuButton:SkinButton(true)
 
-	Module.GameMenuButton = gameMenuButton
+	GameMenuFrame:HookScript("OnShow", function(self)
+		GameMenuButtonLogout:SetPoint("TOP", gameMenuButton, "BOTTOM", 0, -12)
+		self:SetHeight(self:GetHeight() + gameMenuButton:GetHeight() + 6)
+	end)
 
-	_G.GameMenuFrame:HookScript("OnShow", MainMenu_OnShow)
+	gameMenuButton:SetScript("OnClick", function()
+		if InCombatLockdown() then
+			UIErrorsFrame:AddMessage(K.InfoColor .. ERR_NOT_IN_COMBAT)
+			return
+		end
+		if InCombatLockdown() then
+			UIErrorsFrame:AddMessage(K.InfoColor .. ERR_NOT_IN_COMBAT)
+			return
+		end
+
+		K["GUI"]:Toggle()
+		HideUIPanel(_G.GameMenuFrame)
+		PlaySound(_G.SOUNDKIT.IG_MAINMENU_OPTION)
+	end)
 end
 
 function Module:CreateQuestXPPercent()
