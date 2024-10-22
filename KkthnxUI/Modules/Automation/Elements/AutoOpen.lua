@@ -9,66 +9,76 @@ local C_Container_GetContainerNumSlots = C_Container.GetContainerNumSlots
 local C_Container_UseContainerItem = C_Container.UseContainerItem
 local OPENING = OPENING
 
-local openFrames = {} -- table to store which frames are open
+local openFrames = {} -- Table to store the state of open frames
+local lastAttemptTime = 0 -- Last time an item open attempt was made
+local cooldown = 1 -- Cooldown in seconds between attempts
 
 local function BankOpened()
-	openFrames.bank = true -- set the bank frame as open
+	openFrames.bank = true
 end
-
 local function BankClosed()
-	openFrames.bank = false -- set the bank frame as closed
+	openFrames.bank = false
 end
-
 local function GuildBankOpened()
-	openFrames.guildBank = true -- set the guild bank frame as open
+	openFrames.guildBank = true
 end
-
 local function GuildBankClosed()
-	openFrames.guildBank = false -- set the guild bank frame as closed
+	openFrames.guildBank = false
 end
-
 local function MailOpened()
-	openFrames.mail = true -- set the mail frame as open
+	openFrames.mail = true
 end
-
 local function MailClosed()
-	openFrames.mail = false -- set the mail frame as closed
+	openFrames.mail = false
 end
-
 local function MerchantOpened()
-	openFrames.merchant = true -- set the merchant frame as open
+	openFrames.merchant = true
+end
+local function MerchantClosed()
+	openFrames.merchant = false
 end
 
-local function MerchantClosed()
-	openFrames.merchant = false -- set the merchant frame as closed
+local function ShouldDelay()
+	-- Check if the bank, mail, or merchant frames are open
+	if openFrames.bank or openFrames.mail or openFrames.merchant then
+		return true
+	end
+	return false
 end
 
 local function BagDelayedUpdate()
-	-- check if the bank, mail, or merchant frames are open
-	if openFrames.bank or openFrames.mail or openFrames.merchant then
+	local now = GetTime()
+
+	-- Throttle to prevent spamming attempts
+	if now - lastAttemptTime < cooldown then
+		return
+	end
+	lastAttemptTime = now
+
+	-- Delay opening if in combat or relevant frames are open
+	if ShouldDelay() then
 		return
 	end
 
-	-- check if the player is in combat lockdown
 	if InCombatLockdown() then
-		-- register the "PLAYER_REGEN_ENABLED" event to update the bag contents after combat
+		-- Register to try again after combat ends
 		K:RegisterEvent("PLAYER_REGEN_ENABLED", BagDelayedUpdate)
-	else
-		-- loop through all the bags
-		for bag = 0, 4 do
-			-- loop through all the slots in the bag
-			for slot = 0, C_Container_GetContainerNumSlots(bag) do
-				-- get the container item information
-				local cInfo = C_Container_GetContainerItemInfo(bag, slot)
+		K.Print("Waiting until combat ends to open items...")
+		return
+	end
 
-				-- check if the item has loot, is not locked and has an itemID
-				if cInfo and cInfo.hasLoot and not cInfo.isLocked and cInfo.itemID then
-					-- check if the item is in the list of items to automatically open
-					if C.AutoOpenItems[cInfo.itemID] then
-						K.Print(K.SystemColor .. OPENING .. ":|r " .. C_Container_GetContainerItemLink(bag, slot))
-						C_Container_UseContainerItem(bag, slot)
-						break
-					end
+	-- Loop through all the bags
+	for bag = 0, 4 do
+		for slot = 0, C_Container_GetContainerNumSlots(bag) do
+			local cInfo = C_Container_GetContainerItemInfo(bag, slot)
+
+			-- Check if the item has loot, is not locked, and has an itemID
+			if cInfo and cInfo.hasLoot and not cInfo.isLocked and cInfo.itemID then
+				-- Check if the item is in the auto-open list
+				if C.AutoOpenItems[cInfo.itemID] then
+					K.Print(K.SystemColor .. OPENING .. ":|r " .. C_Container_GetContainerItemLink(bag, slot))
+					C_Container_UseContainerItem(bag, slot)
+					return -- Stop after opening one item to avoid spamming
 				end
 			end
 		end
@@ -91,10 +101,6 @@ function Module:CreateAutoOpenItems()
 	if C["Automation"].AutoOpenItems then
 		for event, func in pairs(events) do
 			K:RegisterEvent(event, func)
-		end
-	else
-		for event, func in pairs(events) do
-			K:UnregisterEvent(event, func)
 		end
 	end
 end

@@ -33,12 +33,6 @@ local petTrashCurrenies = {
 	[190382] = true, -- Warped Pocket Dimension
 }
 
-local iLvlClassIDs = {
-	[Enum.ItemClass.Gem] = Enum.ItemGemSubclass.Artifactrelic,
-	[Enum.ItemClass.Armor] = 0,
-	[Enum.ItemClass.Weapon] = 0,
-}
-
 local collectionIDs = {
 	[Enum.ItemMiscellaneousSubclass.Mount] = Enum.ItemClass.Miscellaneous,
 	[Enum.ItemMiscellaneousSubclass.CompanionPet] = Enum.ItemClass.Miscellaneous,
@@ -122,21 +116,24 @@ local function isAzeriteArmor(item)
 	return C_AzeriteEmpoweredItem_IsAzeriteEmpoweredItemByID(item.link)
 end
 
-function Module:IsItemHasLevel(item)
-	local index = iLvlClassIDs[item.classID]
-	return index and (index == 0 or index == item.subClassID)
+local function isItemEquipment(item)
+	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterEquipment or not item.link or item.quality <= Enum.ItemQuality.Common then
+		return
+	end
+
+	return item.link and item.quality > Enum.ItemQuality.Common and item.ilvl
 end
 
-local function isItemEquipment(item)
+local function isItemLowerLevel(item)
 	if not C["Inventory"].ItemFilter then
 		return
 	end
 
-	if not C["Inventory"].FilterEquipment then
+	if not C["Inventory"].FilterLower then
 		return
 	end
 
-	return item.link and item.quality > Enum.ItemQuality.Common and Module:IsItemHasLevel(item)
+	return item.link and item.quality > Enum.ItemQuality.Common and item.ilvl and item.ilvl < C["Inventory"].iLvlToShow
 end
 
 local function isItemConsumable(item)
@@ -316,6 +313,10 @@ function Module:GetFilters()
 		return isItemInBag(item) and isPrimordialStone(item)
 	end
 
+	filters.bagLower = function(item)
+		return isItemInBag(item) and isItemLowerLevel(item)
+	end
+
 	filters.onlyBank = function(item)
 		return isItemInBank(item) and not isEmptySlot(item)
 	end
@@ -338,6 +339,10 @@ function Module:GetFilters()
 
 	filters.bankConsumable = function(item)
 		return isItemInBank(item) and isItemConsumable(item)
+	end
+
+	filters.bankLower = function(item)
+		return isItemInBank(item) and isItemLowerLevel(item)
 	end
 
 	filters.onlyReagent = function(item)

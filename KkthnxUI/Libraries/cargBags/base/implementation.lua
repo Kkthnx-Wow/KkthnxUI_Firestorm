@@ -322,6 +322,17 @@ local defaultItem = cargBags:NewItemTable()
 	@param i <table> [optional]
 	@return i <table>
 ]]
+
+local iLvlClassIDs = {
+	[Enum.ItemClass.Gem] = Enum.ItemGemSubclass.Artifactrelic,
+	[Enum.ItemClass.Armor] = 0,
+	[Enum.ItemClass.Weapon] = 0,
+}
+local function isItemHasLevel(item)
+	local index = iLvlClassIDs[item.classID]
+	return index and (index == 0 or index == item.subClassID)
+end
+
 function Implementation:GetCustomItemInfo(bagID, slotID, i)
 	i = i or defaultItem
 	for k in pairs(i) do
@@ -345,6 +356,10 @@ function Implementation:GetCustomItemInfo(bagID, slotID, i)
 		i.spellID = GetItemSpell(i.link)
 		i.name, _, _, _, i.minlevel, i.type, i.subType, _, i.equipLoc, _, _, i.classID, i.subClassID, i.bindType = GetItemInfo(i.link)
 		i.equipLoc = _G[i.equipLoc] -- INVTYPE to localized string
+
+		if isItemHasLevel(i) then
+			i.ilvl = KkthnxUI and KkthnxUI[1].GetItemLevel(i.link, i.bagId ~= -1 and i.bagId, i.slotId)
+		end
 
 		if i.id == PET_CAGE then
 			local petID, petLevel, petName = strmatch(i.link, "|H%w+:(%d+):(%d+):.-|h%[(.-)%]|h")

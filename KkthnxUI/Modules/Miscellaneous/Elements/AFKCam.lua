@@ -4,7 +4,6 @@ local Module = K:GetModule("Miscellaneous")
 -- Modified by KkthnxUI (Kkthnx) from ElvUI (Elv)
 
 local C_PetBattles_IsInBattle = C_PetBattles.IsInBattle
-local C_Timer_After = C_Timer.After
 local C_Timer_NewTicker = C_Timer.NewTicker
 local C_Timer_NewTimer = C_Timer.NewTimer
 local math_floor = math.floor
@@ -342,7 +341,7 @@ local function AFKMode_OnEvent(self, event, ...)
 
 	if UnitCastingInfo("player") ~= nil then
 		-- Don"t activate afk if player is crafting stuff, check back in 30 seconds
-		C_Timer_After(30, function()
+		K.Delay(30, function()
 			AFKMode_OnEvent(self)
 		end)
 		return
@@ -364,7 +363,7 @@ local function OnKeyDown(self, key)
 		Screenshot()
 	else
 		SetAFK(self, false)
-		C_Timer_After(60, function()
+		K.Delay(60, function()
 			AFKMode_OnEvent(self)
 		end)
 	end

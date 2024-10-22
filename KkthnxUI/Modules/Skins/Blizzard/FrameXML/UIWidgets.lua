@@ -45,8 +45,8 @@ local function ReskinWidgetStatusBar(bar)
 			bar.BorderGlow:SetAlpha(0)
 		end
 		if bar.Label then
-			bar.Label:SetPoint("CENTER", 0, -5)
-			bar.Label:SetFontObject(K.UIFont)
+			-- bar.Label:SetPoint("CENTER", 0, -5)
+			-- bar.Label:SetFontObject(K.UIFont)
 			ResetLabelColor(bar.Label)
 			hooksecurefunc(bar.Label, "SetTextColor", ResetLabelColor)
 		end
@@ -196,9 +196,9 @@ tinsert(C.defaultThemes, function()
 	end)
 
 	-- if font outline enabled in tooltip, fix text shows in two lines on Torghast info
-	hooksecurefunc(_G.UIWidgetTemplateTextWithStateMixin, "Setup", function(self)
-		self.Text:SetWidth(self.Text:GetStringWidth() + 2)
-	end)
+	-- hooksecurefunc(_G.UIWidgetTemplateTextWithStateMixin, "Setup", function(self)
+	-- 	self.Text:SetWidth(self.Text:GetStringWidth() + 2)
+	-- end)
 
 	-- needs review, might remove this in the future
 	hooksecurefunc(_G.UIWidgetTemplateStatusBarMixin, "Setup", function(self)
@@ -206,6 +206,9 @@ tinsert(C.defaultThemes, function()
 			return
 		end
 		ReskinWidgetStatusBar(self.Bar)
+		if self.Label then
+			self.Label:SetTextColor(1, 0.8, 0)
+		end
 	end)
 
 	_G.UIWidgetCenterDisplayFrame.CloseButton:SkinCloseButton()

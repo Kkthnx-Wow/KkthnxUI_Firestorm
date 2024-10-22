@@ -158,6 +158,25 @@ function UpdateActionbar()
 	K:GetModule("ActionBar"):UpdateBarVisibility()
 end
 
+local function SetABFaderState()
+	local Module = K:GetModule("ActionBar")
+	if not Module.fadeParent then
+		return
+	end
+
+	Module.fadeParent:SetAlpha(C["ActionBar"].BarFadeAlpha)
+end
+
+local function UpdateABFaderState()
+	local Module = K:GetModule("ActionBar")
+	if not Module.fadeParent then
+		return
+	end
+
+	Module:UpdateFaderState()
+	Module.fadeParent:SetAlpha(C["ActionBar"].BarFadeAlpha)
+end
+
 local function UpdateActionbarHotkeys()
 	K:GetModule("ActionBar"):UpdateBarConfig()
 end
@@ -383,6 +402,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar1PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar1Scale)
 	Window:CreateSlider("ActionBar", "Bar1Num", "Button Num", 1, 12, 1, nil, UpdateActionBar1Scale)
 	Window:CreateSlider("ActionBar", "Bar1Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar1Scale)
+	Window:CreateSwitch("ActionBar", "Bar1Fade", "Enable Fade for Bar 1", "Allows Bar 1 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 2")
 	Window:CreateSwitch("ActionBar", "Bar2", enableTextColor .. L["Enable ActionBar"] .. " 2", nil, UpdateActionbar)
@@ -390,6 +410,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar2PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar2Scale)
 	Window:CreateSlider("ActionBar", "Bar2Num", "Button Num", 1, 12, 1, nil, UpdateActionBar2Scale)
 	Window:CreateSlider("ActionBar", "Bar2Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar2Scale)
+	Window:CreateSwitch("ActionBar", "Bar2Fade", "Enable Fade for Bar 2", "Allows Bar 2 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 3")
 	Window:CreateSwitch("ActionBar", "Bar3", enableTextColor .. L["Enable ActionBar"] .. " 3", nil, UpdateActionbar)
@@ -397,6 +418,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar3PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar3Scale)
 	Window:CreateSlider("ActionBar", "Bar3Num", "Button Num", 1, 12, 1, nil, UpdateActionBar3Scale)
 	Window:CreateSlider("ActionBar", "Bar3Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar3Scale)
+	Window:CreateSwitch("ActionBar", "Bar3Fade", "Enable Fade for Bar 3", "Allows Bar 3 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 4")
 	Window:CreateSwitch("ActionBar", "Bar4", enableTextColor .. L["Enable ActionBar"] .. " 4", nil, UpdateActionbar)
@@ -404,6 +426,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar4PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar4Scale)
 	Window:CreateSlider("ActionBar", "Bar4Num", "Button Num", 1, 12, 1, nil, UpdateActionBar4Scale)
 	Window:CreateSlider("ActionBar", "Bar4Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar4Scale)
+	Window:CreateSwitch("ActionBar", "Bar4Fade", "Enable Fade for Bar 4", "Allows Bar 4 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 5")
 	Window:CreateSwitch("ActionBar", "Bar5", enableTextColor .. L["Enable ActionBar"] .. " 5", nil, UpdateActionbar)
@@ -411,6 +434,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar5PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar5Scale)
 	Window:CreateSlider("ActionBar", "Bar5Num", "Button Num", 1, 12, 1, nil, UpdateActionBar5Scale)
 	Window:CreateSlider("ActionBar", "Bar5Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar5Scale)
+	Window:CreateSwitch("ActionBar", "Bar5Fade", "Enable Fade for Bar 5", "Allows Bar 5 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 6")
 	Window:CreateSwitch("ActionBar", "Bar6", enableTextColor .. L["Enable ActionBar"] .. " 6", nil, UpdateActionbar)
@@ -418,6 +442,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar6PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar6Scale)
 	Window:CreateSlider("ActionBar", "Bar6Num", "Button Num", 1, 12, 1, nil, UpdateActionBar6Scale)
 	Window:CreateSlider("ActionBar", "Bar6Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar6Scale)
+	Window:CreateSwitch("ActionBar", "Bar6Fade", "Enable Fade for Bar 6", "Allows Bar 6 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 7")
 	Window:CreateSwitch("ActionBar", "Bar7", enableTextColor .. L["Enable ActionBar"] .. " 7", nil, UpdateActionbar)
@@ -425,6 +450,7 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar7PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar7Scale)
 	Window:CreateSlider("ActionBar", "Bar7Num", "Button Num", 1, 12, 1, nil, UpdateActionBar7Scale)
 	Window:CreateSlider("ActionBar", "Bar7Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar7Scale)
+	Window:CreateSwitch("ActionBar", "Bar7Fade", "Enable Fade for Bar 7", "Allows Bar 7 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar 8")
 	Window:CreateSwitch("ActionBar", "Bar8", enableTextColor .. L["Enable ActionBar"] .. " 8", nil, UpdateActionbar)
@@ -432,17 +458,20 @@ local ActionBar = function(self)
 	Window:CreateSlider("ActionBar", "Bar8PerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBar8Scale)
 	Window:CreateSlider("ActionBar", "Bar8Num", "Button Num", 1, 12, 1, nil, UpdateActionBar8Scale)
 	Window:CreateSlider("ActionBar", "Bar8Font", "Button FontSize", 8, 20, 1, nil, UpdateActionBar8Scale)
+	Window:CreateSwitch("ActionBar", "Bar8Fade", "Enable Fade for Bar 8", "Allows Bar 8 to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar Pet")
 	Window:CreateSlider("ActionBar", "BarPetSize", "Button Size", 20, 80, 1, nil, UpdateActionBarPetScale)
 	Window:CreateSlider("ActionBar", "BarPetPerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBarPetScale)
 	Window:CreateSlider("ActionBar", "BarPetFont", "Button FontSize", 8, 20, 1, nil, UpdateActionBarPetScale)
+	Window:CreateSwitch("ActionBar", "BarPetFade", "Enable Fade for Pet Bar", "Allows the Pet Bar to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar Stance")
 	Window:CreateSwitch("ActionBar", "ShowStance", enableTextColor .. "Enable StanceBar")
 	Window:CreateSlider("ActionBar", "BarStanceSize", "Button Size", 20, 80, 1, nil, UpdateActionBarStance)
 	Window:CreateSlider("ActionBar", "BarStancePerRow", "Button PerRow", 1, 12, 1, nil, UpdateActionBarStance)
 	Window:CreateSlider("ActionBar", "BarStanceFont", "Button FontSize", 8, 20, 1, nil, UpdateActionBarStance)
+	Window:CreateSwitch("ActionBar", "BarStanceFade", "Enable Fade for Stance Bar", "Allows the Stance Bar to fade based on the specified conditions", UpdateABFaderState)
 
 	Window:CreateSection("ActionBar Vehicle")
 	Window:CreateSlider("ActionBar", "VehButtonSize", "Button Size", 20, 80, 1, nil, UpdateActionBarVehicleButton)
@@ -458,6 +487,16 @@ local ActionBar = function(self)
 	Window:CreateSwitch("ActionBar", "OverrideWA", L["Enable OverrideWA"])
 	Window:CreateSlider("ActionBar", "MmssTH", L["MMSSThreshold"], 60, 600, 1, L["MMSSThresholdTip"])
 	Window:CreateSlider("ActionBar", "TenthTH", L["TenthThreshold"], 0, 60, 1, L["TenthThresholdTip"])
+
+	Window:CreateSection("Fader Options")
+	Window:CreateSwitch("ActionBar", "BarFadeGlobal", "Enable Global Fade", "Enables fading on all action bars globally when certain conditions are met.")
+	Window:CreateSlider("ActionBar", "BarFadeAlpha", "Fade Alpha", 0, 1, 0.1, "Set the transparency level of the bars when they are faded. 0 = fully transparent, 1 = fully visible.", SetABFaderState)
+	Window:CreateSlider("ActionBar", "BarFadeDelay", "Fade Delay", 0, 3, 0.1, "The amount of time (in seconds) before the bars start to fade after the conditions are met.")
+	Window:CreateSwitch("ActionBar", "BarFadeCombat", "Fade Out of Combat", "Fades the action bars when the player is out of combat.")
+	Window:CreateSwitch("ActionBar", "BarFadeTarget", "Fade without Target", "Fades the bars when the player has no target selected.")
+	Window:CreateSwitch("ActionBar", "BarFadeCasting", "Fade While Casting", "Keeps the bars visible while casting or channeling spells.")
+	Window:CreateSwitch("ActionBar", "BarFadeHealth", "Fade on Full Health", "Fades the bars when the player is at full health.")
+	Window:CreateSwitch("ActionBar", "BarFadeVehicle", "Fade in Vehicle", "Fades the bars while in a vehicle UI.")
 end
 
 local Announcements = function(self)
@@ -544,6 +583,7 @@ local Inventory = function(self)
 	Window:CreateSwitch("Inventory", "ShowNewItem", L["Show New Item Glow"])
 	Window:CreateSwitch("Inventory", "UpgradeIcon", L["Show Upgrade Icon"])
 	Window:CreateSlider("Inventory", "BagsPerRow", L["Bags Per Row"], 1, 20, 1, nil, updateBagAnchor)
+	Window:CreateSlider("Inventory", "iLvlToShow", newFeatureIcon .. "ItemLevel Threshold", 1, 800, 1, "Functions only when filtering items with a lower item level. Separates items based on a specified item level threshold..")
 
 	Window:CreateSection(BANK)
 	Window:CreateSlider("Inventory", "BankPerRow", L["Bank Bags Per Row"], 1, 20, 1, nil, updateBagAnchor)
@@ -564,6 +604,7 @@ local Inventory = function(self)
 	Window:CreateSwitch("Inventory", "FilterGoods", L["Filter Goods Items"], nil, UpdateBagStatus)
 	Window:CreateSwitch("Inventory", "FilterJunk", L["Filter Junk Items"], nil, UpdateBagStatus)
 	Window:CreateSwitch("Inventory", "FilterLegendary", L["Filter Legendary Items"], nil, UpdateBagStatus)
+	Window:CreateSwitch("Inventory", "FilterLower", newFeatureIcon .. L["Filter Lower Itemlevel"], nil, UpdateBagStatus)
 	Window:CreateSwitch("Inventory", "FilterQuest", L["Filter Quest Items"], nil, UpdateBagStatus)
 	Window:CreateSwitch("Inventory", "FilterRelic", L["Filter Korthia Relic Items"], nil, UpdateBagStatus)
 	Window:CreateSwitch("Inventory", "FilterStone", "Filter Primordial Stones", nil, UpdateBagStatus)
@@ -686,7 +727,6 @@ local General = function(self)
 	Window:CreateSwitch("General", "MoveBlizzardFrames", L["Move Blizzard Frames"])
 	Window:CreateSwitch("General", "NoErrorFrame", L["Disable Blizzard Error Frame Combat"])
 	Window:CreateSwitch("General", "NoTutorialButtons", L["Disable 'Some' Blizzard Tutorials"])
-	Window:CreateSwitch("General", "VersionCheck", L["Enable Version Checking"])
 
 	Window:CreateDropdown("General", "GlowMode", "Button Glow Mode")
 
@@ -1128,6 +1168,7 @@ local Raid = function(self)
 	Window:CreateSwitch("Raid", "Enable", enableTextColor .. L["Enable Raidframes"])
 	Window:CreateSwitch("Raid", "HorizonRaid", L["Horizontal Raid Frames"])
 	Window:CreateSwitch("Raid", "MainTankFrames", L["Show MainTank Frames"])
+	Window:CreateSwitch("Raid", "PowerBarShow", "Toggle The visibility Of All Power Bars")
 	Window:CreateSwitch("Raid", "ManabarShow", L["Show Manabars"])
 	Window:CreateSwitch("Raid", "ReverseRaid", L["Reverse Raid Frame Growth"])
 	Window:CreateSwitch("Raid", "ShowHealPrediction", L["Show HealPrediction Statusbars"])

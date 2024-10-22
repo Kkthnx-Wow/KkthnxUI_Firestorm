@@ -2,7 +2,6 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Automation")
 
 local AcceptResurrect = AcceptResurrect
-local C_Timer_After = C_Timer.After
 local DoEmote = DoEmote
 local StaticPopup_Hide = StaticPopup_Hide
 local UnitAffectingCombat = UnitAffectingCombat
@@ -54,7 +53,7 @@ local function SetupAutoResurrect(event, arg1)
 		end
 
 		-- Wait 3 seconds and then check if the player is alive or not
-		C_Timer_After(3, function()
+		K.Delay(3, function()
 			-- Give this more time to say thanks.
 			if not UnitIsDeadOrGhost("player") then
 				-- If player is alive, do the "thank" emote to the arg1

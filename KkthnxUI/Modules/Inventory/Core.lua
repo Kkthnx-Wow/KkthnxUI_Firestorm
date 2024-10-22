@@ -15,7 +15,6 @@ local C_Container_GetContainerItemInfo = C_Container.GetContainerItemInfo
 local C_NewItems_IsNewItem = C_NewItems.IsNewItem
 local C_NewItems_RemoveNewItem = C_NewItems.RemoveNewItem
 local C_Soulbinds_IsItemConduitByItemInfo = C_Soulbinds.IsItemConduitByItemInfo
-local C_Timer_After = C_Timer.After
 local ClearCursor = ClearCursor
 local CreateFrame = CreateFrame
 local DeleteCursorItem = DeleteCursorItem
@@ -461,7 +460,7 @@ function Module:CreateSortButton(name)
 					SortBags()
 					table_wipe(sortCache)
 					Module.Bags.isSorting = true
-					C_Timer_After(0.5, Module.ReverseSort)
+					K.Delay(0.5, Module.ReverseSort)
 				end
 			else
 				SortBags()
@@ -997,12 +996,13 @@ function Module:OnEnable()
 
 	function Backpack:OnInit()
 		AddNewContainer("Bag", 6, "BagReagent", filters.onlyBagReagent)
-		AddNewContainer("Bag", 17, "Junk", filters.bagsJunk)
+		AddNewContainer("Bag", 18, "Junk", filters.bagsJunk)
 		for i = 1, 5 do
 			AddNewContainer("Bag", i, "BagCustom" .. i, filters["bagCustom" .. i])
 		end
 		AddNewContainer("Bag", 9, "EquipSet", filters.bagEquipSet)
 		AddNewContainer("Bag", 7, "AzeriteItem", filters.bagAzeriteItem)
+		AddNewContainer("Bag", 17, "BagLower", filters.bagLower)
 		AddNewContainer("Bag", 8, "Equipment", filters.bagEquipment)
 		AddNewContainer("Bag", 10, "BagCollection", filters.bagCollection)
 		AddNewContainer("Bag", 15, "Consumable", filters.bagConsumable)
@@ -1025,6 +1025,7 @@ function Module:OnEnable()
 		AddNewContainer("Bank", 9, "BankLegendary", filters.bankLegendary)
 		AddNewContainer("Bank", 7, "BankEquipment", filters.bankEquipment)
 		AddNewContainer("Bank", 10, "BankCollection", filters.bankCollection)
+		AddNewContainer("Bank", 15, "BankLower", filters.bankLower)
 		AddNewContainer("Bank", 13, "BankConsumable", filters.bankConsumable)
 		AddNewContainer("Bank", 11, "BankGoods", filters.bankGoods)
 		AddNewContainer("Bank", 14, "BankQuest", filters.bankQuest)
@@ -1186,7 +1187,7 @@ function Module:OnEnable()
 	}
 
 	local function isItemNeedsLevel(item)
-		return item.link and item.quality > 1 and (Module:IsItemHasLevel(item) or item.classID == Enum.ItemClass.Gem)
+		return item.link and item.quality > 1 and item.ilvl
 	end
 
 	local function GetIconOverlayAtlas(item)
@@ -1230,7 +1231,7 @@ function Module:OnEnable()
 		if self.UpgradeIcon then
 			self.UpgradeIcon:ClearAllPoints()
 			self.UpgradeIcon:SetPoint("TOPRIGHT", 3, 3)
-			self.UpgradeIcon:SetShown(PawnIsContainerItemAnUpgrade(item.bagId, item.slotId))
+			self.UpgradeIcon:SetShown(PawnIsContainerItemAnUpgrade(item.bagId, item.slotId) or false)
 		end
 	end
 
@@ -1282,10 +1283,7 @@ function Module:OnEnable()
 		if showItemLevel then
 			local level = item.level -- ilvl for keystone and battlepet
 			if not level and isItemNeedsLevel(item) then
-				local ilvl = K.GetItemLevel(item.link, item.bagId ~= -1 and item.bagId, item.slotId) -- SetBagItem return nil for default bank slots
-				if ilvl and ilvl > 1 then
-					level = ilvl
-				end
+				level = item.ilvl
 			end
 
 			if level then
@@ -1444,6 +1442,8 @@ function Module:OnEnable()
 			label = "Reagent Bag"
 		elseif name == "BagStone" then
 			label = GetSpellInfo(404861)
+		elseif strmatch(name, "Lower") then
+			label = "Lower item level"
 		else
 			if name:match("Legendary$") then
 				label = LOOT_JOURNAL_LEGENDARIES
@@ -1615,17 +1615,21 @@ function Module:OnEnable()
 	SetCVar("professionToolSlotsExampleShown", 1)
 	SetCVar("professionAccessorySlotsExampleShown", 1)
 
-	-- Shift Key Alert
-	local function CheckShiftKey(self, elapsed)
-		if IsShiftKeyDown() then
-			self.elapsed = (self.elapsed or 0) + elapsed
-			if self.elapsed > 5 then
-				UIErrorsFrame:AddMessage(K.InfoColor .. "Please check if your SHIFT key is pressed or stuck.")
-				self.elapsed = 0
-			end
-		end
-	end
+	-- Delay updates for data jam
+	local updater = CreateFrame("Frame", nil, f.main)
+	updater:Hide()
 
-	local shiftKeyUpdater = CreateFrame("Frame", nil, f.main)
-	shiftKeyUpdater:SetScript("OnUpdate", CheckShiftKey)
+	updater:SetScript("OnUpdate", function(self, elapsed)
+		self.delay = self.delay - elapsed
+		if self.delay < 0 then
+			Module:UpdateAllBags()
+			self:Hide()
+		end
+	end)
+
+	-- Event listener for GET_ITEM_INFO_RECEIVED
+	K:RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
+		updater.delay = 1.5
+		updater:Show()
+	end)
 end

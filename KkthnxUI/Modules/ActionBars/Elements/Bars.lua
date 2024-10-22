@@ -221,27 +221,17 @@ function Module:UpdateButtonConfig(i)
 	hideElements.macro = not C["ActionBar"]["Macro"]
 	hideElements.equipped = not C["ActionBar"]["EquipColor"]
 
-	-- Get the value of the CVAR "lockActionBars"
-	local lockBars = GetCVar("lockActionBars") == "1"
-	-- Iterate through the buttons
+	local lockBars = GetCVarBool("lockActionBars")
 	for _, button in next, self.buttons do
-		-- Set the key bound target for the button and the button config
 		self.buttonConfig.keyBoundTarget = button.bindName
 		button.keyBoundTarget = self.buttonConfig.keyBoundTarget
 
-		-- Set the button lock attribute based on the CVAR value
 		button:SetAttribute("buttonlock", lockBars)
-		-- Set the unlocked prevent drag attribute to the opposite of the button lock attribute
-		button:SetAttribute("unlockedpreventdrag", not lockBars)
-		-- Set the check mouseover cast attribute to true
+		button:SetAttribute("unlockedpreventdrag", not lockBars) -- make sure button can drag without being click
 		button:SetAttribute("checkmouseovercast", true)
-		-- Set the check focus cast attribute to true
 		button:SetAttribute("checkfocuscast", true)
-		-- Set the check self cast attribute to true
 		button:SetAttribute("checkselfcast", true)
-		-- Set the unit 2 attribute to "player"
-		-- button:SetAttribute("*unit2", "player")
-		-- Update the config for the button
+		--button:SetAttribute("*unit2", "player")
 		button:UpdateConfig(self.buttonConfig)
 	end
 end
@@ -249,24 +239,16 @@ end
 local fullPage = "[bar:6]6;[bar:5]5;[bar:4]4;[bar:3]3;[bar:2]2;[possessbar]16;[overridebar]18;[shapeshift]17;[vehicleui]16;[bonusbar:5]11;[bonusbar:4]10;[bonusbar:3]9;[bonusbar:2]8;[bonusbar:1]7;1"
 
 function Module:UpdateBarVisibility()
-	-- Iterate through the action bars
 	for i = 1, 8 do
-		-- Get the frame of the action bar
 		local frame = _G["KKUI_ActionBar" .. i]
-		-- Check if the frame exists
 		if frame then
-			-- Check if the action bar is enabled in the configuration table
 			if C["ActionBar"]["Bar" .. i] then
-				-- Show the frame and enable the mover
 				frame:Show()
 				frame.mover.isDisable = false
-				-- Register the frame with the visibility driver
 				RegisterStateDriver(frame, "visibility", frame.visibility)
 			else
-				-- Hide the frame and disable the mover
 				frame:Hide()
 				frame.mover.isDisable = true
-				-- Unregister the frame from the visibility driver
 				UnregisterStateDriver(frame, "visibility")
 			end
 		end
@@ -274,13 +256,9 @@ function Module:UpdateBarVisibility()
 end
 
 function Module:UpdateBarConfig()
-	-- Iterate through the action bars
 	for i = 1, 8 do
-		-- Get the frame of the action bar
 		local frame = _G["KKUI_ActionBar" .. i]
-		-- Check if the frame exists
 		if frame then
-			-- Update the button configuration for the current frame and action bar number
 			Module.UpdateButtonConfig(frame, i)
 		end
 	end
@@ -293,10 +271,14 @@ function Module:ReassignBindings()
 
 	for index = 1, 8 do
 		local frame = Module.headers[index]
-		for _, button in next, frame.buttons do
-			for _, key in next, { GetBindingKey(button.keyBoundTarget) } do
-				if key and key ~= "" then
-					SetOverrideBindingClick(frame, false, key, button:GetName(), "Keybind")
+		if frame then
+			ClearOverrideBindings(frame)
+
+			for _, button in next, frame.buttons do
+				for _, key in next, { GetBindingKey(button.keyBoundTarget) } do
+					if key and key ~= "" then
+						SetOverrideBindingClick(frame, false, key, button:GetName())
+					end
 				end
 			end
 		end
@@ -310,7 +292,9 @@ function Module:ClearBindings()
 
 	for index = 1, 8 do
 		local frame = Module.headers[index]
-		ClearOverrideBindings(frame)
+		if frame then
+			ClearOverrideBindings(frame)
+		end
 	end
 end
 
@@ -438,6 +422,7 @@ function Module:OnEnable()
 		"UpdateBarVisibility",
 		"UpdateAllSize",
 		"HideBlizz",
+		"CreateBarFadeGlobal",
 	}
 
 	for _, funcName in ipairs(loadActionBarModules) do
@@ -460,6 +445,6 @@ function Module:OnEnable()
 	K:RegisterEvent("PET_BATTLE_OPENING_DONE", Module.ClearBindings)
 
 	if AdiButtonAuras then
-		AdiButtonAuras:RegisterLAB("LibActionButton-1.0")
+		AdiButtonAuras:RegisterLAB("LibActionButton-1.0-KkthnxUI")
 	end
 end

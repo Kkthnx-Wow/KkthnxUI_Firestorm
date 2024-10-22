@@ -9,8 +9,7 @@ local CreateFrame = CreateFrame
 local ERR_NOT_IN_COMBAT = ERR_NOT_IN_COMBAT
 local GameTooltip = GameTooltip
 local GetInventoryItemTexture = GetInventoryItemTexture
-local GetItemInfo = GetItemInfo
-local GetSpellInfo = GetSpellInfo
+local GetItemInfo = C_Item.GetItemInfo
 local INVTYPE_CLOAK = INVTYPE_CLOAK
 local INVTYPE_FINGER = INVTYPE_FINGER
 local INVTYPE_TRINKET = INVTYPE_TRINKET
@@ -33,7 +32,9 @@ local r, g, b = K.r, K.g, K.b
 local f
 
 local function editBoxClearFocus(self)
-	self:ClearFocus()
+	if self.ClearFocus then
+		self:ClearFocus()
+	end
 end
 
 local function optOnClick(self)
@@ -56,7 +57,7 @@ local function optOnEnter(self)
 	if self.selected then
 		return
 	end
-	self.KKUI_Background:SetVertexColor(1, 1, 1, 0.3)
+	self.KKUI_Background:SetVertexColor(1, 1, 1, 0.25)
 end
 
 local function optOnLeave(self)
@@ -76,26 +77,25 @@ local function buttonOnClick(self)
 end
 
 -- Elements
-local function labelOnEnter(self)
-	GameTooltip:ClearLines()
-	GameTooltip:SetOwner(self:GetParent(), "ANCHOR_RIGHT", 0, 3)
-	GameTooltip:AddLine(self.text)
-	GameTooltip:AddLine(self.tip, 0.5, 0.7, 1, 1)
-	GameTooltip:Show()
-end
-
 local function createLabel(parent, text, tip)
 	local label = K.CreateFontString(parent, 14, text, "", "system", "CENTER", 0, 25)
-	if not tip then
-		return
+
+	if tip then
+		local frame = CreateFrame("Frame", nil, parent)
+		frame:SetAllPoints(label)
+		frame.text = text
+		frame.tip = tip
+		frame:SetScript("OnEnter", function(self)
+			GameTooltip:ClearLines()
+			GameTooltip:SetOwner(self:GetParent(), "ANCHOR_RIGHT", 0, 3)
+			GameTooltip:AddLine(self.text)
+			GameTooltip:AddLine(self.tip, 0.5, 0.7, 1, 1)
+			GameTooltip:Show()
+		end)
+		frame:SetScript("OnLeave", K.HideTooltip)
 	end
 
-	local frame = CreateFrame("Frame", nil, parent)
-	frame:SetAllPoints(label)
-	frame.text = text
-	frame.tip = tip
-	frame:SetScript("OnEnter", labelOnEnter)
-	frame:SetScript("OnLeave", K.HideTooltip)
+	return label
 end
 
 local function AW_CreateEditbox(parent, text, x, y, tip, width, height)
@@ -193,7 +193,7 @@ local function AW_CreateDropdown(parent, text, x, y, data, tip, width, height)
 		local text = K.CreateFontString(opt[i], 14, j, "", false, "LEFT", 5, 0)
 		text:SetPoint("RIGHT", -5, 0)
 		opt[i].text = j
-
+		opt[i].index = i
 		opt[i].__owner = dd
 		opt[i]:SetScript("OnClick", optOnClick)
 		opt[i]:SetScript("OnEnter", optOnEnter)
@@ -256,29 +256,25 @@ local function AW_CreateScroll(parent, width, height, text)
 end
 
 local function AW_CreateBarWidgets(parent, texture)
-	local icon = CreateFrame("Frame", nil, parent)
-	icon:SetSize(22, 22)
-	icon:SetPoint("LEFT", 5, 0)
+	local iconFrame = CreateFrame("Frame", nil, parent)
+	iconFrame:SetSize(22, 22)
+	iconFrame:SetPoint("LEFT", 5, 0)
+	iconFrame:CreateBorder()
 
-	icon.bg = CreateFrame("Frame", nil, icon, "BackdropTemplate")
-	icon.bg:SetAllPoints(icon)
-	icon.bg:SetFrameLevel(icon:GetFrameLevel())
-	icon.bg:CreateBorder()
+	local iconTexture = iconFrame:CreateTexture(nil, "ARTWORK")
+	iconTexture:SetAllPoints(iconFrame)
+	iconTexture:SetTexCoord(unpack(K.TexCoords))
+	iconTexture:SetTexture(texture)
 
-	icon.Icon = icon:CreateTexture(nil, "ARTWORK")
-	icon.Icon:SetAllPoints()
-	icon.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-	icon.Icon:SetTexture(texture)
+	local closeButton = CreateFrame("Button", nil, parent)
+	closeButton:SetSize(20, 20)
+	closeButton:SetPoint("RIGHT", -5, 0)
+	closeButton.Icon = closeButton:CreateTexture(nil, "ARTWORK")
+	closeButton.Icon:SetAllPoints()
+	closeButton.Icon:SetTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up")
+	closeButton:SetHighlightTexture(closeButton.Icon:GetTexture())
 
-	local close = CreateFrame("Button", nil, parent)
-	close:SetSize(20, 20)
-	close:SetPoint("RIGHT", -5, 0)
-	close.Icon = close:CreateTexture(nil, "ARTWORK")
-	close.Icon:SetAllPoints()
-	close.Icon:SetTexture("Interface\\BUTTONS\\UI-GroupLoot-Pass-Up")
-	close:SetHighlightTexture(close.Icon:GetTexture())
-
-	return icon, close
+	return iconFrame, closeButton
 end
 
 local function auraWatchShow()
@@ -363,19 +359,19 @@ local function CreatePanel()
 	local barTable = {}
 	local function SortBars(index)
 		local num, onLeft, onRight = 1, 1, 1
-		for k in pairs(barTable[index]) do
-			if (index < 10 and KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[index][k]) or (index == 10 and KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[k]) then
-				local bar = barTable[index][k]
-				if num == 1 then
-					bar:SetPoint("TOPLEFT", 10, -10)
-				elseif num > 1 and num / 2 ~= math_floor(num / 2) then
-					bar:SetPoint("TOPLEFT", 10, -10 - 35 * onLeft)
-					onLeft = onLeft + 1
-				elseif num == 2 then
-					bar:SetPoint("TOPLEFT", 295, -10)
-				elseif num > 2 and num / 2 == math_floor(num / 2) then
-					bar:SetPoint("TOPLEFT", 295, -10 - 35 * onRight)
+		for k, bar in pairs(barTable[index]) do
+			local isInternalCD = (index == 10 and KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[k])
+			local isAuraWatch = (index < 10 and KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[index][k])
+
+			if isInternalCD or isAuraWatch then
+				local posY = -10 - 35 * ((num > 1 and math_floor(num / 2)) == num / 2 and onRight or onLeft)
+				local posX = (num % 2 == 0) and 295 or 10
+				bar:SetPoint("TOPLEFT", posX, posY)
+
+				if num % 2 == 0 then
 					onRight = onRight + 1
+				else
+					onLeft = onLeft + 1
 				end
 				num = num + 1
 			end
@@ -404,7 +400,7 @@ local function CreatePanel()
 
 	local function AddAura(parent, index, data)
 		local typeID, spellID, unitID, caster, stack, amount, timeless, combat, text, flash = unpack(data)
-		local name, _, texture = GetSpellInfo(spellID)
+		local name, _, texture = C_Spell.GetSpellName(spellID)
 		if typeID == "SlotID" then
 			texture = GetInventoryItemTexture("player", spellID)
 			name = slotIndex[spellID]
@@ -461,7 +457,7 @@ local function CreatePanel()
 
 	local function AddInternal(parent, index, data)
 		local intID, duration, trigger, unit, itemID = unpack(data)
-		local name, _, texture = GetSpellInfo(intID)
+		local name, _, texture = C_Spell.GetSpellName(intID)
 		if itemID then
 			name = GetItemInfo(itemID)
 		end
@@ -703,7 +699,7 @@ local function CreatePanel()
 					return
 				end
 
-				if (typeID == "AuraID" or typeID == "SpellID") and not GetSpellInfo(spellID) then
+				if (typeID == "AuraID" or typeID == "SpellID") and not C_Spell.GetSpellName(spellID) then
 					UIErrorsFrame:AddMessage(K.InfoColor .. L["Incorrect SpellID"])
 					return
 				end
@@ -727,7 +723,7 @@ local function CreatePanel()
 					return
 				end
 
-				if intID and not GetSpellInfo(intID) then
+				if intID and not C_Spell.GetSpellName(intID) then
 					UIErrorsFrame:AddMessage(K.InfoColor .. L["Incorrect SpellID"])
 					return
 				end

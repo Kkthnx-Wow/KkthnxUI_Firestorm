@@ -11,7 +11,6 @@ local CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
 local C_GuildInfo_GuildRoster = C_GuildInfo.GuildRoster
 local C_PartyInfo_InviteUnit = C_PartyInfo.InviteUnit
 local C_PartyInfo_RequestInviteFromUnit = C_PartyInfo.RequestInviteFromUnit
-local C_Timer_After = C_Timer.After
 local ChatEdit_ActivateChat = ChatEdit_ActivateChat
 local ChatEdit_ChooseBoxForSend = ChatEdit_ChooseBoxForSend
 local ChatFrame_GetMobileEmbeddedTexture = ChatFrame_GetMobileEmbeddedTexture
@@ -351,7 +350,7 @@ local function GuildPanel_Init()
 	scrollBar:SetValue(0)
 end
 
-C_Timer_After(5, function()
+K.Delay(5, function()
 	if IsInGuild() then
 		C_GuildInfo_GuildRoster()
 	end
@@ -470,7 +469,7 @@ local function OnLeave()
 	if not infoFrame then
 		return
 	end
-	C_Timer_After(0.1, delayLeave)
+	K.Delay(0.1, delayLeave)
 end
 
 local function OnMouseUp(_, btn)

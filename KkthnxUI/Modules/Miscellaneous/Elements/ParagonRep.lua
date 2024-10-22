@@ -795,21 +795,21 @@ function Module:ShowToast(name, text)
 	Module.toast.description:SetAlpha(0)
 	UIFrameFadeIn(Module.toast, 0.5, 0, 1)
 
-	C_Timer.After(0.5, function()
+	K.Delay(0.5, function()
 		UIFrameFadeIn(Module.toast.title, 0.5, 0, 1)
 	end)
 
-	C_Timer.After(0.75, function()
+	K.Delay(0.75, function()
 		UIFrameFadeIn(Module.toast.description, 0.5, 0, 1)
 	end)
 
 	print(self.toast.description)
 
-	C_Timer.After(ParaRep_Settings.toast.fade_time, function()
+	K.Delay(ParaRep_Settings.toast.fade_time, function()
 		UIFrameFadeOut(Module.toast, 1, 1, 0)
 	end)
 
-	C_Timer.After(ParaRep_Settings.toast.fade_time + 1.25, function()
+	K.Delay(ParaRep_Settings.toast.fade_time + 1.25, function()
 		Module.toast:Hide()
 		ACTIVE_TOAST = false
 		if #WAITING_TOAST > 0 then

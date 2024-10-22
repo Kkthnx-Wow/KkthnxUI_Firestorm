@@ -80,15 +80,15 @@ function Module:CreateBoss()
 	self.Name:SetWordWrap(false)
 	if bossPortraitStyle == "NoPortraits" or bossPortraitStyle == "OverlayPortrait" then
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name] [nplevel]")
+			self:Tag(self.Name, "[name] [nplevel][afkdnd]")
 		else
-			self:Tag(self.Name, "[color][name] [nplevel]")
+			self:Tag(self.Name, "[color][name] [nplevel][afkdnd]")
 		end
 	else
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name]")
+			self:Tag(self.Name, "[name][afkdnd]")
 		else
-			self:Tag(self.Name, "[color][name]")
+			self:Tag(self.Name, "[color][name][afkdnd]")
 		end
 	end
 

@@ -1,8 +1,6 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("Automation")
 
-local C_Timer_After = C_Timer.After
-
 -- This list is completely random. There is no certain way we have made this list.
 -- The idea is to keep things random so we do not repeat the same type of goodbye.
 local AutoThanksList = {
@@ -32,7 +30,7 @@ local AutoThanksList = {
 
 local function SetupAutoGoodbye()
 	local waitTime = math.random() * (5 - 2) + 2 -- generates a float between 2 and 5
-	C_Timer_After(waitTime, function()
+	K.Delay(waitTime, function()
 		if #AutoThanksList > 0 then
 			local messageIndex = math.random(#AutoThanksList)
 			local message = AutoThanksList[messageIndex]

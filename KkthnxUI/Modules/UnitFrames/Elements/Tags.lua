@@ -32,6 +32,52 @@ local UnitPowerType = UnitPowerType
 local UnitReaction = UnitReaction
 local UnitStagger = UnitStagger
 
+-- local function ColorPercent(value)
+-- 	local r, g, b
+-- 	if value < 20 then
+-- 		r, g, b = 1, 0.1, 0.1
+-- 	elseif value < 35 then
+-- 		r, g, b = 1, 0.5, 0
+-- 	elseif value < 80 then
+-- 		r, g, b = 1, 0.9, 0.3
+-- 	else
+-- 		r, g, b = 1, 1, 1
+-- 	end
+
+-- 	return K.RGBToHex(r, g, b) .. value
+-- end
+
+-- local function ValueAndPercent(cur, per)
+-- 	if per < 100 then
+-- 		return K.ShortValue(cur) .. " - " .. ColorPercent(per)
+-- 	else
+-- 		return K.ShortValue(cur)
+-- 	end
+-- end
+
+-- local function GetUnitHealthPerc(unit)
+-- 	local unitHealth, unitMaxHealth = UnitHealth(unit), UnitHealthMax(unit)
+-- 	if unitMaxHealth == 0 then
+-- 		return 0, unitHealth
+-- 	else
+-- 		return K.Round(unitHealth / unitMaxHealth * 100, 1), unitHealth
+-- 	end
+-- end
+
+-- oUF.Tags.Methods["hp"] = function(unit)
+-- 	if UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) then
+-- 		return oUF.Tags.Methods["DDG"](unit)
+-- 	else
+-- 		local per, cur = GetUnitHealthPerc(unit)
+-- 		if unit == "player" or unit == "target" or unit == "focus" or unit == "party" then
+-- 			return ValueAndPercent(cur, per)
+-- 		else
+-- 			return ColorPercent(per)
+-- 		end
+-- 	end
+-- end
+-- oUF.Tags.Events["hp"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_CONNECTION PLAYER_FLAGS_CHANGED PARTY_MEMBER_ENABLE PARTY_MEMBER_DISABLE"
+
 local function GetHealthColor(percentage)
 	local r, g, b
 	if percentage < 20 then
@@ -66,7 +112,7 @@ local function GetUnitHealthPerc(unit)
 end
 
 oUF.Tags.Methods["hp"] = function(unit)
-	if UnitIsDeadOrGhost(unit) or UnitIsDND(unit) or UnitIsAFK(unit) or not UnitIsConnected(unit) then
+	if UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) then
 		return oUF.Tags.Methods["DDG"](unit)
 	else
 		local percentage, currentHealth = GetUnitHealthPerc(unit)
@@ -111,19 +157,44 @@ oUF.Tags.Methods["color"] = function(unit)
 end
 oUF.Tags.Events["color"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_FACTION UNIT_CONNECTION PLAYER_FLAGS_CHANGED"
 
+oUF.Tags.Methods["afkdnd"] = function(unit)
+	if UnitIsAFK(unit) then
+		return "|cffCFCFCF <" .. AFK .. ">|r"
+	elseif UnitIsDND(unit) then
+		return "|cffCFCFCF <" .. DND .. ">|r"
+	else
+		return ""
+	end
+end
+oUF.Tags.Events["afkdnd"] = "PLAYER_FLAGS_CHANGED"
+
+-- oUF.Tags.Methods["DDG"] = function(unit)
+-- 	if UnitIsDead(unit) then
+-- 		return "|cffCFCFCF" .. DEAD .. "|r"
+-- 	elseif UnitIsGhost(unit) then
+-- 		return "|cffCFCFCF" .. L["Ghost"] .. "|r"
+-- 	elseif not UnitIsConnected(unit) and GetNumArenaOpponentSpecs() == 0 then
+-- 		return "|cffCFCFCF" .. PLAYER_OFFLINE .. "|r"
+-- 	end
+-- end
+-- oUF.Tags.Events["DDG"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION PLAYER_FLAGS_CHANGED"
+
 oUF.Tags.Methods["DDG"] = function(unit)
 	if UnitIsDead(unit) then
 		return "|cffCFCFCF" .. DEAD .. "|r"
 	elseif UnitIsGhost(unit) then
 		return "|cffCFCFCF" .. L["Ghost"] .. "|r"
-	elseif UnitIsAFK(unit) then
-		return "|cffCFCFCF" .. AFK .. "|r"
-	elseif UnitIsDND(unit) then
-		return "|cffCFCFCF" .. DND .. "|r"
 	elseif not UnitIsConnected(unit) and GetNumArenaOpponentSpecs() == 0 then
 		return "|cffCFCFCF" .. PLAYER_OFFLINE .. "|r"
+	elseif UnitIsAFK(unit) then
+		return "|cffCFCFCF <" .. AFK .. ">|r"
+	elseif UnitIsDND(unit) then
+		return "|cffCFCFCF <" .. DND .. ">|r"
+	else
+		return ""
 	end
 end
+
 oUF.Tags.Events["DDG"] = "PLAYER_FLAGS_CHANGED UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION"
 
 -- Level tags

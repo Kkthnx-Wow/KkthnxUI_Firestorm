@@ -452,7 +452,7 @@ local function isActionbarEnable()
 end
 
 local function isCastbarEnable()
-	return C["Unitframe"].Enable and C["Unitframe"].PlayerCastbar
+	return C["Unitframe"].Enable and C["Unitframe"].Castbars
 end
 
 local function isPartyEnable()
@@ -477,7 +477,6 @@ local ignoredFrames = {
 	["EncounterBar"] = isActionbarEnable,
 	["PetActionBar"] = isActionbarEnable,
 	["PossessActionBar"] = isActionbarEnable,
-	["ExtraAbilityContainer"] = isActionbarEnable,
 	["MainMenuBarVehicleLeaveButton"] = isActionbarEnable,
 	["MultiBarBottomLeft"] = isActionbarEnable,
 	["MultiBarBottomRight"] = isActionbarEnable,

@@ -281,6 +281,12 @@ function Module:CreateParty()
 		}
 	end
 
+	local StatusIndicator = Power:CreateFontString(nil, "OVERLAY")
+	StatusIndicator:SetPoint("CENTER", 0, 0.5)
+	StatusIndicator:SetFontObject(K.UIFont)
+	StatusIndicator:SetFont(select(1, StatusIndicator:GetFont()), 10, select(3, StatusIndicator:GetFont()))
+	self:Tag(StatusIndicator, "[afkdnd]")
+
 	if C["Party"].TargetHighlight then
 		local TargetHighlight = CreateFrame("Frame", nil, Overlay, "BackdropTemplate")
 		TargetHighlight:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 12 })

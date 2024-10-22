@@ -121,14 +121,14 @@ K.WowPatch, K.WowBuild, K.WowRelease, K.TocVersion = GetBuildInfo()
 K.WowBuild = tonumber(K.WowBuild)
 
 -- Compatibility Layer for Firestorm Dragonflight Release
--- Determine if the game is running on the Firestorm server with the specific patch version 10.1.7.
-K.IsFirestorm = K.TocVersion == 100107 -- Check for 10.1.7
+-- Determine if the game is running on the Firestorm server with the specific patch version 10.2.7.
+K.IsFirestorm = K.Realm == "Valdrakken" and K.TocVersion == 100207 -- Check for 10.2.7
 
 -- Color Info
-K.GreyColor = "|CFFC0C0C0"
-K.InfoColor = "|CFF669DFF"
-K.InfoColorTint = "|CFF93BAFF" -- 30% Tint
-K.SystemColor = "|CFFFFCC66"
+K.GreyColor = "|CFFC0C0C0" -- Soft gray
+K.InfoColor = "|CFF669DFF" -- Soft blue
+K.InfoColorTint = "|CFF93BAFF" -- Softened tint
+K.SystemColor = "|CFFFFCC66" -- Soft gold
 
 -- Media Info
 K.MediaFolder = "Interface\\AddOns\\KkthnxUI\\Media\\"

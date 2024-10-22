@@ -6,7 +6,7 @@ https://www.wowace.com/projects/libbuttonglow-1-0
 -- luacheck: globals CreateFromMixins ObjectPoolMixin CreateTexturePool CreateFramePool
 
 local MAJOR_VERSION = "LibCustomGlow-1.0-KkthnxUI"
-local MINOR_VERSION = 19
+local MINOR_VERSION = 20
 if not LibStub then
 	error(MAJOR_VERSION .. " requires LibStub.")
 end
@@ -437,6 +437,7 @@ function lib.AutoCastGlow_Start(r, color, N, frequency, scale, xOffset, yOffset,
 	f.info.N = N
 	f.info.period = period
 	f:SetScript("OnUpdate", acUpdate)
+	acUpdate(f, 0)
 end
 
 function lib.AutoCastGlow_Stop(r, key)
@@ -857,9 +858,10 @@ local function SetupProcGlow(f, options)
 		if self.startAnim then
 			if not self.ProcStartAnim:IsPlaying() and not self.ProcLoopAnim:IsPlaying() then
 				--[[
-					to future me: i wish you'r ok, if you wonder where are this constants coming from, check: 
-					https://github.com/Gethe/wow-ui-source/blob/eb4459c679a1bd8919cad92934ea83c4f5e77e8b/Interface/FrameXML/ActionButton.lua#L816 
-					https://github.com/Gethe/wow-ui-source/blob/d8e8ebf572c3b28237cf83e8fc5c0583b5453a2b/Interface/FrameXML/ActionButtonTemplate.xml#L5-L14
+to future me:
+i wish you'r ok, if you wonder where are this constants coming from, check:
+https://github.com/Gethe/wow-ui-source/blob/eb4459c679a1bd8919cad92934ea83c4f5e77e8b/Interface/FrameXML/ActionButton.lua#L816
+https://github.com/Gethe/wow-ui-source/blob/d8e8ebf572c3b28237cf83e8fc5c0583b5453a2b/Interface/FrameXML/ActionButtonTemplate.xml#L5-L14
 				]]
 				local width, height = self:GetSize()
 				self.ProcStart:SetSize((width / 42 * 150) / 1.4, (height / 42 * 150) / 1.4)
@@ -957,9 +959,9 @@ local function GetGlowType()
 	return LCG_GlowList[C["General"] and C["General"].GlowMode.Value or 4]
 end
 
-lib.ShowOverlayGlow = function(r, ...)
-	lib.startList[GetGlowType()](r, ...)
+lib.ShowOverlayGlow = function(button)
+	lib.startList[GetGlowType()](button)
 end
-lib.HideOverlayGlow = function(r, ...)
-	lib.stopList[GetGlowType()](r, ...)
+lib.HideOverlayGlow = function(button)
+	lib.stopList[GetGlowType()](button)
 end

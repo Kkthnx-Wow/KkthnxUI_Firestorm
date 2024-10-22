@@ -316,25 +316,19 @@ function Module:CreateMinimapButtonToggle()
 end
 
 function Module:CreateGUIGameMenuButton()
-	local gameMenuButton = CreateFrame("Button", "KKUI_GameMenuButton", _G.GameMenuFrame, "GameMenuButtonTemplate")
-	gameMenuButton:SetText(K.Title)
-	gameMenuButton:SetPoint("TOP", _G.GameMenuButtonAddons, "BOTTOM", 0, -12)
-
+	local gui = CreateFrame("Button", "KKUI_GameMenuButton", GameMenuFrame, "GameMenuButtonTemplate, BackdropTemplate")
+	gui:SetText(K.Title)
+	gui:SetPoint("TOP", GameMenuButtonAddons, "BOTTOM", 0, -21)
 	GameMenuFrame:HookScript("OnShow", function(self)
-		GameMenuButtonLogout:SetPoint("TOP", gameMenuButton, "BOTTOM", 0, -12)
-		self:SetHeight(self:GetHeight() + gameMenuButton:GetHeight() + 6)
+		GameMenuButtonLogout:SetPoint("TOP", gui, "BOTTOM", 0, -21)
+		self:SetHeight(self:GetHeight() + gui:GetHeight() + 22)
 	end)
 
-	gameMenuButton:SetScript("OnClick", function()
+	gui:SetScript("OnClick", function()
 		if InCombatLockdown() then
-			UIErrorsFrame:AddMessage(K.InfoColor .. ERR_NOT_IN_COMBAT)
+			UIErrorsFrame:AddMessage(DB.InfoColor .. ERR_NOT_IN_COMBAT)
 			return
 		end
-		if InCombatLockdown() then
-			UIErrorsFrame:AddMessage(K.InfoColor .. ERR_NOT_IN_COMBAT)
-			return
-		end
-
 		K["GUI"]:Toggle()
 		HideUIPanel(_G.GameMenuFrame)
 		PlaySound(_G.SOUNDKIT.IG_MAINMENU_OPTION)

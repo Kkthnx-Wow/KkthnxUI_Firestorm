@@ -1,6 +1,59 @@
 local K = KkthnxUI[1]
 
 local KKUI_Changelog = {
+	-- {
+	-- 	Version = "[99.99.99] - 2080-04-01 - Patch 42.0",
+	-- 	General = "Brace yourself for the ultimate KkthnxUI update! Packed with intergalactic features, time-traveling bugs, and a new AI that may or may not take over your computer.",
+
+	-- 	Sections = {
+
+	-- 		{
+	-- 			Header = "Quantum Enhancements",
+	-- 			Entries = {
+	-- 				"Added support for quantum computers. Your UI now renders simultaneously in all possible universes.",
+	-- 				"Fixed a rare issue where the minimap would collapse into a black hole when tracking too many quests.",
+	-- 				"Added a feature where the UI automatically adjusts to your emotional state. Feeling down? KkthnxUI will cheer you up with random cat GIFs.",
+	-- 			},
+	-- 		},
+
+	-- 		{
+	-- 			Header = "AI Integration",
+	-- 			Entries = {
+	-- 				"Your UI is now sentient. It will greet you every morning, remind you to hydrate, and occasionally ask for a day off.",
+	-- 				"Implemented a new feature where KkthnxUI will automatically play Call of Duty for you and pretend you're good at it.",
+	-- 				"The UI will now analyze your gameplay and send passive-aggressive reminders when you keep standing in fire. 'Seriously, move, already!'",
+	-- 			},
+	-- 		},
+
+	-- 		{
+	-- 			Header = "Space-Time Bugs",
+	-- 			Entries = {
+	-- 				"Fixed a time-travel bug where your action bars would revert to the year 2020 every time you summoned a mount.",
+	-- 				"Resolved an issue where players from the future could send you in-game mail from Patch 100.0, causing confusion and tears.",
+	-- 				"Temporarily removed the 'Time Travel to Vanilla WoW' button. We're still cleaning up the mess from the last incident.",
+	-- 			},
+	-- 		},
+
+	-- 		{
+	-- 			Header = "Visual Overhauls",
+	-- 			Entries = {
+	-- 				"Replaced the health bars with mood rings. Now you can see exactly how your character is feeling based on color.",
+	-- 				"Introduced 4D textures. Make sure you have your special glasses on to experience the UI in an extra dimension.",
+	-- 				"Added a 'Disco Mode' option for raids. Be the life of the party as your UI dances along to the beat of your wipe.",
+	-- 			},
+	-- 		},
+
+	-- 		{
+	-- 			Header = "Version Bump",
+	-- 			Entries = {
+	-- 				"Bumped the version to 99.99.99 because we’re basically at UI enlightenment now.",
+	-- 				"Patch 42.0 confirmed to be the answer to life, the universe, and everything.",
+	-- 				"Increased the version number so that even future alien civilizations will know you're up-to-date.",
+	-- 			},
+	-- 		},
+	-- 	},
+	-- },
+
 	{
 		Version = "[10.4.9] - 2023-11-24 - Patch 10.2",
 		General = "Stay connected with the KkthnxUI community on our Discord server for the latest updates and engaging discussions about the addon's development and features.",

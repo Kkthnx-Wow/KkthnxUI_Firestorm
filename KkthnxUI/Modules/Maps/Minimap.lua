@@ -392,6 +392,10 @@ function Module:ReskinRegions()
 		end
 
 		local function ReskinDifficultyFrame(frame)
+			if not frame then
+				return
+			end
+
 			if frame.Border then
 				frame.Border:Hide()
 			end
@@ -885,7 +889,7 @@ function Module:OnEnable()
 
 	-- Hide Blizz
 	MinimapCluster:EnableMouse(false)
-	MinimapCluster.Tracking:Hide()
+	-- MinimapCluster.Tracking:Hide()
 	MinimapCluster.BorderTop:Hide()
 	MinimapCluster.ZoneTextButton:Hide()
 	Minimap:SetArchBlobRingScalar(0)

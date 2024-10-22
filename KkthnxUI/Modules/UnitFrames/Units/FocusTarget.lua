@@ -72,15 +72,15 @@ function Module:CreateFocusTarget()
 
 	if focusTargetPortraitStyle == "NoPortraits" or focusTargetPortraitStyle == "OverlayPortrait" then
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name] [fulllevel]")
+			self:Tag(self.Name, "[name] [fulllevel][afkdnd]")
 		else
-			self:Tag(self.Name, "[color][name] [fulllevel]")
+			self:Tag(self.Name, "[color][name] [fulllevel][afkdnd]")
 		end
 	else
 		if C["Unitframe"].HealthbarColor.Value == "Class" then
-			self:Tag(self.Name, "[name]")
+			self:Tag(self.Name, "[name][afkdnd]")
 		else
-			self:Tag(self.Name, "[color][name]")
+			self:Tag(self.Name, "[color][name][afkdnd]")
 		end
 	end
 	self.Name:SetShown(not C["Unitframe"].HideFocusTargetName)

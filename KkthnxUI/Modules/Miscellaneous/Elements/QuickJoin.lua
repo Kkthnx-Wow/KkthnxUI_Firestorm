@@ -5,7 +5,7 @@ local TT = K:GetModule("Tooltip")
 local select, wipe, sort, gsub, tremove = select, wipe, sort, gsub, tremove
 local StaticPopup_Hide, HideUIPanel, GetTime = StaticPopup_Hide, HideUIPanel, GetTime
 local UnitIsGroupLeader, UnitClass, UnitGroupRolesAssigned = UnitIsGroupLeader, UnitClass, UnitGroupRolesAssigned
-local C_Timer_After, IsAltKeyDown = C_Timer.After, IsAltKeyDown
+local IsAltKeyDown = IsAltKeyDown
 local C_LFGList_GetSearchResultInfo = C_LFGList.GetSearchResultInfo
 local C_LFGList_GetActivityInfoTable = C_LFGList.GetActivityInfoTable
 local C_LFGList_GetSearchResultMemberInfo = C_LFGList.GetSearchResultMemberInfo
@@ -46,7 +46,7 @@ end
 
 function Module:HookDialogOnShow()
 	pendingFrame = self
-	C_Timer_After(1, Module.DialogHideInSecond)
+	K.Delay(1, Module.DialogHideInSecond)
 end
 
 local roleCache = {}
@@ -329,6 +329,10 @@ function Module:AddPGFSortingExpression()
 end
 
 function Module:FixListingTaint() -- From PremadeGroupsFilter
+	if IsAddOnLoaded("PremadeGroupsFilter") then
+		return
+	end
+
 	local activityIdOfArbitraryMythicPlusDungeon = 1160 -- Algeth'ar Academy
 	if not C_LFGList.IsPlayerAuthenticatedForLFG(activityIdOfArbitraryMythicPlusDungeon) then
 		return

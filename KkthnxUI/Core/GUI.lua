@@ -574,6 +574,15 @@ local SliderOnValueChanged = function(self)
 	SetValue(self.EditBox.Group, self.EditBox.Option, Value)
 	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
 
+	-- Play the sound after the user has stopped interacting with the slider for 0.2 seconds
+	if self.soundTimer then
+		self.soundTimer:Cancel()
+	end
+
+	self.soundTimer = C_Timer.NewTimer(0.2, function()
+		PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+	end)
+
 	if self.Hook then
 		self.Hook(self.Value, self.Group)
 	end
@@ -1242,8 +1251,9 @@ local ColorOnMouseUp = function(self, button)
 		local ShowColorPickerFrame = function(r, g, b, func, cancel)
 			HideUIPanel(CPF)
 			CPF.Button = self
+			CPF.swatchFunc = K.Noop
 
-			CPF:SetColorRGB(CurrentR, CurrentG, CurrentB)
+			CPF.Content.ColorPicker:SetColorRGB(CurrentR, CurrentG, CurrentB)
 
 			CPF.Group = self.Group
 			CPF.Option = self.Option

@@ -49,6 +49,7 @@
    <Script file="ActionBars\Keybind.lua" />
    <Script file="ActionBars\ButtonStyle.lua" />
    <Script file="ActionBars\Cooldown.lua" />
+   <Script file="ActionBars\Fader.lua" />
    <!-- Auras -->
    <Include file="Auras\AuraTemplate.xml" />
    <Script file="Auras\Core.lua" />
@@ -173,6 +174,7 @@
    <Include file="Skins\Blizzard\FrameXML\LossOfControlFrame.lua" />
    <Include file="Skins\Blizzard\FrameXML\ObjectiveTracker.lua" />
    <Include file="Skins\Blizzard\FrameXML\SpellBookFrame.lua" />
+   <Include file="Skins\Blizzard\FrameXML\StaticPopup.lua" />
    <Include file="Skins\Blizzard\FrameXML\UIDropDownMenu.lua" />
    <Include file="Skins\Blizzard\FrameXML\UIWidgets.lua" />
    <!-- Skins AddOns -->

@@ -1,62 +1,62 @@
+-- Import necessary variables and modules
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("ActionBar")
 
 -- Import Lua functions
-local insert = table.insert
-local ipairs, pairs = ipairs, pairs
+local table_insert = table.insert
+local pairs = pairs
 local type = type
 
 -- Global variables
-local MicroButtons = {}
-local updateWatcher = 0
+local buttonList = {}
+local watcher = 0
 
--- Fade out the micro menu
-local function FadeOutMicroMenu()
-	local microMenuBar = KKUI_MenuBar
+-- Callback for fading out the micro menu
+local function LeaveBarFadeOut()
+	local KKUI_MB = KKUI_MenuBar
 	if C["ActionBar"].FadeMicroMenu then
-		UIFrameFadeOut(microMenuBar, 0.2, microMenuBar:GetAlpha(), 0)
+		UIFrameFadeOut(KKUI_MB, 0.2, KKUI_MB:GetAlpha(), 0)
 	end
 end
 
--- Update micro menu on mouse over
+-- Callback for updating when the mouse is over the micro menu
 local function UpdateOnMouseOver(_, elapsed)
-	local microMenuBar = KKUI_MenuBar
-	updateWatcher = updateWatcher + elapsed
-	if updateWatcher > 0.1 then
-		if not microMenuBar:IsMouseOver() then
-			microMenuBar.IsMouseOvered = nil
-			microMenuBar:SetScript("OnUpdate", nil)
-			FadeOutMicroMenu()
+	local KKUI_MB = KKUI_MenuBar
+	watcher = watcher + elapsed
+	if watcher > 0.1 then
+		if not KKUI_MB:IsMouseOver() then
+			KKUI_MB.IsMouseOvered = nil
+			KKUI_MB:SetScript("OnUpdate", nil)
+			LeaveBarFadeOut()
 		end
-		updateWatcher = 0
+		watcher = 0
 	end
 end
 
--- Handle micro button hover
+-- Callback for handling micro button hover
 local function OnMicroButtonEnter()
-	local microMenuBar = KKUI_MenuBar
-	if not microMenuBar.IsMouseOvered then
-		microMenuBar.IsMouseOvered = true
-		microMenuBar:SetScript("OnUpdate", UpdateOnMouseOver)
-		UIFrameFadeIn(microMenuBar, 0.2, microMenuBar:GetAlpha(), 1)
+	local KKUI_MB = KKUI_MenuBar
+	if not KKUI_MB.IsMouseOvered then
+		KKUI_MB.IsMouseOvered = true
+		KKUI_MB:SetScript("OnUpdate", UpdateOnMouseOver)
+		UIFrameFadeIn(KKUI_MB, 0.2, KKUI_MB:GetAlpha(), 1)
 	end
 end
 
--- Reset button parent to its original owner
+-- Callbacks for resetting button parent and anchor
 local function ResetButtonParent(button, parent)
 	if parent ~= button.__owner then
 		button:SetParent(button.__owner)
 	end
 end
 
--- Reset button anchor to its owner
 local function ResetButtonAnchor(button)
 	button:ClearAllPoints()
 	button:SetAllPoints()
 end
 
--- Setup textures for the micro buttons
-local function SetupMicroButtonTextures(button)
+-- Function for setting up button textures
+local function SetupButtonTextures(button)
 	local function SetTextureProperties(texture)
 		texture:SetTexCoord(0.2, 0.80, 0.22, 0.8)
 		texture:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -5)
@@ -106,12 +106,12 @@ local function SetupMicroButtonTextures(button)
 	end
 end
 
--- Create micro buttons
-local function CreateMicroButton(parent, data)
+-- Function for creating micro buttons
+local function MicroButtonCreate(parent, data)
 	local method, tooltip = unpack(data)
 
 	local buttonFrame = CreateFrame("Frame", "KKUI_MicroButtons", parent)
-	insert(MicroButtons, buttonFrame)
+	table_insert(buttonList, buttonFrame)
 	buttonFrame:SetSize(22, 30)
 	buttonFrame:CreateBorder()
 
@@ -135,7 +135,7 @@ local function CreateMicroButton(parent, data)
 		button:SetHighlightTexture(0)
 		button.SetHighlightTexture = K.Noop
 
-		SetupMicroButtonTextures(button)
+		SetupButtonTextures(button)
 	else
 		buttonFrame:SetScript("OnMouseUp", method)
 		K.AddTooltip(buttonFrame, "ANCHOR_RIGHT", tooltip)
@@ -148,19 +148,19 @@ local function CreateMicroButton(parent, data)
 	end
 end
 
--- Set up the micro menu
+-- Function for setting up the micro menu
 function Module:CreateMicroMenu()
 	if not C["ActionBar"].MicroMenu then
 		return
 	end
 
-	local microMenuBar = CreateFrame("Frame", "KKUI_MenuBar", K.PetBattleFrameHider)
-	microMenuBar:SetSize(302, 30)
-	microMenuBar:SetAlpha((C["ActionBar"].FadeMicroMenu and not microMenuBar.IsMouseOvered and 0) or 1)
-	microMenuBar:EnableMouse(false)
-	K.Mover(microMenuBar, "Menubar", "Menubar", { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4 })
+	local menubar = CreateFrame("Frame", "KKUI_MenuBar", K.PetBattleFrameHider)
+	menubar:SetSize(302, 30)
+	menubar:SetAlpha((C["ActionBar"].FadeMicroMenu and not menubar.IsMouseOvered and 0) or 1)
+	menubar:EnableMouse(false)
+	K.Mover(menubar, "Menubar", "Menubar", { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4 })
 
-	-- Define micro buttons
+	-- Generate Buttons
 	local buttonInfo = {
 		{ "CharacterMicroButton" },
 		{ "SpellbookMicroButton" },
@@ -175,26 +175,24 @@ function Module:CreateMicroMenu()
 		{ "MainMenuMicroButton", MicroButtonTooltipText(MAINMENU_BUTTON, "TOGGLEGAMEMENU") },
 	}
 
-	-- Create micro buttons
 	for _, info in pairs(buttonInfo) do
-		CreateMicroButton(microMenuBar, info)
+		MicroButtonCreate(menubar, info)
 	end
 
-	-- Arrange micro buttons
-	for i, buttonFrame in ipairs(MicroButtons) do
+	-- Order Positions
+	for i, buttonFrame in ipairs(buttonList) do
 		if i == 1 then
 			buttonFrame:SetPoint("LEFT")
 		else
-			buttonFrame:SetPoint("LEFT", MicroButtons[i - 1], "RIGHT", 6, 0)
+			buttonFrame:SetPoint("LEFT", buttonList[i - 1], "RIGHT", 6, 0)
 		end
 	end
 
-	-- Adjust MainMenuMicroButton textures
+	-- Fix textures for buttons
 	MainMenuMicroButton.MainMenuBarPerformanceBar:SetTexture(K.GetTexture(C["General"].Texture))
 	MainMenuMicroButton.MainMenuBarPerformanceBar:SetSize(16, 2)
 	MainMenuMicroButton.MainMenuBarPerformanceBar:SetPoint("BOTTOM", MainMenuMicroButton, "BOTTOM", 0, 0)
 
-	-- Skin CharacterMicroButton
 	if CharacterMicroButton then
 		local function SkinCharacterPortrait(self)
 			self.Portrait:SetPoint("TOPLEFT", self, "TOPLEFT", 2, -5)
@@ -205,8 +203,11 @@ function Module:CreateMicroMenu()
 		hooksecurefunc(CharacterMicroButton, "SetNormal", SkinCharacterPortrait)
 	end
 
-	-- Hide HelpOpenWebTicketButton and BagsBar
 	K.HideInterfaceOption(HelpOpenWebTicketButton)
 	BagsBar:Hide()
 	BagsBar:UnregisterAllEvents()
+
+	if MicroMenu and MicroMenu.UpdateHelpTicketButtonAnchor then
+		MicroMenu.UpdateHelpTicketButtonAnchor = K.Noop
+	end
 end

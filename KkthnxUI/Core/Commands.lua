@@ -1,4 +1,4 @@
-local K, L = KkthnxUI[1], KkthnxUI[3]
+local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 
 -- Utility Functions
 local print = print
@@ -11,8 +11,6 @@ local tonumber = tonumber
 local C_QuestLog_IsQuestFlaggedCompleted = C_QuestLog.IsQuestFlaggedCompleted
 local CombatLogClearEntries = CombatLogClearEntries
 local DoReadyCheck = DoReadyCheck
-local GetContainerItemLink = GetContainerItemLink
-local GetContainerNumSlots = GetContainerNumSlots
 local GetItemInfo = GetItemInfo
 local PlaySound = PlaySound
 local UIErrorsFrame = UIErrorsFrame
@@ -94,15 +92,11 @@ local function CheckQuestStatus(questid)
 	end
 
 	if C_QuestLog_IsQuestFlaggedCompleted(questid) == true then
-		UIErrorsFrame:AddMessage(
-			QuestCheckComplete .. "Quest " .. "|CFFFFFF00[" .. questid .. "]|r" .. L["CheckQuestComplete"]
-		)
+		UIErrorsFrame:AddMessage(QuestCheckComplete .. "Quest " .. "|CFFFFFF00[" .. questid .. "]|r" .. L["CheckQuestComplete"])
 		PlaySound("878")
 		K.Print(WoWHeadLoc .. questid)
 	else
-		UIErrorsFrame:AddMessage(
-			QuestCheckIncomplete .. "Quest " .. "|CFFFFFF00[" .. questid .. "]|r" .. L["CheckQuestNotComplete"]
-		)
+		UIErrorsFrame:AddMessage(QuestCheckIncomplete .. "Quest " .. "|CFFFFFF00[" .. questid .. "]|r" .. L["CheckQuestNotComplete"])
 		PlaySound("847")
 		K.Print(WoWHeadLoc .. questid)
 	end
@@ -115,7 +109,7 @@ end
 local function DeleteQuestItems()
 	for bag = 0, 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
-			local itemLink = GetContainerItemLink(bag, slot)
+			local itemLink = C_Container.GetContainerItemLink(bag, slot)
 			if itemLink and select(12, GetItemInfo(itemLink)) == _G.LE_ITEM_CLASS_QUESTITEM then
 				_G.print("Quest Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
 			end
@@ -127,7 +121,7 @@ end
 local function DeleteHeirlooms()
 	for bag = 0, 4 do
 		for slot = 1, C_Container.GetContainerNumSlots(bag) do
-			local item = { GetContainerItemInfo(bag, slot) }
+			local item = { C_Container.GetContainerItemInfo(bag, slot) }
 			if item[4] == 7 then -- Heirloom items
 				_G.print("Heirloom Item to Delete: " .. item[1] .. " in Bag: " .. bag .. " Slot: " .. slot)
 			end
@@ -206,10 +200,7 @@ local function StoreAndDisableAddons()
 	end
 
 	StaticPopupDialogs["CONFIRM_DISABLE_ADDONS"] = {
-		text = string.format(
-			"Are you sure you want to disable |cff669DFF%d|r addon(s) except |cff669DFFKkthnxUI|r for debugging?|n|nYou can use '|cff669DFFkkdebug off|r' to restore them.",
-			addonsToDisable
-		),
+		text = string.format("Are you sure you want to disable |cff5C8BCF%d|r addon(s) except |cff5C8BCFKkthnxUI|r for debugging?|n|nYou can use '|cff5C8BCFkkdebug off|r' to restore them.", addonsToDisable),
 		button1 = "Yes",
 		button2 = "No",
 		OnAccept = function()
@@ -233,7 +224,7 @@ end
 
 local function RestoreAddons()
 	StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
-		text = "You are about to re-enable all previously disabled addons.|n|nThanks for using |cff669DFFKkthnxUI|r |cffff0000<3|r",
+		text = "You are about to re-enable all previously disabled addons.|n|nThanks for using |cff5C8BCFKkthnxUI|r |cffff0000<3|r",
 		button1 = "Yes",
 		button2 = "No",
 		OnAccept = function()
@@ -252,12 +243,132 @@ local function RestoreAddons()
 	}
 	StaticPopup_Show("CONFIRM_RESTORE_ADDONS")
 end
+
 local function DebugMode(msg)
 	if msg == "on" then
 		StoreAndDisableAddons()
 	elseif msg == "off" then
 		RestoreAddons()
 	end
+end
+
+-- Frame for displaying commands
+local function CreateCommandWindow()
+	if _G.KKUICommandWindow then
+		_G.KKUICommandWindow:Show() -- Show the window if it already exists
+		return
+	end
+
+	local frame = CreateFrame("Frame", "KKUICommandWindow", UIParent)
+	frame:SetSize(650, 500) -- Width, Height
+	frame:SetPoint("CENTER") -- Position at the center of the screen
+	frame:CreateBorder()
+	frame:SetMovable(true)
+	frame:EnableMouse(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+
+	-- Title Text
+	frame.title = frame:CreateFontString(nil, "OVERLAY")
+	frame.title:SetFontObject("GameFontHighlightLarge")
+	frame.title:SetPoint("TOP", frame, "TOP", 0, -8)
+	frame.title:SetText(K.InfoColor .. "Commands List|r") -- Blue color title
+
+	local frameLogo = frame:CreateTexture(nil, "OVERLAY")
+	frameLogo:SetSize(512, 256)
+	frameLogo:SetBlendMode("ADD")
+	frameLogo:SetAlpha(0.07)
+	frameLogo:SetTexture(C["Media"].Textures.LogoTexture)
+	frameLogo:SetPoint("CENTER", frame, "CENTER", 0, 0)
+
+	-- Scroll Frame
+	local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+	scrollFrame:SetSize(594, 440)
+	scrollFrame:SetPoint("CENTER")
+
+	-- Scroll Child Frame
+	local scrollChild = CreateFrame("Frame")
+	scrollChild:SetSize(594, 440)
+	scrollFrame:SetScrollChild(scrollChild)
+	scrollFrame.ScrollBar:SkinScrollBar()
+
+	-- List of commands and descriptions
+	local commandsList = {
+		{ "KkthnxUI Commands", "" }, -- Section title
+		{ "/kk allquests", "Abandons all active quests." },
+		{ "/kk checkqueststatus [questid]", "Checks the completion status of a quest." },
+		{ "/kk clearchat [all]", "Clears the chat for the current window or all windows." },
+		{ "/kk clearcombatlog", "Clears the combat log." },
+		{ "/kk debug [on/off]", "Toggles debug mode for disabling/enabling addons." },
+		{ "/kk deleteheirlooms", "Lists all heirloom items for manual deletion." },
+		{ "/kk deletequestitems", "Lists all quest items for manual deletion." },
+		{ "/kk gmticket", "Opens the GM ticket window." },
+		{ "/kk gui", "Opens the KkthnxUI settings window." },
+		{ "/kk keybindframe", "Opens the key binding window." },
+		{ "/kk readycheck", "Initiates a ready check." },
+		{ "/kk resetinstance", "Resets the current instance." },
+		{ "/kk volume [value]", "Sets the master volume level (0 to 1)." },
+		{ "/kk zonequests", "Abandons all quests from the current zone." },
+		{ "General Commands", "" }, -- Section title
+		{ "/debufftrack", "Opens the debuff tracking interface to manage and track debuffs in PvE and PvP." },
+		{ "/getfont", "Prints the font name, size, and flags of a specified global font object." },
+		{ "/getframe", "Gets the frame names under the mouse." },
+		{ "/getinstance", "Prints the current instance name and ID." },
+		{ "/getnpc", "Prints the target's NPC name and ID." },
+		{ "/getspell", "Gets spell information by name or ID." },
+		{ "/gettip", "Enumerates all tooltips on the screen." },
+		{ "/go [x] [y]", "Create a custom waypoint with the specified coordinates." },
+		{ "/install", "Installs or resets KkthnxUI and opens the installation wizard." },
+		{ "/jenkins", "Starts the pull countdown for the group or raid." },
+		{ "/kb", "Toggles the keybinding interface for KkthnxUI." },
+		{ "/kkaw", "Opens the aurawatch frame for KkthnxUI." },
+		{ "/moveui", "Allows the user to move UI elements." },
+		{ "/pc", "Alternative command for pull countdown." },
+		{ "/rl", "Shortcut to reload the user interface quickly." },
+		{ "/way [x] [y]", "Create a custom waypoint with the specified coordinates." },
+	}
+
+	-- Start positioning for the text
+	local yOffset = -10
+
+	for _, cmd in ipairs(commandsList) do
+		-- Create the font string for command text
+		local commandText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+		commandText:SetPoint("TOPLEFT", 0, yOffset)
+		commandText:SetWidth(594)
+		commandText:SetJustifyH("LEFT")
+
+		-- Check if the current entry is a section title or a command
+		if cmd[2] == "" then
+			-- Section title (larger font, different color)
+			commandText:SetFontObject("GameFontNormalLarge")
+			commandText:SetText(K.InfoColorTint .. cmd[1] .. "|r") -- Section title color
+		else
+			-- Regular command with hyphen and description
+			commandText:SetFontObject("GameFontHighlight")
+			commandText:SetText(K.InfoColor .. cmd[1] .. "|r - " .. K.SystemColor .. cmd[2] .. "|r")
+		end
+
+		-- Adjust the yOffset for the next line
+		yOffset = yOffset - 26
+	end
+
+	frame:Hide() -- Hide by default
+
+	-- Close Button
+	frame.closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
+	frame.closeButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
+	frame.closeButton:SkinCloseButton()
+
+	-- Store the frame for future use
+	_G.KKUICommandWindow = frame
+end
+
+-- Open Command Window with /kkhelp
+local function OpenCommandWindow()
+	CreateCommandWindow()
+	_G.KKUICommandWindow:Show()
 end
 
 -- Command Mapping Table
@@ -277,6 +388,7 @@ local commandMap = {
 	debug = DebugMode,
 	allquests = AbandonAllQuests,
 	zonequests = AbandonZoneQuests,
+	help = OpenCommandWindow,
 	-- Add more commands as needed...
 }
 
