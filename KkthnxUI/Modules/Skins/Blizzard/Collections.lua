@@ -46,6 +46,13 @@ local function HideTutorialButton()
 end
 
 C.themes["Blizzard_Collections"] = function()
+	K.Delay(1, function()
+		-- Delay to remove oversized button from WardrobeCollectionFrame
+		if WardrobeCollectionFrameGetNewButton then
+			WardrobeCollectionFrameGetNewButton:Kill()
+		end
+	end)
+
 	if not C["Skins"].BlizzardFrames then
 		return
 	end
