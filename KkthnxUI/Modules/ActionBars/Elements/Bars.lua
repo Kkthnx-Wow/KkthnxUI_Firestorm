@@ -15,33 +15,32 @@ local RegisterStateDriver = RegisterStateDriver
 local margin, padding = 6, 0
 
 function Module:UpdateAllSize()
-	-- check if action bar feature is enabled
 	if not C["ActionBar"].Enable then
 		return
 	end
 
-	-- update size of action bars
-	local actionBars = { "Bar1", "Bar2", "Bar3", "Bar4", "Bar5", "Bar6", "Bar7", "Bar8", "BarPet" }
-	for _, bar in ipairs(actionBars) do
-		Module:UpdateActionSize(bar)
-	end
-
-	-- update stance bar
+	Module:UpdateActionSize("Bar1")
+	Module:UpdateActionSize("Bar2")
+	Module:UpdateActionSize("Bar3")
+	Module:UpdateActionSize("Bar4")
+	Module:UpdateActionSize("Bar5")
+	Module:UpdateActionSize("Bar6")
+	Module:UpdateActionSize("Bar7")
+	Module:UpdateActionSize("Bar8")
+	Module:UpdateActionSize("BarPet")
 	Module:UpdateStanceBar()
-
-	-- update vehicle button
 	Module:UpdateVehicleButton()
 end
 
 function Module:UpdateFontSize(button, fontSize)
-	-- Table containing elements of the button that need to have their font size updated
-	local buttonElements = { "Name", "Count", "HotKey" }
-	for _, element in ipairs(buttonElements) do
-		-- Set font object
-		button[element]:SetFontObject(K.UIFontOutline)
-		-- Set font family, size, and style
-		button[element]:SetFont(select(1, button[element]:GetFont()), fontSize, select(3, button[element]:GetFont()))
-	end
+	button.Name:SetFontObject(K.UIFontOutline)
+	button.Name:SetFont(select(1, button.Name:GetFont()), fontSize, select(3, button.Name:GetFont()))
+
+	button.Count:SetFontObject(K.UIFontOutline)
+	button.Count:SetFont(select(1, button.Count:GetFont()), fontSize, select(3, button.Count:GetFont()))
+
+	button.HotKey:SetFontObject(K.UIFontOutline)
+	button.HotKey:SetFont(select(1, button.HotKey:GetFont()), fontSize, select(3, button.HotKey:GetFont()))
 end
 
 function Module:UpdateActionSize(name)
@@ -59,28 +58,21 @@ function Module:UpdateActionSize(name)
 	end
 
 	if num == 0 then
-		-- Setting the number of columns and rows for the frame
 		local column = 3
 		local rows = 2
 
-		-- Setting the width and height of the frame, the mover, and the child
 		frame:SetWidth(3 * size + (column - 1) * margin + 2 * padding)
 		frame:SetHeight(size * rows + (rows - 1) * margin + 2 * padding)
 		frame.mover:SetSize(frame:GetSize())
 		frame.child:SetSize(frame:GetSize())
 		frame.child.mover:SetSize(frame:GetSize())
 
-		-- Enabling the child mover
 		frame.child.mover.isDisable = false
 
-		-- Loop through all buttons in the frame
 		for i = 1, 12 do
 			local button = frame.buttons[i]
-			-- Set the size of the button
 			button:SetSize(size, size)
-			-- Clear any existing points on the button
 			button:ClearAllPoints()
-			-- Position the button based on its index in the loop
 			if i == 1 then
 				button:SetPoint("TOPLEFT", frame, padding, -padding)
 			elseif i == 7 then
@@ -90,9 +82,7 @@ function Module:UpdateActionSize(name)
 			else
 				button:SetPoint("LEFT", frame.buttons[i - 1], "RIGHT", margin, 0)
 			end
-			-- Show the button
 			button:Show()
-			-- Update the font size of the button
 			Module:UpdateFontSize(button, fontSize)
 		end
 	else
@@ -132,84 +122,56 @@ end
 
 local directions = { "UP", "DOWN", "LEFT", "RIGHT" }
 function Module:UpdateButtonConfig(i)
-	-- Initialize buttonConfig if it does not exist
 	if not self.buttonConfig then
 		self.buttonConfig = {
-			-- hideElements table will store which elements of the button should be hidden
 			hideElements = {},
-			-- text table will store the font and position settings for the button's text elements
 			text = {
-				hotkey = {
-					font = {},
-					position = {},
-				},
-				count = {
-					font = {},
-					position = {},
-				},
-				macro = {
-					font = {},
-					position = {},
-				},
+				hotkey = { font = {}, position = {} },
+				count = { font = {}, position = {} },
+				macro = { font = {}, position = {} },
 			},
 		}
 	end
-	-- Set the clickOnDown attribute to true
+
 	self.buttonConfig.clickOnDown = true
-	-- Set the showGrid attribute based on the value of C["ActionBar"]["Grid"]
 	self.buttonConfig.showGrid = C["ActionBar"]["Grid"]
-	-- Set the flyoutDirection attribute based on the value of C["ActionBar"]["Bar" .. i .. "Flyout"]
 	self.buttonConfig.flyoutDirection = directions[C["ActionBar"]["Bar" .. i .. "Flyout"]]
 
 	-- Get the hotkey field of the buttonConfig's text table
 	local hotkey = self.buttonConfig.text.hotkey
 
-	-- Set the font field of the hotkey table to the value of K.UIFont
 	hotkey.font.font = K.UIFont
-	-- Set the size field of the hotkey table's font field to the value of C["ActionBar"]["Bar" .. i .. "Font"]
 	hotkey.font.size = C["ActionBar"]["Bar" .. i .. "Font"]
-	-- Set the flags field of the hotkey table's font field to the value of K.UIFontStyle
 	hotkey.font.flags = K.UIFontStyle
 
-	-- Set the anchor field of the hotkey table's position field to "TOPRIGHT"
 	hotkey.position.anchor = "TOPRIGHT"
-	-- Set the relAnchor field of the hotkey table's position field to false
 	hotkey.position.relAnchor = false
-	-- Set the offsetX field of the hotkey table's position field to 0
 	hotkey.position.offsetX = 0
-	-- Set the offsetY field of the hotkey table's position field to -2
 	hotkey.position.offsetY = -2
-	-- Set the justifyH field of the hotkey table to "RIGHT"
 	hotkey.justifyH = "RIGHT"
 
-	-- Initialize the count text configuration
 	local count = self.buttonConfig.text.count
 	local fontConfig = count.font
 	local positionConfig = count.position
 
-	-- Set the font style for the count text
 	fontConfig.font = K.UIFont
 	fontConfig.size = C["ActionBar"]["Bar" .. i .. "Font"]
 	fontConfig.flags = K.UIFontStyle
 
-	-- Set the position of the count text
 	positionConfig.anchor = "BOTTOMRIGHT"
 	positionConfig.relAnchor = false
 	positionConfig.offsetX = 2
 	positionConfig.offsetY = 0
 	count.justifyH = "RIGHT"
 
-	-- Initialize the macro text configuration
 	local macro = self.buttonConfig.text.macro
 	local fontConfig = macro.font
 	local positionConfig = macro.position
 
-	-- Set the font style for the macro text
 	fontConfig.font = K.UIFont
 	fontConfig.size = C["ActionBar"]["Bar" .. i .. "Font"]
 	fontConfig.flags = K.UIFontStyle
 
-	-- Set the position of the macro text
 	positionConfig.anchor = "BOTTOM"
 	positionConfig.relAnchor = false
 	positionConfig.offsetX = 0
@@ -231,7 +193,7 @@ function Module:UpdateButtonConfig(i)
 		button:SetAttribute("checkmouseovercast", true)
 		button:SetAttribute("checkfocuscast", true)
 		button:SetAttribute("checkselfcast", true)
-		--button:SetAttribute("*unit2", "player")
+		-- button:SetAttribute("*unit2", "player")
 		button:UpdateConfig(self.buttonConfig)
 	end
 end
@@ -306,22 +268,10 @@ function Module:CreateBars()
 
 	local BAR_DATA = {
 		[1] = { page = 1, bindName = "ACTIONBUTTON", anchor = { "BOTTOM", UIParent, "BOTTOM", 0, 4 } },
-		[2] = {
-			page = 6,
-			bindName = "MULTIACTIONBAR1BUTTON",
-			anchor = { "BOTTOM", _G.KKUI_ActionBar1, "TOP", 0, margin },
-		},
-		[3] = {
-			page = 5,
-			bindName = "MULTIACTIONBAR2BUTTON",
-			anchor = { "BOTTOM", _G.KKUI_ActionBar2, "TOP", 0, margin },
-		},
+		[2] = { page = 6, bindName = "MULTIACTIONBAR1BUTTON", anchor = { "BOTTOM", _G.KKUI_ActionBar1, "TOP", 0, margin } },
+		[3] = { page = 5, bindName = "MULTIACTIONBAR2BUTTON", anchor = { "BOTTOM", _G.KKUI_ActionBar2, "TOP", 0, margin } },
 		[4] = { page = 3, bindName = "MULTIACTIONBAR3BUTTON", anchor = { "RIGHT", UIParent, "RIGHT", -4, 0 } },
-		[5] = {
-			page = 4,
-			bindName = "MULTIACTIONBAR4BUTTON",
-			anchor = { "RIGHT", _G.KKUI_ActionBar4, "LEFT", -margin, 0 },
-		},
+		[5] = { page = 4, bindName = "MULTIACTIONBAR4BUTTON", anchor = { "RIGHT", _G.KKUI_ActionBar4, "LEFT", -margin, 0 } },
 		[6] = { page = 13, bindName = "MULTIACTIONBAR5BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 0 } },
 		[7] = { page = 14, bindName = "MULTIACTIONBAR6BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 40 } },
 		[8] = { page = 15, bindName = "MULTIACTIONBAR7BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 80 } },

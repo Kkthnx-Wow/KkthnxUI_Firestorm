@@ -61,11 +61,6 @@ local function DisableAllScripts(frame)
 	end
 end
 
-local function updateTokenVisibility()
-	TokenFrame_LoadUI()
-	TokenFrame_Update()
-end
-
 local function buttonEventsRegisterFrame(self, added)
 	local frames = self.frames
 	for index = #frames, 1, -1 do
@@ -84,9 +79,6 @@ local function buttonEventsRegisterFrame(self, added)
 end
 
 local function DisableDefaultBarEvents() -- credit: Simpy
-	-- MainMenuBar:ClearAllPoints taint during combat
-	_G.MainMenuBar.SetPositionForStatusBars = K.Noop
-
 	-- Spellbook open in combat taint, only happens sometimes
 	_G.MultiActionBar_HideAllGrids = K.Noop
 	_G.MultiActionBar_ShowAllGrids = K.Noop
@@ -105,9 +97,6 @@ local function DisableDefaultBarEvents() -- credit: Simpy
 
 	hooksecurefunc(_G.ActionBarButtonEventsFrame, "RegisterFrame", buttonEventsRegisterFrame)
 	buttonEventsRegisterFrame(_G.ActionBarButtonEventsFrame)
-
-	-- Fix keybind error; this prevents the reopening of the GameMenu
-	_G.SettingsPanel.TransitionBackOpeningPanel = HideUIPanel
 end
 
 function Module:HideBlizz()
@@ -123,8 +112,8 @@ function Module:HideBlizz()
 	DisableDefaultBarEvents()
 	-- Fix maw block anchor
 	MainMenuBarVehicleLeaveButton:RegisterEvent("PLAYER_ENTERING_WORLD")
-	-- Update token panel
-	K:RegisterEvent("CURRENCY_DISPLAY_UPDATE", updateTokenVisibility)
+	-- Update token panel, some alts may hide token as default
+	SetCVar("showTokenFrame", 1)
 
 	-- Hide blizzard expbar
 	StatusTrackingBarManager:UnregisterAllEvents()

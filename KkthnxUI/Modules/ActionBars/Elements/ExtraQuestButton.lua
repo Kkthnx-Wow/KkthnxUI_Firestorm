@@ -217,7 +217,7 @@ ExtraQuestButton:SetScript("OnUpdate", function(self, elapsed)
 			local Icon = self.Icon
 
 			-- BUG: C_Item.IsItemInRange() is broken versus friendly npcs (and possibly others)
-			local inRange = C_Item.IsItemInRange(self.itemLink, "target")
+			local inRange = C_Item_IsItemInRange(self.itemLink, "target")
 			if HotKey:GetText() == RANGE_INDICATOR then
 				if inRange == false then
 					HotKey:SetTextColor(1, 0.1, 0.1)

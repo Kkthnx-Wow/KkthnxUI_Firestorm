@@ -33,9 +33,9 @@ end
 
 local macroInit
 function Module:Bind_RegisterMacro()
-	-- if self ~= "Blizzard_MacroUI" then -- Is this needed?
-	-- 	return
-	-- end
+	if self ~= "Blizzard_MacroUI" then -- Is this needed?
+		return
+	end
 
 	if macroInit then
 		return

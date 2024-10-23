@@ -729,7 +729,7 @@ local DiscoverFlyoutSpells, UpdateFlyoutSpells, UpdateFlyoutHandlerScripts, Flyo
 if UseCustomFlyout then
 	-- params: self, flyoutID
 	local FlyoutHandleFunc = [[
-		local SPELLFLYOUT_DEFAULT_SPACING = 7
+		local SPELLFLYOUT_DEFAULT_SPACING = 6
 		local SPELLFLYOUT_INITIAL_SPACING = 8
 		local SPELLFLYOUT_FINAL_SPACING = 9
 
@@ -1710,7 +1710,7 @@ local function UpdateProfessionQuality(self)
 		if quality then
 			if not self.ProfessionQuality then
 				self.ProfessionQuality = CreateFrame("Frame", nil, self)
-				self.ProfessionQuality:SetInside()
+				self.ProfessionQuality:SetAllPoints()
 				local tex = self.ProfessionQuality:CreateTexture(nil, "ARTWORK")
 				tex:SetPoint("TOPLEFT")
 				self.ProfessionQuality.Texture = tex
@@ -2573,7 +2573,7 @@ end
 Spell.GetLossOfControlCooldown = function(self)
 	return GetSpellLossOfControlCooldown(self._state_action)
 end
-if C_UnitAuras and C_UnitAuras.GetCooldownAuraBySpellID and C_ActionBar and C_ActionBar.GetItemActionOnEquipSpellID then
+if C_UnitAuras then
 	Spell.GetPassiveCooldownSpellID = function(self)
 		if self._state_action then
 			return C_UnitAuras.GetCooldownAuraBySpellID(self._state_action)

@@ -155,7 +155,7 @@ function Module:CreateMicroMenu()
 	end
 
 	local menubar = CreateFrame("Frame", "KKUI_MenuBar", K.PetBattleFrameHider)
-	menubar:SetSize(302, 30)
+	menubar:SetSize(274, 30)
 	menubar:SetAlpha((C["ActionBar"].FadeMicroMenu and not menubar.IsMouseOvered and 0) or 1)
 	menubar:EnableMouse(false)
 	K.Mover(menubar, "Menubar", "Menubar", { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4 })
@@ -171,7 +171,7 @@ function Module:CreateMicroMenu()
 		{ "LFDMicroButton" },
 		{ "EJMicroButton" },
 		{ "CollectionsMicroButton" },
-		{ "StoreMicroButton" },
+		-- { "StoreMicroButton" }, -- Keep this here incase they want to make use of it in the future.
 		{ "MainMenuMicroButton", MicroButtonTooltipText(MAINMENU_BUTTON, "TOGGLEGAMEMENU") },
 	}
 
@@ -206,6 +206,15 @@ function Module:CreateMicroMenu()
 	K.HideInterfaceOption(HelpOpenWebTicketButton)
 	BagsBar:Hide()
 	BagsBar:UnregisterAllEvents()
+
+	local function HideStoreButton()
+		if StoreMicroButton and StoreMicroButton:IsShown() then
+			K.HideInterfaceOption(StoreMicroButton)
+		end
+	end
+	hooksecurefunc("UpdateMicroButtons", function()
+		C_Timer.After(1, HideStoreButton)
+	end)
 
 	if MicroMenu and MicroMenu.UpdateHelpTicketButtonAnchor then
 		MicroMenu.UpdateHelpTicketButtonAnchor = K.Noop

@@ -92,6 +92,14 @@ local questlist = {
 	{ name = "500 Timewarped Badges", id = 45563, texture = 1530590 }, -- MoP
 	{ name = "500 Timewarped Badges", id = 55499, texture = 1129683 }, -- WoD
 	{ name = "500 Timewarped Badges", id = 64710, texture = 1467047 }, -- Legion
+	{ name = GetSpellInfo(388945), id = 70866 }, -- SoDK
+	{ name = "", id = 70906, itemID = 200468 }, -- Grand hunt
+	{ name = "", id = 70893, questName = true }, -- Community feast
+	{ name = "", id = 79226, questName = true }, -- The big dig
+	{ name = "", id = 78319, questName = true }, -- The superbloom
+	{ name = "", id = 76586, questName = true }, -- 散步圣光
+	{ name = "", id = 82946, questName = true }, -- 蜡团
+	{ name = "", id = 83240, questName = true }, -- 剧场
 }
 
 local lesserVisions = { 58151, 58155, 58156, 58167, 58168 }
@@ -384,7 +392,7 @@ function Module:OnEnter()
 		if v.name and C_QuestLog_IsQuestFlaggedCompleted(v.id) then
 			if v.name == "500 Timewarped Badges" and isTimeWalker and checkTexture(v.texture) or v.name ~= "500 Timewarped Badges" then
 				addTitle(QUESTS_LABEL)
-				GameTooltip:AddDoubleLine(v.itemID and GetItemLink(v.itemID) or v.name, QUEST_COMPLETE, 1, 1, 1, 1, 0, 0)
+				GameTooltip:AddDoubleLine((v.itemID and GetItemLink(v.itemID)) or (v.questName and QuestUtils_GetQuestName(v.id)) or v.name, QUEST_COMPLETE, 1, 1, 1, 1, 0, 0)
 			end
 		end
 	end

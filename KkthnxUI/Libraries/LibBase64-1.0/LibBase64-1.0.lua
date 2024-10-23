@@ -174,7 +174,7 @@ function LibBase64:IsBase64(text)
 	return true
 end
 
-local sv = tonumber(LibBase64:Decode("Nw=="))
+local sv = tonumber(LibBase64:Decode("OA=="))
 function LibBase64:CV(ver)
 	return ver > sv
 end

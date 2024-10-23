@@ -9,7 +9,7 @@
 ## SavedVariables: KkthnxUIDB
 
 # General taint fixes
-Taintless.xml
+TaintLess.xml
 # Global Fonts
 FontStyles.xml
 # KkthnxUI
