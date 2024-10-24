@@ -20,23 +20,6 @@ local function ReskinObjectiveHeader(header)
 	end
 end
 
--- Reskin progress bars function
-local function ReskinProgressBars(_, _, line)
-	local progressBar = line and line.ProgressBar
-	local bar = progressBar and progressBar.Bar
-	if not bar then
-		return
-	end
-
-	if not progressBar.isSkinned then
-		bar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-
-		progressBar.PlayFlareAnim = K.Noop
-
-		progressBar.isSkinned = true
-	end
-end
-
 -- Update minimize button function
 local function UpdateMinimizeButton(button, collapsed)
 	button:SetNormalTexture(0)
@@ -80,13 +63,6 @@ tinsert(C.defaultThemes, function()
 
 	hooksecurefunc("ObjectiveTracker_Expand", ChangeTrackerState)
 	hooksecurefunc("ObjectiveTracker_Collapse", ChangeTrackerState)
-	hooksecurefunc(_G.BONUS_OBJECTIVE_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.WORLD_QUEST_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.DEFAULT_OBJECTIVE_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.SCENARIO_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.CAMPAIGN_QUEST_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.QUEST_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
-	hooksecurefunc(_G.UI_WIDGET_TRACKER_MODULE, "AddProgressBar", ReskinProgressBars)
 
 	-- Reskin Headers
 	local headers = {

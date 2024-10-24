@@ -177,7 +177,7 @@ end
 
 local function GuildPanel_UpdateButton(button)
 	local index = button.index
-	local level, class, name, zone, status = unpack(guildTable[index])
+	local level, class, name, zone, status, guid = unpack(guildTable[index])
 
 	-- Check if the index is valid
 	if not index or not guildTable[index] then
@@ -191,7 +191,9 @@ local function GuildPanel_UpdateButton(button)
 	button.class:SetTexCoord(tcoords[1] + 0.022, tcoords[2] - 0.025, tcoords[3] + 0.022, tcoords[4] - 0.025)
 
 	local namecolor = K.RGBToHex(K.ColorClass(class))
-	button.name:SetText(namecolor .. name .. status)
+	local isTimerunning = guid and C_ChatInfo.IsTimerunningPlayer(guid)
+	local playerName = isTimerunning and TimerunningUtil.AddSmallIcon(name) or name
+	button.name:SetText(namecolor .. playerName .. status)
 
 	local zonecolor = K.GreyColor
 	if UnitInRaid(name) or UnitInParty(name) then
@@ -449,27 +451,32 @@ local function OnEnter()
 		return
 	end
 
-	if _G.KKUI_FriendsInfoFrame and _G.KKUI_FriendsInfoFrame:IsShown() then
-		_G.KKUI_FriendsInfoFrame:Hide()
-	end
-
 	GuildPanel_Init()
 	GuildPanel_Refresh()
 	GuildPanel_SortUpdate()
 end
 
-local function delayLeave()
-	if MouseIsOver(infoFrame) then
-		return
-	end
-	infoFrame:Hide()
-end
-
 local function OnLeave()
+	GameTooltip:Hide()
+
 	if not infoFrame then
 		return
 	end
-	K.Delay(0.1, delayLeave)
+
+	-- Check if mouse is over the infoFrame or any of its buttons
+	local mouseOverFrame = MouseIsOver(infoFrame)
+	if not mouseOverFrame then
+		for i, button in ipairs(infoFrame.scrollFrame.buttons) do
+			if MouseIsOver(button) then
+				mouseOverFrame = true
+				break
+			end
+		end
+	end
+
+	if not mouseOverFrame then
+		infoFrame:Hide()
+	end
 end
 
 local function OnMouseUp(_, btn)
@@ -480,7 +487,7 @@ local function OnMouseUp(_, btn)
 	infoFrame:Hide()
 
 	if not CommunitiesFrame then
-		LoadAddOn("Blizzard_Communities")
+		C_AddOns.LoadAddOn("Blizzard_Communities")
 	end
 
 	if btn == "LeftButton" then

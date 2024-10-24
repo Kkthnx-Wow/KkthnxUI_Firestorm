@@ -7,12 +7,13 @@ local UIErrorsFrame = UIErrorsFrame
 
 -- Unit and Combat Functions
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
-local UnitIsPlayer, UnitIsDead, UnitExists, UnitName = UnitIsPlayer, UnitIsDead, UnitExists, UnitName
+local UnitIsDead, UnitExists, UnitName = UnitIsDead, UnitExists, UnitName
 local DoEmote, PlaySound = DoEmote, PlaySound
 
 local playerNearDeath = false
 local petNearDeath = false
-local validPetClasses = { ["HUNTER"] = true, ["WARLOCK"] = true }
+local validPetClasses = { "HUNTER", "WARLOCK" }
+local playerClass = K.Class
 
 local function shouldCheckHealth()
 	return UnitAffectingCombat("player") and IsInGroup()
@@ -23,12 +24,13 @@ local function checkPlayerHealth()
 		return
 	end
 
-	if not UnitIsPlayer("player") or UnitIsDead("player") then
+	if UnitIsDead("player") then
 		return
 	end
 
-	local playerHealthPercent = K.Round(UnitHealth("player") / UnitHealthMax("player") * 100, 1)
-
+	local playerHealth = UnitHealth("player")
+	local playerHealthMax = UnitHealthMax("player")
+	local playerHealthPercent = K.Round(playerHealth / playerHealthMax * 100, 1)
 	if playerHealthPercent <= 30 and not playerNearDeath then
 		playerNearDeath = true
 		UIErrorsFrame:AddMessage(K.InfoColor .. string_format(L["The health for %s is low!"], K.Name))
@@ -43,11 +45,13 @@ local function checkPetHealth()
 		return
 	end
 
-	if not validPetClasses[K.Class] or not UnitExists("pet") or UnitIsDead("pet") then
+	if not validPetClasses[playerClass] or not UnitExists("pet") or UnitIsDead("pet") then
 		return
 	end
 
-	local petHealthPercent = K.Round(UnitHealth("pet") / UnitHealthMax("pet") * 100, 1)
+	local petHealth = UnitHealth("pet")
+	local petHealthMax = UnitHealthMax("pet")
+	local petHealthPercent = K.Round(petHealth / petHealthMax * 100, 1)
 
 	if petHealthPercent <= 30 and not petNearDeath then
 		petNearDeath = true

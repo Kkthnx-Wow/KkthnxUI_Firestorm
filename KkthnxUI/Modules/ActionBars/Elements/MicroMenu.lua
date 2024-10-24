@@ -207,15 +207,6 @@ function Module:CreateMicroMenu()
 	BagsBar:Hide()
 	BagsBar:UnregisterAllEvents()
 
-	local function HideStoreButton()
-		if StoreMicroButton and StoreMicroButton:IsShown() then
-			K.HideInterfaceOption(StoreMicroButton)
-		end
-	end
-	hooksecurefunc("UpdateMicroButtons", function()
-		C_Timer.After(1, HideStoreButton)
-	end)
-
 	if MicroMenu and MicroMenu.UpdateHelpTicketButtonAnchor then
 		MicroMenu.UpdateHelpTicketButtonAnchor = K.Noop
 	end

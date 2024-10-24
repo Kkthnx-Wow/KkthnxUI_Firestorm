@@ -290,16 +290,6 @@ tinsert(C.defaultThemes, function()
 				end
 			end
 
-			if index == 4 then
-				K.Delay(1, function()
-					-- Delay to remove unwanted extra shop button
-					local extraShopButton = _G["PaperDollSidebarTab" .. 4]
-					if extraShopButton then
-						extraShopButton:Kill()
-					end
-				end)
-			end
-
 			index = index + 1
 			tab = _G["PaperDollSidebarTab" .. index]
 		end

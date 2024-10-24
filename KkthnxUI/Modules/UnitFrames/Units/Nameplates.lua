@@ -16,7 +16,6 @@ local C_NamePlate_SetNamePlateEnemySize = C_NamePlate.SetNamePlateEnemySize
 local C_NamePlate_SetNamePlateFriendlySize = C_NamePlate.SetNamePlateFriendlySize
 local C_NamePlate_SetNamePlateEnemyClickThrough = C_NamePlate.SetNamePlateEnemyClickThrough
 local C_NamePlate_SetNamePlateFriendlyClickThrough = C_NamePlate.SetNamePlateFriendlyClickThrough
-local C_Scenario_GetCriteriaInfo = C_Scenario.GetCriteriaInfo
 local C_Scenario_GetInfo = C_Scenario.GetInfo
 local C_Scenario_GetStepInfo = C_Scenario.GetStepInfo
 local CreateFrame = CreateFrame
@@ -125,6 +124,9 @@ function Module:SetupCVars()
 		nameplateSelectedScale = 1.1, -- Determines the scale of the selected nameplate. A value greater than 1 enlarges the nameplate.
 		nameplateLargerScale = 1.1, -- Adjusts the scale of larger nameplates, such as for bosses or important enemies. Default is 1 (normal size).
 		nameplateGlobalScale = 1, -- Sets the overall scale for all nameplates. Default is 1 (normal size).
+		NamePlateHorizontalScale = 1,
+		NamePlateVerticalScale = 1,
+		NamePlateClassificationScale = 1,
 		nameplateShowSelf = 0, -- Toggles the visibility of the player's own nameplate. 0 means the player's nameplate will not be shown.
 		nameplateResourceOnTarget = 0, -- Controls whether class resources (e.g., combo points, runes) are displayed on the target's nameplate. 0 means resources are shown below the character, not on the target.
 		nameplatePlayerMaxDistance = 60, -- Sets the maximum distance at which player nameplates are visible. The default value is 60 yards.
@@ -144,8 +146,10 @@ function Module:BlockAddons()
 		return
 	end
 
-	if _G.DBM.Options then
-		_G.DBM.Options.DontShowNameplateIconsCD = true
+	if DBM.Options then
+		DBM.Options.DontShowNameplateIcons = true
+		DBM.Options.DontShowNameplateIconsCD = true
+		DBM.Options.DontShowNameplateIconsCast = true
 	end
 
 	local function showAurasForDBM(_, _, _, spellID)
@@ -299,17 +303,6 @@ function Module:UpdateColor(_, unit)
 			else
 				r, g, b = K.UnitColor(unit)
 			end
-
-			-- [0] = { 1.00, 0.18, 0.18 }, -- HOSTILE
-			-- [1] = { 1.00, 0.51, 0.20 }, -- UNFRIENDLY
-			-- [2] = { 1.00, 0.85, 0.20 }, -- NEUTRAL
-			-- [3] = { 0.20, 0.71, 0.00 }, -- FRIENDLY
-			-- [5] = { 0.40, 0.53, 1.00 }, -- PLAYER_EXTENDED
-			-- [6] = { 0.40, 0.20, 1.00 }, -- PARTY
-			-- [7] = { 0.73, 0.20, 1.00 }, -- PARTY_PVP
-			-- [8] = { 0.20, 1.00, 0.42 }, -- FRIEND
-			-- [9] = { 0.60, 0.60, 0.60 }, -- DEAD
-			-- [13] = { 0.10, 0.58, 0.28 }, -- BATTLEGROUND_FRIENDLY_PVP
 
 			if status and (C["Nameplate"].TankMode or K.Role == "Tank") then
 				if status == 3 then
@@ -590,9 +583,15 @@ function Module:UpdateClassIcon(self, unit)
 	local reaction = UnitReaction(unit, "player")
 	if UnitIsPlayer(unit) and (reaction and reaction <= 4) then
 		local _, class = UnitClass(unit)
-		local texcoord = CLASS_ICON_TCOORDS[class]
-		self.Class.Icon:SetTexCoord(texcoord[1] + 0.015, texcoord[2] - 0.02, texcoord[3] + 0.018, texcoord[4] - 0.02)
-		self.Class:Show()
+
+		if class and CLASS_ICON_TCOORDS[class] then
+			local texcoord = CLASS_ICON_TCOORDS[class]
+			self.Class.Icon:SetTexCoord(texcoord[1] + 0.015, texcoord[2] - 0.02, texcoord[3] + 0.018, texcoord[4] - 0.02)
+			self.Class:Show()
+		else
+			self.Class.Icon:SetTexCoord(0, 0, 0, 0)
+			self.Class:Hide()
+		end
 	else
 		self.Class.Icon:SetTexCoord(0, 0, 0, 0)
 		self.Class:Hide()
@@ -629,9 +628,9 @@ function Module:UpdateDungeonProgress(unit)
 			local total = aksCacheData[name]
 			if not total then
 				for criteriaIndex = 1, numCriteria do
-					local _, _, _, _, totalQuantity, _, _, _, _, _, _, _, isWeightedProgress = C_Scenario_GetCriteriaInfo(criteriaIndex)
-					if isWeightedProgress then
-						aksCacheData[name] = totalQuantity
+					local criteriaInfo = C_ScenarioInfo.GetCriteriaInfo(criteriaIndex)
+					if criteriaInfo and criteriaInfo.isWeightedProgress then
+						aksCacheData[name] = criteriaInfo.totalQuantity
 						total = aksCacheData[name]
 						break
 					end
@@ -654,7 +653,7 @@ function Module:UpdateDungeonProgress(unit)
 end
 
 function Module:AddCreatureIcon(self)
-	local ClassifyIndicator = self:CreateTexture(nil, "ARTWORK")
+	local ClassifyIndicator = self.Health:CreateTexture(nil, "ARTWORK")
 	ClassifyIndicator:SetTexture(K.MediaFolder .. "Nameplates\\star")
 	ClassifyIndicator:SetPoint("RIGHT", self.nameText, "LEFT", 10, 0)
 	ClassifyIndicator:SetSize(16, 16)
@@ -899,60 +898,84 @@ function Module:CreatePlates()
 	self.RaidTargetIndicator:SetSize(18, 18)
 
 	do
-		local mhpb = self:CreateTexture(nil, "BORDER", nil, 5)
-		mhpb:SetWidth(1)
-		mhpb:SetTexture(K.GetTexture(C["General"].Texture))
-		mhpb:SetVertexColor(0, 1, 0.5, 0.25)
+		local frame = CreateFrame("Frame", nil, self)
+		frame:SetAllPoints(self.Health)
+		local frameLevel = frame:GetFrameLevel()
 
-		local ohpb = self:CreateTexture(nil, "BORDER", nil, 5)
-		ohpb:SetWidth(1)
-		ohpb:SetTexture(K.GetTexture(C["General"].Texture))
-		ohpb:SetVertexColor(0, 1, 0, 0.25)
+		-- Position and size
+		local myBar = CreateFrame("StatusBar", nil, frame)
+		myBar:SetPoint("TOP")
+		myBar:SetPoint("BOTTOM")
+		myBar:SetPoint("LEFT", self.Health:GetStatusBarTexture(), "RIGHT")
+		myBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		myBar:SetStatusBarColor(0, 1, 0.5, 0.5)
+		myBar:Hide()
 
-		local abb = self:CreateTexture(nil, "BORDER", nil, 5)
-		abb:SetWidth(1)
-		abb:SetTexture(K.GetTexture(C["General"].Texture))
-		abb:SetVertexColor(1, 1, 0, 0.25)
+		local otherBar = CreateFrame("StatusBar", nil, frame)
+		otherBar:SetPoint("TOP")
+		otherBar:SetPoint("BOTTOM")
+		otherBar:SetPoint("LEFT", myBar:GetStatusBarTexture(), "RIGHT")
+		otherBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		otherBar:SetStatusBarColor(0, 1, 0, 0.5)
+		otherBar:Hide()
 
-		local abbo = self:CreateTexture(nil, "ARTWORK", nil, 1)
-		abbo:SetAllPoints(abb)
-		abbo:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-		abbo.tileSize = 32
+		local absorbBar = CreateFrame("StatusBar", nil, frame)
+		absorbBar:SetPoint("TOP")
+		absorbBar:SetPoint("BOTTOM")
+		absorbBar:SetPoint("LEFT", otherBar:GetStatusBarTexture(), "RIGHT")
+		absorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		absorbBar:SetStatusBarColor(0.66, 1, 1, 0.7)
+		absorbBar:SetFrameLevel(frameLevel)
+		absorbBar:Hide()
 
-		local oag = self:CreateTexture(nil, "ARTWORK", nil, 1)
-		oag:SetWidth(15)
-		oag:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
-		oag:SetBlendMode("ADD")
-		oag:SetAlpha(0.25)
-		oag:SetPoint("TOPLEFT", self.Health, "TOPRIGHT", -5, 2)
-		oag:SetPoint("BOTTOMLEFT", self.Health, "BOTTOMRIGHT", -5, -2)
+		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
+		overAbsorbBar:SetAllPoints()
+		overAbsorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		overAbsorbBar:SetStatusBarColor(0.66, 1, 1, 0.5)
+		overAbsorbBar:SetFrameLevel(frameLevel)
+		overAbsorbBar:Hide()
 
-		local hab = CreateFrame("StatusBar", nil, self)
-		hab:SetPoint("TOP")
-		hab:SetPoint("BOTTOM")
-		hab:SetPoint("RIGHT", self.Health:GetStatusBarTexture())
-		hab:SetWidth(self.Health:GetWidth())
-		hab:SetReverseFill(true)
-		hab:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-		hab:SetStatusBarColor(1, 0, 0, 0.25)
+		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
+		healAbsorbBar:SetPoint("TOP")
+		healAbsorbBar:SetPoint("BOTTOM")
+		healAbsorbBar:SetPoint("RIGHT", self.Health:GetStatusBarTexture())
+		healAbsorbBar:SetReverseFill(true)
+		healAbsorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		local tex = healAbsorbBar:GetStatusBarTexture()
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
+		healAbsorbBar:Hide()
 
-		local ohg = self:CreateTexture(nil, "ARTWORK", nil, 1)
-		ohg:SetWidth(15)
-		ohg:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
-		ohg:SetBlendMode("ADD")
-		ohg:SetPoint("TOPRIGHT", self.Health, "TOPLEFT", 5, 2)
-		ohg:SetPoint("BOTTOMRIGHT", self.Health, "BOTTOMLEFT", 5, -2)
+		local overAbsorb = self.Health:CreateTexture(nil, "OVERLAY")
+		overAbsorb:SetWidth(15)
+		overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
+		overAbsorb:SetBlendMode("ADD")
+		overAbsorb:SetPoint("TOPLEFT", self.Health, "TOPRIGHT", -5, 2)
+		overAbsorb:SetPoint("BOTTOMLEFT", self.Health, "BOTTOMRIGHT", -5, -2)
+		overAbsorb:Hide()
 
-		self.HealPredictionAndAbsorb = {
-			myBar = mhpb,
-			otherBar = ohpb,
-			absorbBar = abb,
-			absorbBarOverlay = abbo,
-			overAbsorbGlow = oag,
-			healAbsorbBar = hab,
-			overHealAbsorbGlow = ohg,
+		local overHealAbsorb = frame:CreateTexture(nil, "OVERLAY")
+		overHealAbsorb:SetWidth(15)
+		overHealAbsorb:SetTexture("Interface\\RaidFrame\\Absorb-Overabsorb")
+		overHealAbsorb:SetBlendMode("ADD")
+		overHealAbsorb:SetPoint("TOPRIGHT", self.Health, "TOPLEFT", 5, 2)
+		overHealAbsorb:SetPoint("BOTTOMRIGHT", self.Health, "BOTTOMLEFT", 5, -2)
+		overHealAbsorb:Hide()
+
+		-- Register with oUF
+		self.HealthPrediction = {
+			myBar = myBar,
+			otherBar = otherBar,
+			absorbBar = absorbBar,
+			healAbsorbBar = healAbsorbBar,
+			overAbsorbBar = overAbsorbBar,
+			overAbsorb = overAbsorb,
+			overHealAbsorb = overHealAbsorb,
 			maxOverflow = 1,
+			PostUpdate = Module.PostUpdatePrediction,
 		}
+		self.predicFrame = frame
 	end
 
 	self.Auras = CreateFrame("Frame", nil, self)
@@ -1089,9 +1112,14 @@ function Module:RefreshAllPlates()
 	Module:ResizeTargetPower()
 end
 
+local SoftTargetBlockElements = {
+	"Auras",
+	"RaidTargetIndicator",
+}
+
 local DisabledElements = {
 	"Castbar",
-	"HealPredictionAndAbsorb",
+	"HealthPrediction",
 	"Health",
 	"PvPClassificationIndicator",
 	"ThreatIndicator",
@@ -1105,11 +1133,32 @@ function Module:UpdatePlateByType()
 	local raidtarget = self.RaidTargetIndicator
 	local questIcon = self.questIcon
 
-	name:SetShown(not self.widgetsOnly)
-	name:ClearAllPoints()
+	-- name:SetShown(not self.widgetsOnly)
+	-- name:ClearAllPoints()
+	if self.widgetsOnly then
+		name:Hide()
+	else
+		name:Show()
+		-- name:UpdateTag()
+		name:ClearAllPoints()
+	end
 	-- self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
 	-- self.npcTitle:UpdateTag()
 	raidtarget:ClearAllPoints()
+
+	if self.isSoftTarget then
+		for _, element in pairs(SoftTargetBlockElements) do
+			if self:IsElementEnabled(element) then
+				self:DisableElement(element)
+			end
+		end
+	else
+		for _, element in pairs(SoftTargetBlockElements) do
+			if not self:IsElementEnabled(element) then
+				self:EnableElement(element)
+			end
+		end
+	end
 
 	if self.plateType == "NameOnly" then
 		for _, element in pairs(DisabledElements) do
@@ -1173,7 +1222,7 @@ end
 function Module:RefreshPlateType(unit)
 	self.reaction = UnitReaction(unit, "player")
 	self.isFriendly = self.reaction and self.reaction >= 4 and not UnitCanAttack("player", unit)
-	self.isSoftTarget = GetCVarBool("SoftTargetIconGameObject") and UnitIsUnit(unit, "softinteract")
+	self.isSoftTarget = UnitIsUnit(unit, "softinteract")
 	if C["Nameplate"].NameOnly and self.isFriendly or self.widgetsOnly or self.isSoftTarget then
 		self.plateType = "NameOnly"
 	elseif C["Nameplate"].FriendPlate and self.isFriendly then
@@ -1208,7 +1257,6 @@ function Module:OnUnitSoftTargetChanged(previousTarget, currentTarget)
 			unitFrame.previousType = nil
 			Module.RefreshPlateType(unitFrame, unitFrame.unit)
 			Module.UpdateTargetChange(unitFrame)
-			unitFrame.RaidTargetIndicator:ForceUpdate()
 		end
 	end
 end
@@ -1266,13 +1314,13 @@ end
 -- Player Nameplate
 function Module:PlateVisibility(event)
 	if (event == "PLAYER_REGEN_DISABLED" or InCombatLockdown()) and UnitIsUnit("player", self.unit) then
-		UIFrameFadeIn(self.Health, 0.2, self.Health:GetAlpha(), 1)
-		UIFrameFadeIn(self.Power, 0.2, self.Power:GetAlpha(), 1)
-		UIFrameFadeIn(self.Auras, 0.2, self.Power:GetAlpha(), 1)
+		K.UIFrameFadeIn(self.Health, 0.2, self.Health:GetAlpha(), 1)
+		K.UIFrameFadeIn(self.Power, 0.2, self.Power:GetAlpha(), 1)
+		K.UIFrameFadeIn(self.Auras, 0.2, self.Power:GetAlpha(), 1)
 	else
-		UIFrameFadeOut(self.Health, 0.2, self.Health:GetAlpha(), 0)
-		UIFrameFadeOut(self.Power, 0.2, self.Power:GetAlpha(), 0)
-		UIFrameFadeOut(self.Auras, 0.2, self.Power:GetAlpha(), 0)
+		K.UIFrameFadeOut(self.Health, 0.2, self.Health:GetAlpha(), 0)
+		K.UIFrameFadeOut(self.Power, 0.2, self.Power:GetAlpha(), 0)
+		K.UIFrameFadeOut(self.Auras, 0.2, self.Power:GetAlpha(), 0)
 	end
 end
 

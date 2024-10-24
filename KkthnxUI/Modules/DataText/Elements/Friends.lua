@@ -606,10 +606,6 @@ local function OnEnter()
 		updateRequest = true
 	end
 
-	if _G.KKUI_GuildInfoFrame and _G.KKUI_GuildInfoFrame:IsShown() then
-		_G.KKUI_GuildInfoFrame:Hide()
-	end
-
 	FriendsPanel_Init()
 	FriendsPanel_Update()
 	infoFrame.friendCountText:SetText(string_format("%s: %s/%s", GUILD_ONLINE_LABEL, totalOnline, totalFriends))
@@ -645,14 +641,6 @@ local function OnEvent(event, arg1)
 	end
 end
 
-local function delayLeave()
-	if MouseIsOver(infoFrame) then
-		return
-	end
-
-	infoFrame:Hide()
-end
-
 local function OnLeave()
 	GameTooltip:Hide()
 
@@ -660,7 +648,20 @@ local function OnLeave()
 		return
 	end
 
-	K.Delay(0.1, delayLeave)
+	-- Check if mouse is over the infoFrame or any of its buttons
+	local mouseOverFrame = MouseIsOver(infoFrame)
+	if not mouseOverFrame then
+		for i, button in ipairs(infoFrame.scrollFrame.buttons) do
+			if MouseIsOver(button) then
+				mouseOverFrame = true
+				break
+			end
+		end
+	end
+
+	if not mouseOverFrame then
+		infoFrame:Hide()
+	end
 end
 
 local function OnMouseUp(_, btn)

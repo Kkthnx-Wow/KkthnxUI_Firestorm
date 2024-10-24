@@ -482,7 +482,7 @@ function Module:AnchorShoppingTooltips(_, secondaryItemShown)
 	local shoppingTooltip1 = tooltip.shoppingTooltips[1]
 	local shoppingTooltip2 = tooltip.shoppingTooltips[2]
 	local point = shoppingTooltip1:GetPoint(2)
-	if secondaryItemShown then
+	if secondaryItemShown and not InCombatLockdown() then
 		if point == "TOP" then
 			shoppingTooltip1:ClearAllPoints()
 			shoppingTooltip2:ClearAllPoints()
@@ -515,7 +515,7 @@ function Module:OnEnable()
 	hooksecurefunc("GameTooltip_ShowStatusBar", Module.GameTooltip_ShowStatusBar)
 	hooksecurefunc("GameTooltip_ShowProgressBar", Module.GameTooltip_ShowProgressBar)
 	hooksecurefunc("GameTooltip_SetDefaultAnchor", Module.GameTooltip_SetDefaultAnchor)
-	hooksecurefunc(TooltipComparisonManager, "AnchorShoppingTooltips", Module.AnchorShoppingTooltips)
+	hooksecurefunc(TooltipComparisonManager, "AnchorShoppingTooltips", Module.AnchorShoppingTooltips) -- This taints the UI?
 	Module:FixStoneSoupError()
 
 	-- Elements
