@@ -306,7 +306,7 @@ function Module:CreateRaid()
 	end
 
 	if C["Raid"].DebuffWatch then
-		local Height = C["Raid"].Height
+		local Height = Health:GetHeight()
 		local DebuffSize = Height >= 32 and Height - 20 or Height
 
 		local RaidDebuffs = CreateFrame("Frame", nil, Health)
@@ -329,10 +329,7 @@ function Module:CreateRaid()
 		RaidDebuffs.cd:SetHideCountdownNumbers(true)
 		RaidDebuffs.cd:SetAlpha(0.7)
 
-		RaidDebuffs.onlyMatchSpellID = true
-		RaidDebuffs.showDispellableDebuff = true
-
-		local parentFrame = CreateFrame("Frame", nil, RaidDebuffs)
+		local parentFrame = CreateFrame("Frame", nil, Health)
 		parentFrame:SetAllPoints()
 		parentFrame:SetFrameLevel(RaidDebuffs:GetFrameLevel() + 6)
 
@@ -344,9 +341,6 @@ function Module:CreateRaid()
 		RaidDebuffs.count:SetFont(select(1, _G.KkthnxUIFontOutline:GetFont()), 11, "OUTLINE")
 		RaidDebuffs.count:SetPoint("BOTTOMRIGHT", RaidDebuffs, "BOTTOMRIGHT", 2, 0)
 		RaidDebuffs.count:SetTextColor(1, 0.9, 0)
-
-		RaidDebuffs.forceShow = false
-		RaidDebuffs.ShowDispellableDebuff = true
 
 		self.RaidDebuffs = RaidDebuffs
 	end
@@ -401,7 +395,7 @@ function Module:CreateRaid()
 	self.Health = Health
 	self.Name = Name
 	self.Overlay = Overlay
-	-- self.ReadyCheckIndicator = ReadyCheckIndicator
+	self.ReadyCheckIndicator = ReadyCheckIndicator
 	self.PhaseIndicator = PhaseIndicator
 	self.SummonIndicator = SummonIndicator
 	self.RaidTargetIndicator = RaidTargetIndicator

@@ -12,6 +12,11 @@ C.DebuffsTracking_PvE = {
 	["type"] = "Whitelist",
 	["spells"] = {
 		----------------------------------------------------------
+		------------------------- General ------------------------
+		----------------------------------------------------------
+		-- Misc
+		[160029] = Priority(), -- Resurrecting (Pending CR)
+		----------------------------------------------------------
 		-------------------- Mythic+ Specific --------------------
 		----------------------------------------------------------
 		-- General Affixes
@@ -372,63 +377,6 @@ C.DebuffsTracking_PvE = {
 		[426608] = Priority(), -- Null Blast
 		[426688] = Priority(), -- Volatile Acid
 		[428103] = Priority(), -- Frostbolt
-		----------------------------------------------------------
-		---------------- Dragonflight (Season 2) -----------------
-		----------------------------------------------------------
-		-- Freehold
-		[258323] = Priority(), -- Infected Wound
-		[257775] = Priority(), -- Plague Step
-		[257908] = Priority(), -- Oiled Blade
-		[257436] = Priority(), -- Poisoning Strike
-		[274389] = Priority(), -- Rat Traps
-		[274555] = Priority(), -- Scabrous Bites
-		[258875] = Priority(), -- Blackout Barrel
-		[256363] = Priority(), -- Ripper Punch
-		[258352] = Priority(), -- Grapeshot
-		[413136] = Priority(), -- Whirling Dagger 1
-		[413131] = Priority(), -- Whirling Dagger 2
-		-- Neltharion's Lair
-		[199705] = Priority(), -- Devouring
-		[199178] = Priority(), -- Spiked Tongue
-		[210166] = Priority(), -- Toxic Retch 1
-		[217851] = Priority(), -- Toxic Retch 2
-		[193941] = Priority(), -- Impaling Shard
-		[183465] = Priority(), -- Viscid Bile
-		[226296] = Priority(), -- Piercing Shards
-		[226388] = Priority(), -- Rancid Ooze
-		[200154] = Priority(), -- Burning Hatred
-		[183407] = Priority(), -- Acid Splatter
-		[215898] = Priority(), -- Crystalline Ground
-		[188494] = Priority(), -- Rancid Maw
-		[192800] = Priority(), -- Choking Dust
-		-- Underrot
-		[265468] = Priority(), -- Withering Curse
-		[278961] = Priority(), -- Decaying Mind
-		[259714] = Priority(), -- Decaying Spores
-		[272180] = Priority(), -- Death Bolt
-		[272609] = Priority(), -- Maddening Gaze
-		[269301] = Priority(), -- Putrid Blood
-		[265533] = Priority(), -- Blood Maw
-		[265019] = Priority(), -- Savage Cleave
-		[265377] = Priority(), -- Hooked Snare
-		[265625] = Priority(), -- Dark Omen
-		[260685] = Priority(), -- Taint of G'huun
-		[266107] = Priority(), -- Thirst for Blood
-		[260455] = Priority(), -- Serrated Fangs
-		-- Vortex Pinnacle
-		[87618] = Priority(), -- Static Cling
-		[410870] = Priority(), -- Cyclone
-		[86292] = Priority(), -- Cyclone Shield
-		[88282] = Priority(), -- Upwind of Altairus
-		[88286] = Priority(), -- Downwind of Altairus
-		[410997] = Priority(), -- Rushing Wind
-		[411003] = Priority(), -- Turbulence
-		[87771] = Priority(), -- Crusader Strike
-		[87759] = Priority(), -- Shockwave
-		[88314] = Priority(), -- Twisting Winds
-		[76622] = Priority(), -- Sunder Armor
-		[88171] = Priority(), -- Hurricane
-		[88182] = Priority(), -- Lethargic Poison
 		---------------------------------------------------------
 		------------ Amirdrassil: The Dream's Hope --------------
 		---------------------------------------------------------
@@ -442,7 +390,7 @@ C.DebuffsTracking_PvE = {
 		[414367] = Priority(), -- Gathering Torment
 		[424065] = Priority(), -- Wracking Skewer I
 		[416056] = Priority(), -- Wracking Skever II
-		[414888] = Priority(), -- BPriorityering Spear
+		[414888] = Priority(), -- Blistering Spear
 		-- Volcoross
 		[419054] = Priority(), -- Molten Venom
 		[421207] = Priority(), -- Coiling Flames
@@ -493,7 +441,7 @@ C.DebuffsTracking_PvE = {
 		-- Molgoth
 		[405084] = Priority(), -- Lingering Umbra
 		[405645] = Priority(), -- Engulfing Heat
-		[405642] = Priority(), -- BPriorityering Twilight
+		[405642] = Priority(), -- Blistering Twilight
 		[402617] = Priority(), -- Blazing Heat
 		[401809] = Priority(), -- Corrupting Shadow
 		[405394] = Priority(), -- Shadowflame

@@ -1,278 +1,466 @@
+--[=[
+	Shows Debuffs on Unit Frames.
+
+	Sub-Widgets will be created if not provided.
+
+	Member Variables
+	.font			Font details used for timer and stacks
+	.fontheight 	| used if Sub-Widgets aren't provided
+	.fontFlags		| not needed otherwise
+
+	Sub-Widgets
+	.icon			The Icon/Texture of the debuff
+	.cd 			A Cooldown frame
+	.timer			A Text showing the remaining duration
+	.count			A Text showing the number of stacks
+	.Backdrop		Backdrops border is used to indicate the debuff type
+--]=]
 local K = KkthnxUI[1]
 local oUF = K.oUF
 
-local addon = {}
+local IsPlayerSpell = _G.IsPlayerSpell
+local UnitCanAssist = _G.UnitCanAssist
+local GetTime = _G.GetTime
+local playerClass = _G.UnitClassBase("player")
+local GetAuraDataByAuraInstanceID = _G.C_UnitAuras.GetAuraDataByAuraInstanceID
+local GetAuraDataByIndex = _G.C_UnitAuras.GetAuraDataByIndex
+local ForEachAura = _G.AuraUtil.ForEachAura
+local NewTicker = _G.C_Timer.NewTicker
+local debuffColor = _G.DebuffTypeColor
 
-K.oUF_RaidDebuffs = addon
-_G.oUF_RaidDebuffs = K.oUF_RaidDebuffs
-if not _G.oUF_RaidDebuffs then
-	_G.oUF_RaidDebuffs = addon
-end
-
-local type = type
-local pairs = pairs
-local wipe = wipe
-
-local GetSpecialization = GetSpecialization
-local GetSpellInfo = GetSpellInfo
-local UnitAura = UnitAura
-local UnitCanAttack = UnitCanAttack
-local UnitIsCharmed = UnitIsCharmed
-
-local debuff_data = {}
-addon.DebuffData = debuff_data
-addon.ShowDispellableDebuff = true
-addon.FilterDispellableDebuff = true
-addon.MatchBySpellName = false
-addon.priority = 10
-
-local function add(spell, priority, stackThreshold)
-	if addon.MatchBySpellName and type(spell) == "number" then
-		spell = GetSpellInfo(spell)
-	end
-
-	if spell then
-		debuff_data[spell] = {
-			priority = (addon.priority + priority),
-			stackThreshold = (stackThreshold or 0),
-		}
-	end
-end
-
-function addon:RegisterDebuffs(t)
-	for spell in pairs(t) do
-		if type(t[spell]) == "boolean" then
-			local oldValue = t[spell]
-			t[spell] = { enable = oldValue, priority = 0, stackThreshold = 0 }
-		else
-			if t[spell].enable then
-				add(spell, t[spell].priority, t[spell].stackThreshold)
-			end
-		end
-	end
-end
-
-function addon:ResetDebuffData()
-	wipe(debuff_data)
-end
-
-local DispellColor = {
-	["Magic"] = { 0.2, 0.6, 1 },
-	["Curse"] = { 0.6, 0, 1 },
-	["Disease"] = { 0.6, 0.4, 0 },
-	["Poison"] = { 0, 0.6, 0 },
-	["none"] = { 1, 1, 1 },
+--[[ Holds the dispel priority list. ]]
+local priorityList = {
+	Magic = 4,
+	Curse = 3,
+	Poison = 2,
+	Disease = 1,
 }
 
-local DispellPriority = {
-	["Magic"] = 4,
-	["Curse"] = 3,
-	["Disease"] = 2,
-	["Poison"] = 1,
+--[[ Holds which dispel types can currently be handled. Initialized to false for all. ]]
+local dispelList = {
+	Magic = false,
+	Poison = false,
+	Disease = false,
+	Curse = false,
 }
 
-local DispellFilter
-do
-	local dispellClasses = {
-		["DRUID"] = {
-			["Magic"] = false,
-			["Curse"] = true,
-			["Poison"] = true,
-		},
-		["MONK"] = {
-			["Magic"] = true,
-			["Poison"] = true,
-			["Disease"] = true,
-		},
-		["PALADIN"] = {
-			["Magic"] = false,
-			["Poison"] = true,
-			["Disease"] = true,
-		},
-		["PRIEST"] = {
-			["Magic"] = true,
-			["Disease"] = true,
-		},
-		["SHAMAN"] = {
-			["Magic"] = false,
-			["Curse"] = true,
-		},
-		["MAGE"] = {
-			["Curse"] = true,
-		},
-		["EVOKER"] = {
-			["Magic"] = false,
-			["Poison"] = true,
-		},
-	}
+--[[ Class functions to update the dispel types which can be handled. ]]
+local canDispel = {
+	DRUID = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(88423) -- Nature's Cure
+			dispelList["Poison"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
+		end,
+		classic = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = IsPlayerSpell(8946) or IsPlayerSpell(2893) -- Cure Poison or Abolish Poison
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(2782) -- Remove Curse
+		end,
+		other = function()
+			dispelList["Magic"] = IsPlayerSpell(88423) -- Nature's Cure
+			dispelList["Poison"] = IsPlayerSpell(2782) -- Remove Corruption
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(2782) -- Remove Corruption
+		end,
+	},
+	MAGE = {
+		retail = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
+		end,
+		classic = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
+		end,
+		other = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
+		end,
+	},
+	MONK = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(115450) -- Detox
+			dispelList["Poison"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
+			dispelList["Disease"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
+			dispelList["Curse"] = false
+		end,
+		classic = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = false
+		end,
+		other = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = false
+		end,
+	},
+	PALADIN = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(4987) -- Cleanse
+			dispelList["Poison"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
+			dispelList["Disease"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
+			dispelList["Curse"] = false
+		end,
+		classic = function()
+			dispelList["Magic"] = IsPlayerSpell(4987) -- Cleanse
+			dispelList["Poison"] = IsPlayerSpell(4987) or IsPlayerSpell(1152) -- Cleanse or Purify
+			dispelList["Disease"] = IsPlayerSpell(4987) or IsPlayerSpell(1152) -- Cleanse or Purify
+			dispelList["Curse"] = false
+		end,
+		other = function()
+			dispelList["Magic"] = IsPlayerSpell(53551) -- Sacred Cleansing
+			dispelList["Poison"] = IsPlayerSpell(4987) -- Cleanse
+			dispelList["Disease"] = IsPlayerSpell(4987) -- Cleanse
+			dispelList["Curse"] = false
+		end,
+	},
+	PRIEST = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(527) or IsPlayerSpell(32375) -- Purify or Mass Dispel
+			dispelList["Poison"] = false
+			dispelList["Disease"] = IsPlayerSpell(390632) or IsPlayerSpell(213634) -- Improved Purify or Purify Disease
+			dispelList["Curse"] = false
+		end,
+		classic = function()
+			dispelList["Magic"] = IsPlayerSpell(988) -- Dispel Magic
+			dispelList["Poison"] = false
+			dispelList["Disease"] = IsPlayerSpell(528) or IsPlayerSpell(552) -- Cure Disease or Abolish Disease
+			dispelList["Curse"] = false
+		end,
+		other = function()
+			dispelList["Magic"] = IsPlayerSpell(527) and IsPlayerSpell(33167) or IsPlayerSpell(32375) -- Dispel Magic and Absolution or Mass Dispel
+			dispelList["Poison"] = false
+			dispelList["Disease"] = IsPlayerSpell(528) -- Cure Disease
+			dispelList["Curse"] = false
+		end,
+	},
+	SHAMAN = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(77130) -- Purify Spirit
+			dispelList["Poison"] = IsPlayerSpell(383013) -- Poison Cleansing Totem
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(383016) or IsPlayerSpell(51886) -- Improved Purify Spirit or Cleanse Spirit
+		end,
+		classic = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = IsPlayerSpell(526) or IsPlayerSpell(8166) -- Cure Poison or Poison Cleansing Totem
+			dispelList["Disease"] = IsPlayerSpell(2870) or IsPlayerSpell(8170) -- Cure Disease or Disease Cleansing Totem
+			dispelList["Curse"] = false
+		end,
+		other = function()
+			dispelList["Magic"] = IsPlayerSpell(77130) -- Improved Cleanse Spirit
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = IsPlayerSpell(51886) -- Cleanse Spirit
+		end,
+	},
+	EVOKER = {
+		retail = function()
+			dispelList["Magic"] = IsPlayerSpell(360823) -- Naturalize
+			dispelList["Poison"] = IsPlayerSpell(360823) or IsPlayerSpell(365585) or IsPlayerSpell(374251) -- Naturalize or Expunge or Cauterizing Flame
+			dispelList["Disease"] = IsPlayerSpell(374251) -- Cauterizing Flame
+			dispelList["Curse"] = IsPlayerSpell(374251) -- Cauterizing Flame
+		end,
+		classic = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = false
+		end,
+		other = function()
+			dispelList["Magic"] = false
+			dispelList["Poison"] = false
+			dispelList["Disease"] = false
+			dispelList["Curse"] = false
+		end,
+	},
+}
 
-	DispellFilter = dispellClasses[K.Class] or {}
-end
+--[[ Event handler for SPELLS_CHANGED.
 
-local function CheckSpec()
-	if K.Class == "DRUID" then
-		DispellFilter.Magic = GetSpecialization() == 4
-	elseif K.Class == "MONK" then
-		DispellFilter.Magic = GetSpecialization() == 2
-	elseif K.Class == "PALADIN" then
-		DispellFilter.Magic = GetSpecialization() == 1
-	elseif K.Class == "SHAMAN" then
-		DispellFilter.Magic = GetSpecialization() == 3
-	elseif K.Class == "EVOKER" then
-		DispellFilter.Magic = GetSpecialization() == 2
+Only fires for a player frame.
+
+* self - oUF UnitFrame
+* event - SPELLS_CHANGED
+]]
+local function UpdateDispelList(self, event)
+	if event == "SPELLS_CHANGED" then
+		local project = (oUF.isRetail and "retail") or (oUF.isClassic and "classic") or "other"
+		canDispel[playerClass][project]()
 	end
 end
 
-local function UpdateDebuff(self, name, icon, count, debuffType, duration, expiration, _, stackThreshold)
-	local rd = self.RaidDebuffs
+--[[ Returns a format string for timers.
 
-	if name and (count >= stackThreshold) then
-		rd.icon:SetTexture(icon)
-		rd.icon:Show()
-		rd.duration = duration
-
-		if rd.count then
-			if count and count > 1 then
-				rd.count:SetText(count)
-				rd.count:Show()
-			else
-				rd.count:SetText("")
-				rd.count:Hide()
-			end
-		end
-
-		if rd.timer then
-			rd.duration = duration
-			if duration and duration > 0 and rd:GetSize() > 20 then
-				rd.expiration = expiration
-				rd.nextUpdate = 0
-				rd:SetScript("OnUpdate", K.CooldownOnUpdate)
-				rd.timer:Show()
-			else
-				rd:SetScript("OnUpdate", nil)
-				rd.timer:Hide()
-			end
-		end
-
-		if rd.cd then
-			if duration and duration > 0 then
-				rd.cd:SetCooldown(expiration - duration, duration)
-				rd.cd:Show()
-			else
-				rd.cd:Hide()
-			end
-		end
-
-		local c = DispellColor[debuffType] or DispellColor.none
-		if rd.KKUI_Border then
-			rd.KKUI_Border:SetVertexColor(c[1], c[2], c[3])
-		end
-
-		rd:Show()
+* time - Time in seconds
+]]
+local function timeFormat(time)
+	if time < 3 then
+		return "%.1f"
+	elseif time < 60 then
+		return "%d"
 	else
-		rd:Hide()
+		return ""
 	end
 end
 
-local function Update(self, _, unit)
-	if unit ~= self.unit then
+--[[ Show the debuff element.
+
+* self - oUF UnitFrame
+* unit - Tracked unit
+* auraInstanceID - auraInstanceID of the debuff to be displayed
+]]
+local function ShowElement(self, unit, auraInstanceID)
+	local element = self.RaidDebuffs
+	local debuffCache = element.debuffCache
+	local AuraData = debuffCache[auraInstanceID].AuraData
+	local count = AuraData.applications
+	local duration = AuraData.duration
+	local expirationTime = AuraData.expirationTime
+	local color = debuffColor[AuraData.dispelName]
+
+	element.icon:SetTexture(AuraData.icon)
+	element.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
+	element:Show()
+
+	if duration and duration > 0 then
+		local start = expirationTime - duration
+		element.cd:SetCooldown(start, duration)
+
+		if element.ticker then
+			element.ticker:Cancel()
+		end
+		element.ticker = NewTicker(0.1, function(ticker)
+			local remaining = expirationTime - GetTime()
+			if remaining > 0 then
+				element.timer:SetFormattedText(timeFormat(remaining), remaining)
+			else
+				-- aura expired but we got no event for it
+				ticker:Cancel()
+				debuffCache[auraInstanceID] = nil
+				element.SelectPrioDebuff(self, unit)
+			end
+		end)
+	end
+
+	if count and count > 1 then
+		element.count:SetText(count)
+	end
+end
+
+--[[ Hide the debuff element.
+
+* self - oUF UnitFrame
+* unit - Tracked unit
+]]
+local function HideElement(self, unit)
+	local element = self.RaidDebuffs
+	local color = debuffColor["none"]
+
+	if element.ticker then
+		element.ticker:Cancel()
+	end
+
+	element.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
+	element.cd:SetCooldown(0, 0)
+	element.timer:SetText("")
+	element.count:SetText("")
+
+	element:Hide()
+end
+
+--[[ Select the Debuff with highest priority to display, hide element when none left.
+
+* self - oUF UnitFrame
+* unit - Tracked unit
+]]
+local function SelectPrioDebuff(self, unit)
+	local debuffCache = self.RaidDebuffs.debuffCache
+	local auraInstanceID = nil
+	local priority = 0
+
+	-- find debuff with highest priority
+	for id, debuff in pairs(debuffCache) do
+		if priority < debuff.priority then
+			auraInstanceID = id
+			priority = debuff.priority
+		end
+	end
+
+	if auraInstanceID then
+		ShowElement(self, unit, auraInstanceID)
+	else
+		HideElement(self, unit)
+	end
+end
+
+--[[ Filter for dispellable debuffs.
+
+* self - oUF UnitFrame
+* unit - Tracked unit
+* AuraData - (optional) UNIT_AURA event payload
+]]
+local function FilterAura(self, unit, AuraData)
+	if AuraData and AuraData.isHarmful then
+		local debuffCache = self.RaidDebuffs.debuffCache
+		local dispelName = AuraData.dispelName
+
+		if dispelName and dispelList[dispelName] then
+			debuffCache[AuraData.auraInstanceID] = {
+				priority = priorityList[dispelName],
+				AuraData = AuraData,
+			}
+			SelectPrioDebuff(self, unit)
+		end
+	end
+end
+
+--[[ Reset cache and full scan when isFullUpdate.
+
+* self - oUF UnitFrame
+* unit - Tracked unit
+]]
+local function FullUpdate(self, unit)
+	table.wipe(self.RaidDebuffs.debuffCache)
+
+	if ForEachAura then
+		-- Mainline iteration-style.
+		ForEachAura(unit, "HARMFUL", nil, function(AuraData)
+			FilterAura(self, unit, AuraData)
+		end, true)
+	else
+		-- Classic iteration-style.
+		local AuraData
+		local i = 1
+		repeat
+			AuraData = GetAuraDataByIndex(unit, i, "HARMFUL")
+			if AuraData then
+				FilterAura(self, unit, AuraData)
+			end
+			i = i + 1
+		until not AuraData
+	end
+end
+
+--[[ Event handler for UNIT_AURA.
+
+* self - oUF UnitFrame
+* event - UNIT_AURA
+* unit - Payload of event: unitTarget
+* updateInfo - Payload of event: UnitAuraUpdateInfo
+]]
+local function Update(self, event, unit, updateInfo)
+	-- Exit when unit doesn't match or target can't be assisted
+	if event ~= "UNIT_AURA" or self.unit ~= unit or not UnitCanAssist("player", unit) then
 		return
 	end
 
-	local rd = self.RaidDebuffs
-	local _name, _icon, _count, _dtype, _duration, _endTime, _spellId, _
-	local _priority, priority = 0, 0
-	local _stackThreshold = 0
+	if not updateInfo or updateInfo.isFullUpdate then
+		FullUpdate(self, unit)
+		return
+	end
 
-	-- store if the unit its charmed, mind controlled units (Imperial Vizier Zor'lok: Convert)
-	local isCharmed = UnitIsCharmed(unit)
-	-- store if we cand attack that unit, if its so the unit its hostile (Amber-Shaper Un'sok: Reshape Life)
-	local canAttack = UnitCanAttack("player", unit)
-	for i = 1, 40 do
-		local name, icon, count, debuffType, duration, expirationTime, _, _, _, spellId = UnitAura(unit, i, "HARMFUL")
-		if not name then
-			break
-		end
-
-		-- we coudln't dispell if the unit its charmed, or its not friendly
-		if addon.ShowDispellableDebuff and (rd.showDispellableDebuff ~= false) and debuffType and not isCharmed and not canAttack then
-			if addon.FilterDispellableDebuff then
-				DispellPriority[debuffType] = (DispellPriority[debuffType] or 0) + addon.priority -- Make Dispell buffs on top of Boss Debuffs
-				priority = DispellFilter[debuffType] and DispellPriority[debuffType] or 0
-				if priority == 0 then
-					debuffType = nil
-				end
-			else
-				priority = DispellPriority[debuffType] or 0
+	if updateInfo.removedAuraInstanceIDs then
+		local debuffCache = self.RaidDebuffs.debuffCache
+		for _, auraInstanceID in pairs(updateInfo.removedAuraInstanceIDs) do
+			if debuffCache[auraInstanceID] then
+				debuffCache[auraInstanceID] = nil
+				SelectPrioDebuff(self, unit)
 			end
-
-			if priority > _priority then
-				_priority, _name, _icon, _count, _dtype, _duration, _endTime, _spellId = priority, name, icon, count, debuffType, duration, expirationTime, spellId
-			end
-		end
-
-		local debuff
-		if rd.onlyMatchSpellID then
-			debuff = debuff_data[spellId]
-		else
-			if debuff_data[spellId] then
-				debuff = debuff_data[spellId]
-			else
-				debuff = debuff_data[name]
-			end
-		end
-
-		priority = debuff and debuff.priority
-		if priority and not rd.BlackList[spellId] and (priority > _priority) then
-			_priority, _name, _icon, _count, _dtype, _duration, _endTime, _spellId = priority, name, icon, count, debuffType, duration, expirationTime, spellId
 		end
 	end
 
-	if rd.forceShow then
-		_spellId = 47540
-		_name, _, _icon = GetSpellInfo(_spellId)
-		_count, _dtype, _duration, _endTime, _stackThreshold = 5, "Magic", 0, 60, 0
+	if updateInfo.updatedAuraInstanceIDs then
+		for _, auraInstanceID in pairs(updateInfo.updatedAuraInstanceIDs) do
+			if auraInstanceID then
+				FilterAura(self, unit, GetAuraDataByAuraInstanceID(unit, auraInstanceID))
+			end
+		end
 	end
 
-	if _name then
-		_stackThreshold = debuff_data[addon.MatchBySpellName and _name or _spellId] and debuff_data[addon.MatchBySpellName and _name or _spellId].stackThreshold or _stackThreshold
+	if updateInfo.addedAuras then
+		for _, AuraData in pairs(updateInfo.addedAuras) do
+			FilterAura(self, unit, AuraData)
+		end
 	end
-
-	UpdateDebuff(self, _name, _icon, _count, _dtype, _duration, _endTime, _spellId, _stackThreshold)
-
-	-- Reset the DispellPriority
-	DispellPriority["Magic"] = 4
-	DispellPriority["Curse"] = 3
-	DispellPriority["Disease"] = 2
-	DispellPriority["Poison"] = 1
 end
 
 local function Enable(self)
-	local rd = self.RaidDebuffs
-	if rd then
+	local element = self.RaidDebuffs
+
+	if element and canDispel[playerClass] then
+		--[[ Cache for active debuffs.
+
+		table<auraInstanceID, aura>
+		aura = {
+			.priority - See priorityList
+			.AuraData - See UNIT_AURA event payload
+		}]]
+		element.debuffCache = {}
+		element.SelectPrioDebuff = SelectPrioDebuff
+
+		-- Create missing Sub-Widgets
+		if not element.icon then
+			element.icon = element:CreateTexture(nil, "ARTWORK")
+			element.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+			element.icon:SetAllPoints(element)
+		end
+
+		if not element.cd then
+			element.cd = CreateFrame("Cooldown", nil, element, "CooldownFrameTemplate")
+			element.cd:SetAllPoints(element)
+			element.cd:SetReverse(true)
+			element.cd:SetHideCountdownNumbers(true)
+			element.cd:SetAlpha(0.7)
+		end
+
+		if not element.timer then
+			element.timer = element:CreateFontString(nil, "OVERLAY")
+			element.timer:SetFont(element.font, element.fontHeight, element.fontFlags)
+			element.timer:SetPoint("CENTER", element, 1, 0)
+		end
+
+		if not element.count then
+			element.count = element:CreateFontString(nil, "OVERLAY")
+			element.count:SetFont(element.font, element.fontHeight, element.fontFlags)
+			element.count:SetPoint("BOTTOMRIGHT", element, "BOTTOMRIGHT", 2, 0)
+			element.count:SetTextColor(1, 0.9, 0)
+		end
+
+		if not element.KKUI_Border then
+			element:CreateBorder()
+		end
+
+		-- Update the dispelList at login and whenever spells change (only fires for a player frame)
+		self:RegisterEvent("SPELLS_CHANGED", UpdateDispelList, true)
 		self:RegisterEvent("UNIT_AURA", Update)
 
-		rd.BlackList = rd.BlackList or {
-			[105171] = true, -- Deep Corruption
-			[108220] = true, -- Deep Corruption
-			[116095] = true, -- Disable, Slow
-			[137637] = true, -- Warbringer, Slow
-		}
+		HideElement(self, self.unit)
 
 		return true
 	end
-
-	CheckSpec()
-	self:RegisterEvent("PLAYER_TALENT_UPDATE", CheckSpec, true)
 end
 
 local function Disable(self)
-	if self.RaidDebuffs then
-		self:UnregisterEvent("UNIT_AURA", Update)
-		self.RaidDebuffs:Hide()
-	end
+	local element = self.RaidDebuffs
 
-	self:UnregisterEvent("PLAYER_TALENT_UPDATE", CheckSpec, true)
+	if element then
+		element.debuffCache = nil
+		self:UnregisterEvent("SPELLS_CHANGED", UpdateDispelList)
+		self:UnregisterEvent("UNIT_AURA", Update)
+	end
 end
 
 oUF:AddElement("RaidDebuffs", Update, Enable, Disable)

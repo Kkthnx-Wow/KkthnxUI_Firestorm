@@ -124,6 +124,10 @@ local function OnExpBarEvent(self, event, unit)
 		local standing, rewardPending, _
 		local name, reaction, minValue, maxValue, curValue, factionID = GetWatchedFactionInfo()
 
+		if reaction == 0 then
+			reaction = 1
+		end
+
 		local info = factionID and C_GossipInfo_GetFriendshipReputation(factionID)
 		if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
 			standing, minValue, maxValue, curValue = info.reaction, info.reactionThreshold or 0, info.nextThreshold or math.huge, info.standing or 1
@@ -247,7 +251,6 @@ local function OnExpBarEnter(self)
 		end
 
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(altKeyText .. KEY_PLUS .. K.RightButton, sendExperienceText)
 	end
 
 	if GetWatchedFactionInfo() then
@@ -308,7 +311,6 @@ local function OnExpBarEnter(self)
 		end
 
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(altKeyText .. KEY_PLUS .. K.RightButton, sendReputationText)
 	end
 
 	if IsWatchingHonorAsXP() then
@@ -344,38 +346,6 @@ local function OnExpBarLeave()
 	K.HideTooltip()
 end
 
-local lastMessageTime = 0
-local COOLDOWN_DURATION = 10 -- Cooldown duration in seconds
-
-local function OnExpRepMouseUp(self, button)
-	if IsAltKeyDown() and button == "RightButton" then
-		local currentTime = GetTime()
-		if currentTime - lastMessageTime >= COOLDOWN_DURATION then
-			if not IsInGroup() then
-				print("You are not in a party.")
-				return
-			end
-
-			if not XPIsLevelMax() then
-				local expPercent = string_format("%.2f%%", PercentXP)
-				local barsLeft = RemainBars
-				local expMessage = string_format("Current XP: %s, Remaining XP: %s, Percent XP: %s, Bars Left: %.2f", K.ShortValue(CurrentXP), RemainXP, expPercent, barsLeft)
-				if RestedXP > 0 then
-					expMessage = expMessage .. string_format(", Rested XP: %s", K.ShortValue(RestedXP))
-				end
-				SendChatMessage(expMessage, "PARTY")
-			elseif XPIsLevelMax() and GetWatchedFactionInfo() then
-				local name, reaction, _, _, curValue = GetWatchedFactionInfo()
-				local standing = _G["FACTION_STANDING_LABEL" .. reaction] or UNKNOWN
-				SendChatMessage(string_format("%s Reputation: %s - Standing: %s", name, K.ShortValue(curValue), standing), "PARTY")
-			end
-			lastMessageTime = currentTime
-		else
-			print("Please wait before sending another message.")
-		end
-	end
-end
-
 local ExpRep_EventList = {
 	-- ALL
 	-- "PLAYER_ENTERING_WORLD",
@@ -409,7 +379,6 @@ local function SetupExpRepScript(bar)
 	bar:SetScript("OnEvent", OnExpBarEvent)
 	bar:SetScript("OnEnter", OnExpBarEnter)
 	bar:SetScript("OnLeave", OnExpBarLeave)
-	bar:SetScript("OnMouseUp", OnExpRepMouseUp)
 end
 
 function Module:CreateExpbar()
