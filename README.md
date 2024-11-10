@@ -1,39 +1,26 @@
-# 🛡️ KkthnxUI for Firestorm Private Server 🐉
+# KkthnxUI - Elevate Your WoW Experience 🎮✨
 
-Welcome to **KkthnxUI**, your ultimate user interface solution tailored specifically for the Dragonflight realm on Firestorm Private Server!
+[![Last Commit](https://img.shields.io/github/last-commit/Kkthnx-WoW/KkthnxUI/master)](https://github.com/Kkthnx-WoW/KkthnxUI_Firestorm/commits/master)
+[![Issues](https://img.shields.io/github/issues/Kkthnx-WoW/KkthnxUI)](https://github.com/Kkthnx-WoW/KkthnxUI_Firestorm/issues)
 
-## 🚀 Features
+![KkthnxUI Logo](https://user-images.githubusercontent.com/1692977/31845157-13107948-b5cc-11e7-926d-67e669b8ca69.png)
 
-- **Tailored Interface**: Enjoy a sleek and intuitive user interface designed specifically for the Firestorm Private Server, enhancing your gaming experience on the Dragonflight realm.
+**KkthnxUI** is a sleek and functional user interface designed to enhance your World of Warcraft experience, catering to every class and role.
 
-- **🔧 Optimized Performance**: Built with Lua 5.1, KkthnxUI prioritizes performance, ensuring smooth operation even in demanding situations. Experience minimal lag and optimal frame rates.
+## 🚀 Join the Community
+Connect with thousands of users who have embraced KkthnxUI. Whether you're a casual player or a seasoned veteran, join our vibrant community on [Discord](https://discord.gg/Rc9wcK9cAB).
 
-- **🧩 Modular Customization**: Customize your addon experience with ease using KkthnxUI's modular approach. Create new modules or access existing ones seamlessly to personalize your UI according to your preferences.
+*Why did the Orc go to KkthnxUI’s Discord?*  
+*To find a ‘Warchief’-ly good UI experience!* 🏆
 
-- **⚡ Efficient Event Handling**: KkthnxUI features a robust event handling system, ensuring timely execution of module functionalities. Stay informed and responsive to in-game events, enhancing your gameplay experience.
+## 🎁 Show Your Support
+Appreciate the hard work that goes into KkthnxUI? Consider showing your support:
 
-## 📥 Installation
+- **Gift Gametime/Blizzard Balance**: Send to Kkthnx's gamertag: **Kkthnx#1105** or via **JRussell20@gmail.com**.
+- **Donate via PayPal**: [PayPal Donation](https://www.paypal.com/paypalme/kkthnxtv).
+- **Gold Contributions**: Send in-game gold to Kkthnx on the Valdrakken realm.
 
-To install KkthnxUI for the Firestorm Private Server, follow these steps:
+## 🤝 Contribute and Collaborate
+Your contributions, whether big or small, are invaluable in shaping the future of KkthnxUI. Interested in helping out? Reach out on [Discord](https://discord.gg/Rc9wcK9cAB).
 
-1. Download the latest release from the [Releases](https://github.com/your-username/your-repository/releases) page.
-2. Extract the contents of the ZIP file into your World of Warcraft addons folder.
-3. Launch World of Warcraft and enable KkthnxUI from the AddOns menu.
-
-## 💬 Community & Support
-
-Join our community of KkthnxUI users on the Firestorm Private Server! Share insights, feedback, and troubleshooting tips with fellow players to enhance your addon experience.
-
-For support or inquiries, please [submit an issue](https://github.com/your-username/your-repository/issues) on GitHub or reach out to us through [Discord](https://discord.gg/your-discord-server).
-
-## 🌟 Contributing
-
-We welcome contributions from the community to improve KkthnxUI for Firestorm Private Server. Feel free to [fork the repository](https://github.com/your-username/your-repository/fork) and submit pull requests with your enhancements.
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-Thank you for using KkthnxUI for Firestorm Private Server! We hope you enjoy your enhanced gaming experience on the Dragonflight realm. For updates and announcements, follow us on [Twitter](https://twitter.com/your-twitter-handle) or join our Discord server.
+![KkthnxUI Example](https://github.com/Kkthnx-Wow/KkthnxUI/assets/40672673/917cf332-6520-4ea7-aed1-37f3f42a3bb3)
