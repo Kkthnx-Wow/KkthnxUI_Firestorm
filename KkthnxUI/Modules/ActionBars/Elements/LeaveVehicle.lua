@@ -22,7 +22,7 @@ function Module:CreateLeaveVehicle()
 	local buttonList = {}
 
 	local frame = CreateFrame("Frame", "KKUI_ActionBarExit", UIParent, "SecureHandlerStateTemplate")
-	frame.mover = K.Mover(frame, "LeaveVehicle", "LeaveVehicle", { "BOTTOM", UIParent, "BOTTOM", 320, 100 })
+	frame.mover = K.Mover(frame, "LeaveVehicle", "LeaveVehicle", { "BOTTOM", UIParent, "BOTTOM", 320, 6 })
 
 	local button = CreateFrame("CheckButton", "KKUI_LeaveVehicleButton", frame, "ActionButtonTemplate, SecureHandlerClickTemplate")
 	tinsert(buttonList, button)
@@ -32,6 +32,9 @@ function Module:CreateLeaveVehicle()
 	button.icon:SetTexCoord(0.216, 0.784, 0.216, 0.784)
 	button.icon:SetDrawLayer("ARTWORK")
 	button.icon.__lockdown = true
+	if button.Arrow then
+		button.Arrow:SetAlpha(0)
+	end
 
 	button:SetScript("OnEnter", MainMenuBarVehicleLeaveButton.OnEnter)
 	button:SetScript("OnLeave", K.HideTooltip)

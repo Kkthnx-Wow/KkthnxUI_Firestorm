@@ -198,7 +198,7 @@ function Module:KeystoneInfo_WeeklyRuns()
 end
 
 function Module:KeystoneInfo_Create()
-	local texture = select(10, GetItemInfo(158923)) or 525134
+	local texture = C_Item.GetItemIconByID(158923) or 525134
 	local iconColor = K.QualityColors[Enum.ItemQuality.Epic or 4]
 	local button = CreateFrame("Frame", nil, ChallengesFrame.WeeklyInfo, "BackdropTemplate")
 	button:SetPoint("BOTTOMLEFT", 2, 67)
@@ -216,7 +216,11 @@ function Module:KeystoneInfo_Create()
 		GameTooltip:ClearLines()
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 		GameTooltip:AddLine("Account Keystone")
-		for fullName, info in pairs(KkthnxUIDB["KeystoneInfo"]) do
+		if not KkthnxUIDB.Global or not KkthnxUIDB.Global.KeystoneInfo then
+			return
+		end
+
+		for fullName, info in pairs(KkthnxUIDB.Global.KeystoneInfo) do
 			local name = Ambiguate(fullName, "none")
 			local mapID, level, class, faction = strsplit(":", info)
 			local color = K.RGBToHex(K.ColorClass(class))
@@ -232,7 +236,11 @@ function Module:KeystoneInfo_Create()
 	button:SetScript("OnLeave", K.HideTooltip)
 	button:SetScript("OnMouseUp", function(_, btn)
 		if btn == "MiddleButton" then
-			wipe(KkthnxUIDB["KeystoneInfo"])
+			if not KkthnxUIDB.Global then
+				KkthnxUIDB.Global = {}
+			end
+			wipe(KkthnxUIDB.Global.KeystoneInfo or {})
+			KkthnxUIDB.Global.KeystoneInfo = KkthnxUIDB.Global.KeystoneInfo or {}
 			Module:KeystoneInfo_Update() -- update own keystone info after reset
 		end
 	end)
@@ -248,9 +256,15 @@ end
 function Module:KeystoneInfo_Update()
 	local mapID, keystoneLevel = Module:KeystoneInfo_UpdateBag()
 	if mapID then
-		KkthnxUIDB["KeystoneInfo"][K.Name .. "-" .. K.Realm] = mapID .. ":" .. keystoneLevel .. ":" .. K.Class .. ":" .. K.Faction
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.KeystoneInfo = KkthnxUIDB.Global.KeystoneInfo or {}
+		KkthnxUIDB.Global.KeystoneInfo[K.Name .. "-" .. K.Realm] = mapID .. ":" .. keystoneLevel .. ":" .. K.Class .. ":" .. K.Faction
 	else
-		KkthnxUIDB["KeystoneInfo"][K.Name .. "-" .. K.Realm] = nil
+		if KkthnxUIDB.Global and KkthnxUIDB.Global.KeystoneInfo then
+			KkthnxUIDB.Global.KeystoneInfo[K.Name .. "-" .. K.Realm] = nil
+		end
 	end
 end
 

@@ -32,51 +32,23 @@ local UnitPowerType = UnitPowerType
 local UnitReaction = UnitReaction
 local UnitStagger = UnitStagger
 
--- local function ColorPercent(value)
--- 	local r, g, b
--- 	if value < 20 then
--- 		r, g, b = 1, 0.1, 0.1
--- 	elseif value < 35 then
--- 		r, g, b = 1, 0.5, 0
--- 	elseif value < 80 then
--- 		r, g, b = 1, 0.9, 0.3
--- 	else
--- 		r, g, b = 1, 1, 1
--- 	end
+local IsInGroup = IsInGroup
+local UnitInParty = UnitInParty
+local UnitInRaid = UnitInRaid
+local UnitName = UnitName
+local GetCVarBool = GetCVarBool
+local format = string.format
+local strfind = string.find
 
--- 	return K.RGBToHex(r, g, b) .. value
--- end
+-- Precomputed atlas strings for role icons to avoid branching and allocations per update
+local ROLE_ATLAS = {
+	HEALER = "|A:groupfinder-icon-role-micro-heal:12:12|a",
+	TANK = "|A:groupfinder-icon-role-micro-tank:12:12|a",
+	-- DAMAGER = "|A:groupfinder-icon-role-micro-dps:16:16|a",
+}
 
--- local function ValueAndPercent(cur, per)
--- 	if per < 100 then
--- 		return K.ShortValue(cur) .. " - " .. ColorPercent(per)
--- 	else
--- 		return K.ShortValue(cur)
--- 	end
--- end
-
--- local function GetUnitHealthPerc(unit)
--- 	local unitHealth, unitMaxHealth = UnitHealth(unit), UnitHealthMax(unit)
--- 	if unitMaxHealth == 0 then
--- 		return 0, unitHealth
--- 	else
--- 		return K.Round(unitHealth / unitMaxHealth * 100, 1), unitHealth
--- 	end
--- end
-
--- oUF.Tags.Methods["hp"] = function(unit)
--- 	if UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) then
--- 		return oUF.Tags.Methods["DDG"](unit)
--- 	else
--- 		local per, cur = GetUnitHealthPerc(unit)
--- 		if unit == "player" or unit == "target" or unit == "focus" or unit == "party" then
--- 			return ValueAndPercent(cur, per)
--- 		else
--- 			return ColorPercent(per)
--- 		end
--- 	end
--- end
--- oUF.Tags.Events["hp"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_CONNECTION PLAYER_FLAGS_CHANGED PARTY_MEMBER_ENABLE PARTY_MEMBER_DISABLE"
+-- Add scantip back, due to issue on ColorMixin
+local scanTip = K.ScanTooltip
 
 local function GetHealthColor(percentage)
 	local r, g, b
@@ -96,8 +68,6 @@ local function FormatHealthValue(health, percentage)
 	local formattedValue = K.ShortValue(health)
 	if percentage < 100 then
 		formattedValue = formattedValue .. " - " .. GetHealthColor(percentage)
-	else
-		formattedValue = formattedValue
 	end
 	return formattedValue
 end
@@ -116,7 +86,7 @@ oUF.Tags.Methods["hp"] = function(unit)
 		return oUF.Tags.Methods["DDG"](unit)
 	else
 		local percentage, currentHealth = GetUnitHealthPerc(unit)
-		if unit == "player" or unit == "target" or unit == "focus" or unit:match("party%d?$") then
+		if unit == "player" or unit == "target" or unit == "focus" or (unit and unit:sub(1, 5) == "party") then
 			return FormatHealthValue(currentHealth, percentage)
 		else
 			return GetHealthColor(percentage)
@@ -147,7 +117,7 @@ oUF.Tags.Methods["color"] = function(unit)
 
 	if UnitIsTapDenied(unit) then
 		return K.RGBToHex(oUF.colors.tapped)
-	elseif UnitIsPlayer(unit) then
+	elseif UnitIsPlayer(unit) or UnitInPartyIsAI(unit) then
 		return K.RGBToHex(K.Colors.class[class])
 	elseif reaction then
 		return K.RGBToHex(K.Colors.reaction[reaction])
@@ -167,17 +137,6 @@ oUF.Tags.Methods["afkdnd"] = function(unit)
 	end
 end
 oUF.Tags.Events["afkdnd"] = "PLAYER_FLAGS_CHANGED"
-
--- oUF.Tags.Methods["DDG"] = function(unit)
--- 	if UnitIsDead(unit) then
--- 		return "|cffCFCFCF" .. DEAD .. "|r"
--- 	elseif UnitIsGhost(unit) then
--- 		return "|cffCFCFCF" .. L["Ghost"] .. "|r"
--- 	elseif not UnitIsConnected(unit) and GetNumArenaOpponentSpecs() == 0 then
--- 		return "|cffCFCFCF" .. PLAYER_OFFLINE .. "|r"
--- 	end
--- end
--- oUF.Tags.Events["DDG"] = "UNIT_HEALTH UNIT_MAXHEALTH UNIT_NAME_UPDATE UNIT_CONNECTION PLAYER_FLAGS_CHANGED"
 
 oUF.Tags.Methods["DDG"] = function(unit)
 	if UnitIsDead(unit) then
@@ -239,13 +198,13 @@ oUF.Tags.Events["fulllevel"] = "UNIT_LEVEL PLAYER_LEVEL_UP UNIT_CLASSIFICATION_C
 oUF.Tags.Methods["raidhp"] = function(unit)
 	if UnitIsDeadOrGhost(unit) or not UnitIsConnected(unit) then
 		return oUF.Tags.Methods["DDG"](unit)
-	elseif C["Raid"].HealthFormat.Value == 2 then
+	elseif C["Raid"].HealthFormat == 2 then
 		local per = GetUnitHealthPerc(unit) or 0
 		return GetHealthColor(per)
-	elseif C["Raid"].HealthFormat.Value == 3 then
+	elseif C["Raid"].HealthFormat == 3 then
 		local cur = UnitHealth(unit)
 		return K.ShortValue(cur)
-	elseif C["Raid"].HealthFormat.Value == 4 then
+	elseif C["Raid"].HealthFormat == 4 then
 		local loss = UnitHealthMax(unit) - UnitHealth(unit)
 		if loss == 0 then
 			return
@@ -332,19 +291,21 @@ oUF.Tags.Methods["pppower"] = function(unit)
 end
 oUF.Tags.Events["pppower"] = "UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWER"
 
+local NameOnlyGuild = false
+local NameOnlyTitle = true
 oUF.Tags.Methods["npctitle"] = function(unit)
-	if UnitIsPlayer(unit) then
-		return
-	end
+	local isPlayer = UnitIsPlayer(unit)
+	if isPlayer and NameOnlyGuild then
+		local guildName = GetGuildInfo(unit)
+		if guildName then
+			return "<" .. guildName .. ">"
+		end
+	elseif not isPlayer and NameOnlyTitle then
+		scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+		scanTip:SetUnit(unit)
 
-	local data = C_TooltipInfo.GetUnit(unit)
-	if not data then
-		return
-	end
-
-	local lineData = data.lines[GetCVarBool("colorblindmode") and 3 or 2]
-	if lineData then
-		local title = lineData.leftText
+		local textLine = _G[format("KKUI_ScanTooltipTextLeft%d", GetCVarBool("colorblindmode") and 3 or 2)]
+		local title = textLine and textLine:GetText()
 		if title and not strfind(title, "^" .. LEVEL) then
 			return title
 		end
@@ -397,13 +358,17 @@ end
 oUF.Tags.Events["monkstagger"] = "UNIT_MAXHEALTH UNIT_AURA"
 
 oUF.Tags.Methods["lfdrole"] = function(unit)
+	if not IsInGroup() then
+		return
+	end
+
+	if not (UnitInParty(unit) or UnitInRaid(unit)) then
+		return
+	end
+
 	local role = UnitGroupRolesAssigned(unit)
-	if IsInGroup() and (UnitInParty(unit) or UnitInRaid(unit)) and (role ~= "NONE" and role ~= "DAMAGER") then
-		if role == "HEALER" then
-			return "|TInterface\\LFGFrame\\LFGRole:12:12:-1:1:64:16:48:64:0:16|t"
-		elseif role == "TANK" then
-			return "|TInterface\\LFGFrame\\LFGRole:12:12:-1:0.5:64:16:32:48:0:16|t"
-		end
+	if role and role ~= "NONE" and role ~= "DAMAGER" then
+		return ROLE_ATLAS[role]
 	end
 end
 oUF.Tags.Events["lfdrole"] = "PLAYER_ROLES_ASSIGNED GROUP_ROSTER_UPDATE"

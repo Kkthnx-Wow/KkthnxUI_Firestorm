@@ -8,7 +8,7 @@ local select, pairs = select, pairs
 
 -- Caching frequently used functions and variables
 local GetXPExhaustion = GetXPExhaustion
-local IsInGroup, IsShiftKeyDown, IsWatchingHonorAsXP = IsInGroup, IsShiftKeyDown, IsWatchingHonorAsXP
+local IsInGroup, IsWatchingHonorAsXP = IsInGroup, IsWatchingHonorAsXP
 local UnitHonor, UnitHonorLevel, UnitHonorMax = UnitHonor, UnitHonorLevel, UnitHonorMax
 local UnitXP, UnitXPMax = UnitXP, UnitXPMax
 local C_AzeriteItem_FindActiveAzeriteItem = C_AzeriteItem.FindActiveAzeriteItem
@@ -19,7 +19,7 @@ local C_MajorFactions_GetMajorFactionData = C_MajorFactions.GetMajorFactionData
 local C_MajorFactions_HasMaximumRenown = C_MajorFactions.HasMaximumRenown
 local C_Reputation_GetFactionParagonInfo = C_Reputation.GetFactionParagonInfo
 local C_Reputation_IsFactionParagon, C_Reputation_IsMajorFaction = C_Reputation.IsFactionParagon, C_Reputation.IsMajorFaction
-local GameTooltip, GetWatchedFactionInfo = GameTooltip, GetWatchedFactionInfo
+local GameTooltip, C_Reputation_GetWatchedFactionData = GameTooltip, C_Reputation.GetWatchedFactionData
 
 -- Experience
 local CurrentXP, XPToLevel, PercentRested, PercentXP, RemainXP, RemainTotal, RemainBars
@@ -74,155 +74,165 @@ end
 local barDisplayString = ""
 local altKeyText = K.InfoColor .. ALT_KEY_TEXT .. " "
 
+-- Simple helpers
+local function ClampRange(minVal, maxVal)
+	if maxVal <= minVal then
+		maxVal = minVal + 1
+	end
+	return minVal, maxVal
+end
+
+local function SetBar(bar, minVal, maxVal, value, r, g, b, a)
+	minVal, maxVal = ClampRange(minVal, maxVal)
+	bar:SetMinMaxValues(minVal, maxVal)
+	bar:SetValue(value)
+	if r then
+		bar:SetStatusBarColor(r, g or 1, b or 1, a or 1)
+	end
+end
+
+local function ShowText(fs, text)
+	fs:SetText(text or "")
+end
+
+-- Split handlers for clarity
+local function HandleXP(bar)
+	CurrentXP, XPToLevel, RestedXP = UnitXP("player"), UnitXPMax("player"), (GetXPExhaustion() or 0)
+	if XPToLevel <= 0 then
+		XPToLevel = 1
+	end
+
+	local remainXP = XPToLevel - CurrentXP
+	local remainPercent = remainXP / XPToLevel
+	RemainTotal, RemainBars = remainPercent * 100, remainPercent * 20
+	PercentXP, RemainXP = (CurrentXP / XPToLevel) * 100, K.ShortValue(remainXP)
+
+	-- Colors
+	SetBar(bar, 0, 1, 0, 0, 0.4, 1, 0.8) -- color only
+	bar.restBar:SetStatusBarColor(1, 0, 1, 0.4)
+
+	-- Main bar
+	SetBar(bar, 0, XPToLevel, CurrentXP)
+	barDisplayString = string_format("%s - %.2f%%", K.ShortValue(CurrentXP), PercentXP)
+
+	-- Rested
+	local isRested = RestedXP > 0
+	if isRested then
+		SetBar(bar.restBar, 0, XPToLevel, math_min(CurrentXP + RestedXP, XPToLevel))
+		PercentRested = (RestedXP / XPToLevel) * 100
+		barDisplayString = string_format("%s R:%s [%.2f%%]", barDisplayString, K.ShortValue(RestedXP), PercentRested)
+	end
+
+	bar:Show()
+	bar.restBar:SetShown(isRested)
+	ShowText(bar.text, barDisplayString)
+end
+
+local function HandleRep(bar)
+	local data = C_Reputation_GetWatchedFactionData()
+	local name, reaction, currentReactionThreshold, nextReactionThreshold, currentStanding, factionID = data.name, data.reaction, data.currentReactionThreshold, data.nextReactionThreshold, data.currentStanding, data.factionID
+
+	local standing, rewardPending
+	if reaction == 0 then
+		reaction = 1
+	end
+
+	local info = factionID and C_GossipInfo_GetFriendshipReputation(factionID)
+	if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
+		standing, currentReactionThreshold, nextReactionThreshold, currentStanding = info.reaction, info.reactionThreshold or 0, info.nextThreshold or math.huge, info.standing or 1
+	end
+
+	if not standing and factionID and C_Reputation_IsFactionParagon(factionID) then
+		local current, threshold
+		current, threshold, _, rewardPending = C_Reputation_GetFactionParagonInfo(factionID)
+		if current and threshold then
+			standing, currentReactionThreshold, nextReactionThreshold, currentStanding, reaction = L["Paragon"], 0, threshold, current % threshold, 9
+		end
+	end
+
+	if not standing and factionID and C_Reputation_IsMajorFaction(factionID) then
+		local majorFactionData = C_MajorFactions_GetMajorFactionData(factionID)
+		local renownColor = { r = 0, g = 0.74, b = 0.95 }
+		local renownHex = K.RGBToHex(renownColor.r, renownColor.g, renownColor.b)
+		reaction, currentReactionThreshold, nextReactionThreshold = 10, 0, majorFactionData.renownLevelThreshold
+		currentStanding = C_MajorFactions_HasMaximumRenown(factionID) and majorFactionData.renownLevelThreshold or majorFactionData.renownReputationEarned or 0
+		standing = string_format("%s%s %s|r", renownHex, RENOWN_LEVEL_LABEL, majorFactionData.renownLevel)
+	end
+
+	if not standing then
+		standing = _G["FACTION_STANDING_LABEL" .. reaction] or UNKNOWN
+	end
+
+	local customReaction = reaction == 9 or reaction == 10
+	local color = (true or customReaction) and K.Colors.faction[reaction] or _G.FACTION_BAR_COLORS[reaction]
+	local alpha = 1
+	local total = nextReactionThreshold == math.huge and 1 or nextReactionThreshold
+
+	SetBar(bar, (nextReactionThreshold == math.huge or currentReactionThreshold == nextReactionThreshold) and 0 or currentReactionThreshold, total, currentStanding, color.r or 1, color.g or 1, color.b or 1, alpha)
+
+	bar.reward:ClearAllPoints()
+	bar.reward:SetPoint("CENTER", bar, "LEFT")
+	bar.reward:SetShown(rewardPending)
+
+	local current, _, percent, capped = RepGetValues(currentStanding, currentReactionThreshold, total)
+	if capped then
+		barDisplayString = string_format("%s: [%s]", name, standing)
+	else
+		barDisplayString = string_format("%s: %s - %d%% [%s]", name, K.ShortValue(current), percent, standing)
+	end
+
+	bar:Show()
+	ShowText(bar.text, barDisplayString)
+end
+
+local function HandleHonor(bar, event, unit)
+	if event == "PLAYER_FLAGS_CHANGED" and unit ~= "player" then
+		return
+	end
+	CurrentHonor, MaxHonor, CurrentLevel = UnitHonor("player"), UnitHonorMax("player"), UnitHonorLevel("player")
+	if MaxHonor == 0 then
+		MaxHonor = 1
+	end
+	PercentHonor, RemainingHonor = (CurrentHonor / MaxHonor) * 100, MaxHonor - CurrentHonor
+	local colorHonor = { r = 0.94, g = 0.45, b = 0.25 }
+	SetBar(bar, 0, MaxHonor, CurrentHonor, colorHonor.r, colorHonor.g, colorHonor.b)
+	barDisplayString = string_format("%s - %d%% - [%s]", K.ShortValue(CurrentHonor), PercentHonor, CurrentLevel)
+	bar:Show()
+	ShowText(bar.text, barDisplayString)
+end
+
+local function HandleAzerite(bar, event, unit)
+	if event == "UNIT_INVENTORY_CHANGED" and unit ~= "player" then
+		return
+	end
+	local item = C_AzeriteItem_FindActiveAzeriteItem()
+	local cur, max = C_AzeriteItem_GetAzeriteItemXPInfo(item)
+	local currentLevel = C_AzeriteItem_GetPowerLevel(item)
+	local color = { 0.901, 0.8, 0.601, 1 }
+	SetBar(bar, 0, max, cur, color.r, color.g, color.b, color.a)
+	bar:Show()
+	ShowText(bar.text, string_format("%s - %s%% [%s]", K.ShortValue(cur), math_floor(cur / max * 100), currentLevel))
+end
+
 local function OnExpBarEvent(self, event, unit)
 	if not XPIsLevelMax() then
-		CurrentXP, XPToLevel, RestedXP = UnitXP("player"), UnitXPMax("player"), (GetXPExhaustion() or 0)
-
-		-- Ensure XPToLevel is not 0 to avoid division by zero
-		if XPToLevel <= 0 then
-			XPToLevel = 1
-		end
-
-		-- Calculate remaining XP and percentage
-		local remainXP = XPToLevel - CurrentXP
-		local remainPercent = remainXP / XPToLevel
-		RemainTotal, RemainBars = remainPercent * 100, remainPercent * 20
-		PercentXP, RemainXP = (CurrentXP / XPToLevel) * 100, K.ShortValue(remainXP)
-
-		-- Set status bar colors
-		self:SetStatusBarColor(0, 0.4, 1, 0.8)
-		self.restBar:SetStatusBarColor(1, 0, 1, 0.4)
-
-		-- Set up main XP bar
-		self:SetMinMaxValues(0, XPToLevel)
-		self:SetValue(CurrentXP)
-		barDisplayString = string_format("%s - %.2f%%", K.ShortValue(CurrentXP), PercentXP)
-
-		-- Check if rested XP exists
-		local isRested = RestedXP > 0
-		if isRested then
-			-- Set up rested XP bar
-			self.restBar:SetMinMaxValues(0, XPToLevel)
-			self.restBar:SetValue(math_min(CurrentXP + RestedXP, XPToLevel))
-
-			-- Calculate percentage of rested XP
-			PercentRested = (RestedXP / XPToLevel) * 100
-
-			-- Update XP display string with rested XP information
-			barDisplayString = string_format("%s R:%s [%.2f%%]", barDisplayString, K.ShortValue(RestedXP), PercentRested)
-		end
-
-		-- Show experience
-		self:Show()
-
-		-- Show or hide rested XP bar based on rested state
-		self.restBar:SetShown(isRested)
-
-		-- Update text display with XP information
-		self.text:SetText(barDisplayString)
-	elseif GetWatchedFactionInfo() then
-		local standing, rewardPending, _
-		local name, reaction, minValue, maxValue, curValue, factionID = GetWatchedFactionInfo()
-
-		if reaction == 0 then
-			reaction = 1
-		end
-
-		local info = factionID and C_GossipInfo_GetFriendshipReputation(factionID)
-		if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
-			standing, minValue, maxValue, curValue = info.reaction, info.reactionThreshold or 0, info.nextThreshold or math.huge, info.standing or 1
-		end
-
-		if not standing and factionID and C_Reputation_IsFactionParagon(factionID) then
-			local current, threshold
-			current, threshold, _, rewardPending = C_Reputation_GetFactionParagonInfo(factionID)
-
-			if current and threshold then
-				standing, minValue, maxValue, curValue, reaction = L["Paragon"], 0, threshold, current % threshold, 9
-			end
-		end
-
-		if not standing and factionID and C_Reputation_IsMajorFaction(factionID) then
-			local majorFactionData = C_MajorFactions_GetMajorFactionData(factionID)
-			local renownColor = { r = 0, g = 0.74, b = 0.95 }
-			local renownHex = K.RGBToHex(renownColor.r, renownColor.g, renownColor.b)
-
-			reaction, minValue, maxValue = 10, 0, majorFactionData.renownLevelThreshold
-			curValue = C_MajorFactions_HasMaximumRenown(factionID) and majorFactionData.renownLevelThreshold or majorFactionData.renownReputationEarned or 0
-			standing = string_format("%s%s %s|r", renownHex, RENOWN_LEVEL_LABEL, majorFactionData.renownLevel)
-		end
-
-		if not standing then
-			standing = _G["FACTION_STANDING_LABEL" .. reaction] or UNKNOWN
-		end
-
-		local customColors = true
-		local customReaction = reaction == 9 or reaction == 10 -- 9 is paragon, 10 is renown
-		local color = (customColors or customReaction) and K.Colors.faction[reaction] or _G.FACTION_BAR_COLORS[reaction]
-		local alpha = (customColors and 1)
-		local total = maxValue == math.huge and 1 or maxValue -- we need to correct the min/max of friendship factions to display the bar at 100%
-
-		self:SetStatusBarColor(color.r or 1, color.g or 1, color.b or 1, alpha or 1)
-		self:SetMinMaxValues((maxValue == math.huge or minValue == maxValue) and 0 or minValue, total) -- we force min to 0 because the min will match max when a rep is maxed and cause the bar to be 0%
-		self:SetValue(curValue)
-
-		self.reward:ClearAllPoints()
-		self.reward:SetPoint("CENTER", self, "LEFT")
-		self.reward:SetShown(rewardPending)
-
-		local current, _, percent, capped = RepGetValues(curValue, minValue, total) -- Check these please.
-		if capped then -- show only name and standing on exalted
-			barDisplayString = string_format("%s: [%s]", name, standing)
-		else
-			barDisplayString = string_format("%s: %s - %d%% [%s]", name, K.ShortValue(current), percent, standing)
-		end
-
-		self:Show()
-		self.text:SetText(barDisplayString)
-	elseif IsWatchingHonorAsXP() then
-		if event == "PLAYER_FLAGS_CHANGED" and unit ~= "player" then
-			return
-		end
-
-		CurrentHonor, MaxHonor, CurrentLevel = UnitHonor("player"), UnitHonorMax("player"), UnitHonorLevel("player")
-
-		-- Guard against division by zero, which appears to be an issue when zoning in/out of dungeons
-		if MaxHonor == 0 then
-			MaxHonor = 1
-		end
-
-		PercentHonor, RemainingHonor = (CurrentHonor / MaxHonor) * 100, MaxHonor - CurrentHonor
-
-		local colorHonor = { r = 0.94, g = 0.45, b = 0.25 }
-
-		self:SetMinMaxValues(0, MaxHonor)
-		self:SetValue(CurrentHonor)
-		self:SetStatusBarColor(colorHonor.r, colorHonor.g, colorHonor.b)
-
-		barDisplayString = string_format("%s - %d%% - [%s]", K.ShortValue(CurrentHonor), PercentHonor, CurrentLevel)
-
-		self:Show()
-		self.text:SetText(barDisplayString)
-	elseif IsAzeriteAvailable() then
-		if event == "UNIT_INVENTORY_CHANGED" and unit ~= "player" then
-			return
-		end
-
-		local item = C_AzeriteItem_FindActiveAzeriteItem()
-		local cur, max = C_AzeriteItem_GetAzeriteItemXPInfo(item)
-		local currentLevel = C_AzeriteItem_GetPowerLevel(item)
-		local color = { 0.901, 0.8, 0.601, 1 }
-
-		self:SetStatusBarColor(color.r, color.g, color.b, color.a)
-		self:SetMinMaxValues(0, max)
-		self:SetValue(cur)
-
-		self:Show()
-		self.text:SetFormattedText("%s - %s%% [%s]", K.ShortValue(cur), math_floor(cur / max * 100), currentLevel)
-	else
-		self:Hide()
-		self.text:SetText("")
+		HandleXP(self)
+		return
 	end
+	if C_Reputation_GetWatchedFactionData() then
+		HandleRep(self)
+		return
+	end
+	if IsWatchingHonorAsXP() then
+		HandleHonor(self, event, unit)
+		return
+	end
+	if IsAzeriteAvailable() then
+		HandleAzerite(self, event, unit)
+		return
+	end
+	self:Hide()
+	ShowText(self.text, "")
 end
 
 local function OnExpBarEnter(self)
@@ -251,21 +261,23 @@ local function OnExpBarEnter(self)
 		end
 
 		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine(altKeyText .. KEY_PLUS .. K.RightButton, sendExperienceText)
 	end
 
-	if GetWatchedFactionInfo() then
+	if C_Reputation_GetWatchedFactionData() then
 		if not XPIsLevelMax() then
 			GameTooltip:AddLine(" ")
 		end
 
-		local name, reaction, minValue, maxValue, curValue, factionID = GetWatchedFactionInfo()
+		local data = C_Reputation_GetWatchedFactionData()
+		local name, reaction, currentReactionThreshold, nextReactionThreshold, currentStanding, factionID = data.name, data.reaction, data.currentReactionThreshold, data.nextReactionThreshold, data.currentStanding, data.factionID
 		local isParagon = factionID and C_Reputation_IsFactionParagon(factionID)
 		local standing
 
 		if isParagon then
 			local current, threshold = C_Reputation_GetFactionParagonInfo(factionID)
 			if current and threshold then
-				standing, minValue, maxValue, curValue = L["Paragon"], 0, threshold, current % threshold
+				standing, currentReactionThreshold, nextReactionThreshold, currentStanding = L["Paragon"], 0, threshold, current % threshold
 			end
 		end
 
@@ -275,7 +287,7 @@ local function OnExpBarEnter(self)
 
 			local info = factionID and C_GossipInfo.GetFriendshipReputation(factionID)
 			if info and info.friendshipFactionID and info.friendshipFactionID > 0 then
-				standing, minValue, maxValue, curValue = info.reaction, info.reactionThreshold or 0, info.nextThreshold or math.huge, info.standing or 1
+				standing, currentReactionThreshold, nextReactionThreshold, currentStanding = info.reaction, info.reactionThreshold or 0, info.nextThreshold or math.huge, info.standing or 1
 			end
 
 			if not standing then
@@ -289,11 +301,11 @@ local function OnExpBarEnter(self)
 
 			if not isParagon and isMajorFaction then
 				local majorFactionData = C_MajorFactions_GetMajorFactionData(factionID)
-				curValue = (C_MajorFactions_HasMaximumRenown(factionID) and majorFactionData.renownLevelThreshold) or majorFactionData.renownReputationEarned or 0
-				maxValue = majorFactionData.renownLevelThreshold
-				GameTooltip:AddDoubleLine(RENOWN_LEVEL_LABEL .. majorFactionData.renownLevel, string_format("%d / %d (%d%%)", RepGetValues(curValue, 0, maxValue)), BLUE_FONT_COLOR.r, BLUE_FONT_COLOR.g, BLUE_FONT_COLOR.b, 1, 1, 1)
-			elseif (isParagon or (reaction ~= _G.MAX_REPUTATION_REACTION)) and maxValue ~= math.huge then
-				GameTooltip:AddDoubleLine(REPUTATION .. ":", string_format("%d / %d (%d%%)", RepGetValues(curValue, minValue, maxValue)), 1, 1, 1)
+				currentStanding = (C_MajorFactions_HasMaximumRenown(factionID) and majorFactionData.renownLevelThreshold) or majorFactionData.renownReputationEarned or 0
+				nextReactionThreshold = majorFactionData.renownLevelThreshold
+				GameTooltip:AddDoubleLine(format(RENOWN_LEVEL_LABEL, majorFactionData.renownLevel), format("%d / %d (%d%%)", RepGetValues(currentStanding, 0, nextReactionThreshold)), BLUE_FONT_COLOR.r, BLUE_FONT_COLOR.g, BLUE_FONT_COLOR.b, 1, 1, 1)
+			elseif (isParagon or (reaction ~= _G.MAX_REPUTATION_REACTION)) and nextReactionThreshold ~= math.huge then
+				GameTooltip:AddDoubleLine(REPUTATION .. ":", format("%d / %d (%d%%)", RepGetValues(currentStanding, currentReactionThreshold, nextReactionThreshold)), 1, 1, 1)
 			end
 
 			-- Check for specific faction
@@ -308,9 +320,25 @@ local function OnExpBarEnter(self)
 					GameTooltip:AddDoubleLine(reaction, current .. " / " .. currentMax .. " (" .. floor(current / currentMax * 100) .. "%)", 0.6, 0.8, 1, 1, 1, 1) -- Translate "reaction" if necessary
 				end
 			end
-		end
 
-		GameTooltip:AddLine(" ")
+			if factionID == 2465 then -- 荒猎团
+				local repInfo = C_GossipInfo_GetFriendshipReputation(2463) -- 玛拉斯缪斯
+				local rep, name, reaction, threshold, nextThreshold = repInfo.standing, repInfo.name, repInfo.reaction, repInfo.reactionThreshold, repInfo.nextThreshold
+				if nextThreshold and rep > 0 then
+					local current = rep - threshold
+					local currentMax = nextThreshold - threshold
+					GameTooltip:AddLine(" ")
+					GameTooltip:AddLine(name, 0, 0.6, 1)
+					GameTooltip:AddDoubleLine(reaction, current .. " / " .. currentMax .. " (" .. floor(current / currentMax * 100) .. "%)", 0.6, 0.8, 1, 1, 1, 1)
+				end
+			elseif factionID == 2574 then -- 梦境守望者
+				local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(2649) -- 梦境注能
+				local q = currencyInfo.quantity
+				local m = currencyInfo.maxQuantity
+				local name = C_CurrencyInfo.GetCurrencyInfo(2777).name
+				GameTooltip:AddDoubleLine(name, q .. " / " .. m .. " (" .. floor(q / m * 100) .. "%)", 0.6, 0.8, 1, 1, 1, 1)
+			end
+		end
 	end
 
 	if IsWatchingHonorAsXP() then
@@ -346,6 +374,34 @@ local function OnExpBarLeave()
 	K.HideTooltip()
 end
 
+local lastMessageTime = 0
+local COOLDOWN_DURATION = 10 -- Cooldown duration in seconds
+
+local function OnExpRepMouseUp(self, button)
+	if IsAltKeyDown() and button == "RightButton" then
+		local currentTime = GetTime()
+		if currentTime - lastMessageTime >= COOLDOWN_DURATION then
+			if not IsInGroup() then
+				K.Print(ERR_QUEST_PUSH_NOT_IN_PARTY_S)
+				return
+			end
+
+			if not XPIsLevelMax() then
+				local expPercent = string_format("%.2f%%", PercentXP)
+				local barsLeft = RemainBars
+				local expMessage = string_format("Current XP: %s, Remaining XP: %s, Percent XP: %s, Bars Left: %.2f", K.ShortValue(CurrentXP), RemainXP, expPercent, barsLeft)
+				if RestedXP > 0 then
+					expMessage = expMessage .. string_format(", Rested XP: %s", K.ShortValue(RestedXP))
+				end
+				SendChatMessage(expMessage, "PARTY")
+			end
+			lastMessageTime = currentTime
+		else
+			K.Print(SPELL_FAILED_CUSTOM_ERROR_808)
+		end
+	end
+end
+
 local ExpRep_EventList = {
 	-- ALL
 	-- "PLAYER_ENTERING_WORLD",
@@ -374,11 +430,14 @@ local function SetupExpRepScript(bar)
 		bar:RegisterEvent(event)
 	end
 
+	-- Initial update
 	OnExpBarEvent(bar)
 
+	-- Direct event wiring for clarity
 	bar:SetScript("OnEvent", OnExpBarEvent)
 	bar:SetScript("OnEnter", OnExpBarEnter)
 	bar:SetScript("OnLeave", OnExpBarLeave)
+	bar:SetScript("OnMouseUp", OnExpRepMouseUp)
 end
 
 function Module:CreateExpbar()

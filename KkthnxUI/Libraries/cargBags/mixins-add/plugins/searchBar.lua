@@ -29,6 +29,13 @@ DEPENDENCIES
 local _, ns = ...
 local cargBags = ns.cargBags
 
+-- Cache globals for performance
+local pairs = pairs
+local type = type
+
+local CreateFrame = CreateFrame
+local GameFontHighlight = GameFontHighlight
+
 local function apply(self, container, text)
 	if text == "" or not text then
 		container:ApplyToButtons(self.highlightFunction, true)
@@ -96,7 +103,7 @@ cargBags:RegisterPlugin("SearchBar", function(self, target)
 	self.Search = search
 
 	search.Clear = onEscape
-	search.DoSearch = search.doSearch
+	search.DoSearch = doSearch
 
 	local left = search:CreateTexture(nil, "BACKGROUND")
 	left:SetTexture("Interface\\Common\\Common-Input-Border")

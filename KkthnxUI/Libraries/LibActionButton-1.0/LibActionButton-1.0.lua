@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ]]
 local MAJOR_VERSION = "LibActionButton-1.0-KkthnxUI"
-local MINOR_VERSION = 117
+local MINOR_VERSION = 133
 
 if not LibStub then
 	error(MAJOR_VERSION .. " requires LibStub.")
@@ -42,20 +42,25 @@ end
 -- Lua functions
 local type, error, tostring, tonumber, assert, select = type, error, tostring, tonumber, assert, select
 local setmetatable, wipe, unpack, pairs, next = setmetatable, wipe, unpack, pairs, next
-local str_match, format, tinsert, tremove = string.match, format, tinsert, tremove
+local str_match, format = string.match, format
+local tconcat = table.concat
+local GetTime = GetTime
+local InCombatLockdown = InCombatLockdown
+local IsMouseButtonDown = IsMouseButtonDown
 
 local WoWRetail = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE)
 local WoWClassic = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
 local WoWBCC = (WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC)
 local WoWWrath = (WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC)
-local WoWCata = (WOW_PROJECT_ID == WOW_PROJECT_CATACLYSM_CLASSIC)
+
+local DisableOverlayGlow = WoWClassic or WoWBCC or WoWWrath
 
 -- Enable custom flyouts for WoW Retail
-local UseCustomFlyout = WoWRetail
+local UseCustomFlyout = WoWRetail or (FlyoutButtonMixin and not ActionButton_UpdateFlyout)
 
 local KeyBound = LibStub("LibKeyBound-1.0", true)
 local CBH = LibStub("CallbackHandler-1.0")
-local LCG = LibStub("LibCustomGlow-1.0-KkthnxUI", true) -- NDui: use LCG mod
+local LCG = LibStub("LibCustomGlow-1.0-KkthnxUI", true) -- KkthnxUI: use LCG mod
 local Masque = LibStub("Masque", true)
 
 lib.eventFrame = lib.eventFrame or CreateFrame("Frame")
@@ -65,8 +70,8 @@ lib.buttonRegistry = lib.buttonRegistry or {}
 lib.activeButtons = lib.activeButtons or {}
 lib.actionButtons = lib.actionButtons or {}
 lib.nonActionButtons = lib.nonActionButtons or {}
+lib.actionButtonsNonUI = lib.actionButtonsNonUI or {}
 
-lib.ChargeCooldowns = lib.ChargeCooldowns or {}
 lib.NumChargeCooldowns = lib.NumChargeCooldowns or 0
 
 lib.FlyoutInfo = lib.FlyoutInfo or {}
@@ -107,17 +112,20 @@ local type_meta_map = {
 	custom = Custom_MT,
 }
 
-local ButtonRegistry, ActiveButtons, ActionButtons, NonActionButtons = lib.buttonRegistry, lib.activeButtons, lib.actionButtons, lib.nonActionButtons
+local ButtonRegistry, ActiveButtons, ActionButtons, NonActionButtons, ActionButtonsNonUI = lib.buttonRegistry, lib.activeButtons, lib.actionButtons, lib.nonActionButtons, lib.actionButtonsNonUI
 
-local Update, UpdateButtonState, UpdateUsable, UpdateCount, UpdateCooldown, UpdateTooltip, UpdateNewAction, UpdateSpellHighlight, ClearNewActionHighlight
+local Update, UpdateButtonState, UpdateUsable, UpdateCount, UpdateCooldown, UpdateCooldownNumberHidden, UpdateTooltip, UpdateNewAction, UpdateSpellHighlight, ClearNewActionHighlight, UpdateAssistedCombatRotationFrame, UpdatedAssistedHighlightFrame
 local StartFlash, StopFlash, UpdateFlash, UpdateHotkeys, UpdateRangeTimer, UpdateOverlayGlow
 local UpdateFlyout, ShowGrid, HideGrid, UpdateGrid, SetupSecureSnippets, WrapOnClick
 local ShowOverlayGlow, HideOverlayGlow
-local EndChargeCooldown
+local ClearChargeCooldown
+
+local SpellVFX_ClearReticle, SpellVFX_ClearInterruptDisplay, SpellVFX_PlaySpellCastAnim, SpellVFX_PlayTargettingReticleAnim, SpellVFX_StopTargettingReticleAnim, SpellVFX_StopSpellCastAnim, SpellVFX_PlaySpellInterruptedAnim
+local SpellVFX_CastingAnim_OnHide, SpellVFX_CastingAnim_Finish_OnFinished
 
 local GetFlyoutHandler
 
-local InitializeEventHandler, OnEvent, ForAllButtons, OnUpdate
+local InitializeEventHandler, OnEvent, ForAllButtons, ForAllButtonsWithSpell, OnUpdate
 
 local function GameTooltip_GetOwnerForbidden()
 	if GameTooltip:IsForbidden() then
@@ -130,6 +138,13 @@ local DefaultConfig = {
 	outOfRangeColoring = "button",
 	tooltip = "enabled",
 	showGrid = false,
+	-- Cooldown appearance options (apply when not in Loss of Control mode)
+	cooldown = {
+		drawBling = nil, -- nil: auto based on alpha; boolean to force
+		reverse = false,
+		edgeTexture = nil, -- custom edge texture path for normal cooldown
+		swipeColor = nil, -- {r, g, b, a} for normal cooldown
+	},
 	colors = {
 		range = { 0.8, 0.1, 0.1 },
 		mana = { 0.5, 0.5, 1.0 },
@@ -144,7 +159,11 @@ local DefaultConfig = {
 	keyBoundTarget = false,
 	keyBoundClickButton = "LeftButton",
 	clickOnDown = false,
+	cooldownCount = nil, -- nil: use cvar, true/false: enable/disable
 	flyoutDirection = "UP",
+	actionButtonUI = false, -- register the button with SetActionUIButton, this has some side-effects if the button changes from action type to another type, but is required for certain UI integrations. Recommended to only set on pure type=action buttons
+	assistedHighlight = true, -- requires actionButtonUI to be set to work
+	spellCastVFX = false, -- enable cast vfx
 	text = {
 		hotkey = {
 			font = {
@@ -153,6 +172,7 @@ local DefaultConfig = {
 				flags = "OUTLINE",
 			},
 			color = { 0.75, 0.75, 0.75 },
+			formatter = nil, -- optional function(key: string) -> string
 			position = {
 				anchor = "TOPRIGHT",
 				relAnchor = "TOPRIGHT",
@@ -168,6 +188,7 @@ local DefaultConfig = {
 				flags = "OUTLINE",
 			},
 			color = { 1, 1, 1 },
+			formatter = nil, -- optional function(count: number, maxCharges: number|nil) -> string
 			position = {
 				anchor = "BOTTOMRIGHT",
 				relAnchor = "BOTTOMRIGHT",
@@ -194,6 +215,12 @@ local DefaultConfig = {
 	},
 }
 
+local ActionButtonCastType = {
+	Cast = 1,
+	Channel = 2,
+	Empowered = 3,
+}
+
 --- Create a new action button.
 -- @param id Internal id of the button (not used by LibActionButton-1.0, only for tracking inside the calling addon)
 -- @param name Name of the button frame to be created (not used by LibActionButton-1.0 aside from naming the frame)
@@ -210,7 +237,7 @@ function lib:CreateButton(id, name, header, config)
 		KeyBound = LibStub("LibKeyBound-1.0", true)
 	end
 
-	local button = setmetatable(CreateFrame("CheckButton", name, header, "SecureActionButtonTemplate, ActionButtonTemplate"), Generic_MT)
+	local button = setmetatable(CreateFrame("CheckButton", name, header, "ActionButtonTemplate, SecureActionButtonTemplate"), Generic_MT)
 	button:RegisterForDrag("LeftButton", "RightButton")
 	if WoWRetail then
 		button:RegisterForClicks("AnyDown", "AnyUp")
@@ -240,6 +267,12 @@ function lib:CreateButton(id, name, header, config)
 	SetupSecureSnippets(button)
 	WrapOnClick(button)
 
+	-- update animation scripts
+	if button.SpellCastAnimFrame then
+		button.SpellCastAnimFrame:SetScript("OnHide", SpellVFX_CastingAnim_OnHide)
+		button.SpellCastAnimFrame.EndBurst.FinishCastAnim:SetScript("OnFinished", SpellVFX_CastingAnim_Finish_OnFinished)
+	end
+
 	-- if there is no button yet, initialize events later
 	local InitializeEvents = not next(ButtonRegistry)
 
@@ -254,6 +287,12 @@ function lib:CreateButton(id, name, header, config)
 	UpdateHotkeys(button)
 
 	button:SetAttribute("LABUseCustomFlyout", UseCustomFlyout)
+
+	-- nil out inherited functions from the flyout mixin, we override these in a metatable
+	if UseCustomFlyout then
+		button.GetPopupDirection = nil
+		button.IsPopupOpen = nil
+	end
 
 	-- initialize events
 	if InitializeEvents then
@@ -514,8 +553,12 @@ function WrapOnClick(button, unwrapheader)
 			-- if this is a pickup click, disable on-down casting
 			-- it should get re-enabled in the post handler, or the OnDragStart handler, whichever occurs
 			if button ~= "Keybind" and ((self:GetAttribute("unlockedpreventdrag") and not self:GetAttribute("buttonlock")) or IsModifiedClick("PICKUPACTION")) and not self:GetAttribute("LABdisableDragNDrop") then
-				self:CallMethod("ToggleOnDownForPickup", true)
-				self:SetAttribute("LABToggledOnDown", true)
+				local useOnkeyDown = self:GetAttribute("useOnKeyDown")
+				if useOnkeyDown ~= false then
+					self:SetAttribute("LABToggledOnDown", true)
+					self:SetAttribute("LABToggledOnDownBackup", useOnkeyDown)
+					self:SetAttribute("useOnKeyDown", false)
+				end
 			end
 			return (button == "Keybind") and "LeftButton" or nil, format("%s|%s", tostring(type), tostring(action))
 		end
@@ -538,8 +581,9 @@ function WrapOnClick(button, unwrapheader)
 
 		-- re-enable ondown casting if needed
 		if self:GetAttribute("LABToggledOnDown") then
+			self:SetAttribute("useOnKeyDown", self:GetAttribute("LABToggledOnDownBackup"))
 			self:SetAttribute("LABToggledOnDown", nil)
-			self:CallMethod("ToggleOnDownForPickup", false)
+			self:SetAttribute("LABToggledOnDownBackup", nil)
 		end
 	]]
 	)
@@ -551,21 +595,6 @@ function Generic:OnButtonEvent(event, ...)
 		self:UnregisterEvent(event)
 
 		UpdateFlyout(self)
-	end
-end
-
-local _LABActionButtonUseKeyDown
-function Generic:ToggleOnDownForPickup(pre)
-	if pre then
-		if GetCVarBool("ActionButtonUseKeyDown") or _LABActionButtonUseKeyDown then
-			SetCVar("ActionButtonUseKeyDown", false)
-			_LABActionButtonUseKeyDown = true
-		else
-			_LABActionButtonUseKeyDown = false
-		end
-	elseif not pre and _LABActionButtonUseKeyDown then
-		SetCVar("ActionButtonUseKeyDown", true)
-		_LABActionButtonUseKeyDown = nil
 	end
 end
 
@@ -625,7 +654,7 @@ function Generic:SetStateFromHandlerInsecure(state, kind, action)
 		if tonumber(action) then
 			action = format("item:%s", action)
 		else
-			local itemString = str_match(action, "^|c%x+|H(item[%d:]+)|h%[")
+			local itemString = str_match(action, "^|c[^|]+|H(item[%d:]+)|h%[")
 			if itemString then
 				action = itemString
 			end
@@ -730,7 +759,7 @@ if UseCustomFlyout then
 	-- params: self, flyoutID
 	local FlyoutHandleFunc = [[
 		local SPELLFLYOUT_DEFAULT_SPACING = 6
-		local SPELLFLYOUT_INITIAL_SPACING = 8
+		local SPELLFLYOUT_INITIAL_SPACING = 7
 		local SPELLFLYOUT_FINAL_SPACING = 9
 
 		local parent = self:GetAttribute("flyoutParentHandle")
@@ -973,13 +1002,14 @@ if UseCustomFlyout then
 
 		local maxNumSlots = 0
 
-		local data = "LAB_FlyoutInfo = newtable();\n"
+		local lines = {}
+		lines[#lines + 1] = "LAB_FlyoutInfo = newtable();\n"
 		for flyoutID, info in pairs(lib.FlyoutInfo) do
 			if info.isKnown then
 				local numSlots = 0
-				data = data .. ("LAB_FlyoutInfo[%d] = newtable();LAB_FlyoutInfo[%d].slots = newtable();\n"):format(flyoutID, flyoutID)
+				lines[#lines + 1] = ("LAB_FlyoutInfo[%d] = newtable();LAB_FlyoutInfo[%d].slots = newtable();\n"):format(flyoutID, flyoutID)
 				for slotID, slotInfo in ipairs(info.slots) do
-					data = data .. ("LAB_FlyoutInfo[%d].slots[%d] = newtable();LAB_FlyoutInfo[%d].slots[%d].spellID = %d;LAB_FlyoutInfo[%d].slots[%d].isKnown = %s;\n"):format(flyoutID, slotID, flyoutID, slotID, slotInfo.spellID, flyoutID, slotID, slotInfo.isKnown and "true" or "nil")
+					lines[#lines + 1] = ("LAB_FlyoutInfo[%d].slots[%d] = newtable();LAB_FlyoutInfo[%d].slots[%d].spellID = %d;LAB_FlyoutInfo[%d].slots[%d].isKnown = %s;\n"):format(flyoutID, slotID, flyoutID, slotID, slotInfo.spellID, flyoutID, slotID, slotInfo.isKnown and "true" or "nil")
 					numSlots = numSlots + 1
 				end
 
@@ -990,7 +1020,7 @@ if UseCustomFlyout then
 		end
 
 		-- load generated data into the restricted environment
-		GetFlyoutHandler():Execute(data)
+		GetFlyoutHandler():Execute(tconcat(lines))
 
 		if maxNumSlots > #lib.FlyoutButtons then
 			for i = #lib.FlyoutButtons + 1, maxNumSlots do
@@ -1121,11 +1151,19 @@ function Generic:OnEnter()
 		UpdateNewAction(self)
 	end
 
-	UpdateFlyout(self)
+	if FlyoutButtonMixin and UseCustomFlyout then
+		FlyoutButtonMixin.OnEnter(self)
+	else
+		UpdateFlyout(self)
+	end
 end
 
 function Generic:OnLeave()
-	UpdateFlyout(self)
+	if FlyoutButtonMixin and UseCustomFlyout then
+		FlyoutButtonMixin.OnLeave(self)
+	else
+		UpdateFlyout(self)
+	end
 
 	if GameTooltip:IsForbidden() then
 		return
@@ -1259,12 +1297,22 @@ function Generic:UpdateConfig(config)
 
 	self:SetAttribute("flyoutDirection", self.config.flyoutDirection)
 
+	UpdateCooldownNumberHidden(self)
 	UpdateTextElements(self)
 	UpdateHotkeys(self)
 	UpdateGrid(self)
-	Update(self)
+	self:UpdateAction(true)
 	if not WoWRetail then
 		self:RegisterForClicks(self.config.clickOnDown and "AnyDown" or "AnyUp")
+	end
+end
+
+function Generic:SetFlyoutDirection(direction)
+	-- convenience setter to mirror bar-driven updates
+	if direction then
+		self.config.flyoutDirection = direction
+		self:SetAttribute("flyoutDirection", direction)
+		UpdateFlyout(self)
 	end
 end
 
@@ -1278,8 +1326,18 @@ function ForAllButtons(method, onlyWithAction)
 	end
 end
 
+function ForAllButtonsWithSpell(spellID, method, ...)
+	assert(type(method) == "function")
+	for button in next, ActiveButtons do
+		if button:GetSpellId() == spellID then
+			method(button, ...)
+		end
+	end
+end
+
 function InitializeEventHandler()
 	lib.eventFrame:SetScript("OnEvent", OnEvent)
+	lib.eventFrame:RegisterEvent("CVAR_UPDATE")
 	lib.eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 	lib.eventFrame:RegisterEvent("ACTIONBAR_SHOWGRID")
 	lib.eventFrame:RegisterEvent("ACTIONBAR_HIDEGRID")
@@ -1313,6 +1371,7 @@ function InitializeEventHandler()
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_ICON")
 	if not WoWClassic and not WoWBCC then
 		if not WoWWrath then
+			lib.eventFrame.showGlow = true -- NDui
 			lib.eventFrame:RegisterEvent("ARCHAEOLOGY_CLOSED")
 			lib.eventFrame:RegisterEvent("UPDATE_SUMMONPETS_ACTION")
 			lib.eventFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
@@ -1331,6 +1390,21 @@ function InitializeEventHandler()
 	lib.eventFrame:RegisterEvent("LOSS_OF_CONTROL_ADDED")
 	lib.eventFrame:RegisterEvent("LOSS_OF_CONTROL_UPDATE")
 
+	if WoWRetail then
+		lib.eventFrame:RegisterEvent("UNIT_SPELLCAST_SENT")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_RETICLE_TARGET", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_RETICLE_CLEAR", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
+		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+	end
+
 	if UseCustomFlyout then
 		lib.eventFrame:RegisterEvent("PLAYER_LOGIN")
 		lib.eventFrame:RegisterEvent("SPELLS_CHANGED")
@@ -1343,6 +1417,21 @@ function InitializeEventHandler()
 	if UseCustomFlyout and IsLoggedIn() then
 		DiscoverFlyoutSpells()
 	end
+
+	if EventRegistry and AssistedCombatManager then
+		EventRegistry:RegisterCallback("AssistedCombatManager.OnSetActionSpell", function(o)
+			-- May not be the best way, but it is a unique string which is what the event system cares about
+			OnEvent(lib.eventFrame, "AssistedCombatManager.OnSetActionSpell")
+		end, lib.eventFrame)
+
+		EventRegistry:RegisterCallback("AssistedCombatManager.OnAssistedHighlightSpellChange", function(o)
+			OnEvent(lib.eventFrame, "AssistedCombatManager.OnAssistedHighlightSpellChange")
+		end, lib.eventFrame)
+
+		EventRegistry:RegisterCallback("AssistedCombatManager.OnSetUseAssistedHighlight", function(o)
+			OnEvent(lib.eventFrame, "AssistedCombatManager.OnAssistedHighlightSpellChange")
+		end, lib.eventFrame)
+	end
 end
 
 local _lastFormUpdate = GetTime()
@@ -1350,6 +1439,10 @@ function OnEvent(frame, event, arg1, ...)
 	if event == "PLAYER_LOGIN" then
 		if UseCustomFlyout then
 			DiscoverFlyoutSpells()
+		end
+	elseif event == "CVAR_UPDATE" then
+		if arg1 == "countdownForCooldowns" then
+			ForAllButtons(UpdateCooldownNumberHidden)
 		end
 	elseif event == "SPELLS_CHANGED" or event == "SPELL_FLYOUT_UPDATE" then
 		if UseCustomFlyout then
@@ -1395,7 +1488,11 @@ function OnEvent(frame, event, arg1, ...)
 		ForAllButtons(UpdateHotkeys)
 	elseif event == "PLAYER_TARGET_CHANGED" then
 		UpdateRangeTimer()
-	elseif (event == "ACTIONBAR_UPDATE_STATE") or ((event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and (arg1 == "player")) or ((event == "COMPANION_UPDATE") and (arg1 == "MOUNT")) then
+	elseif event == "ACTIONBAR_UPDATE_STATE" then
+		for button in next, ActionButtonsNonUI do
+			UpdateButtonState(button)
+		end
+	elseif ((event == "UNIT_ENTERED_VEHICLE" or event == "UNIT_EXITED_VEHICLE") and (arg1 == "player")) or ((event == "COMPANION_UPDATE") and (arg1 == "MOUNT")) then
 		ForAllButtons(UpdateButtonState, true)
 	elseif event == "ACTIONBAR_UPDATE_USABLE" then
 		for button in next, ActionButtons do
@@ -1521,6 +1618,59 @@ function OnEvent(frame, event, arg1, ...)
 		end
 	elseif event == "SPELL_UPDATE_ICON" then
 		ForAllButtons(Update, true)
+	elseif event == "AssistedCombatManager.OnSetActionSpell" then
+		for button in next, ActiveButtons do
+			if button._state_type == "action" then
+				UpdateAssistedCombatRotationFrame(button)
+			end
+		end
+	elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_PlaySpellInterruptedAnim)
+	elseif event == "UNIT_SPELLCAST_START" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_PlaySpellCastAnim, ActionButtonCastType.Cast)
+	elseif event == "UNIT_SPELLCAST_STOP" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopSpellCastAnim, true, ActionButtonCastType.Cast)
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopTargettingReticleAnim)
+	elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopSpellCastAnim, false, ActionButtonCastType.Cast)
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopTargettingReticleAnim)
+	elseif event == "UNIT_SPELLCAST_SENT" then
+		local _, _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopTargettingReticleAnim)
+	elseif event == "UNIT_SPELLCAST_FAILED" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopTargettingReticleAnim)
+	elseif event == "UNIT_SPELLCAST_EMPOWER_START" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_PlaySpellCastAnim, ActionButtonCastType.Empowered)
+	elseif event == "UNIT_SPELLCAST_EMPOWER_STOP" then
+		local _, spellID, castComplete = ...
+		local interrupted = not castComplete
+		if interrupted then
+			ForAllButtonsWithSpell(spellID, SpellVFX_PlaySpellInterruptedAnim)
+		else
+			ForAllButtonsWithSpell(spellID, SpellVFX_StopSpellCastAnim, interrupted, ActionButtonCastType.Empowered)
+		end
+	elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_PlaySpellCastAnim, ActionButtonCastType.Channel)
+	elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopSpellCastAnim, false, ActionButtonCastType.Channel)
+	elseif event == "UNIT_SPELLCAST_RETICLE_TARGET" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_PlayTargettingReticleAnim)
+	elseif event == "UNIT_SPELLCAST_RETICLE_CLEAR" then
+		local _, spellID = ...
+		ForAllButtonsWithSpell(spellID, SpellVFX_StopTargettingReticleAnim)
+	elseif event == "AssistedCombatManager.OnAssistedHighlightSpellChange" then
+		for button in next, ActiveButtons do
+			UpdatedAssistedHighlightFrame(button)
+		end
 	end
 end
 
@@ -1689,10 +1839,20 @@ function Generic:UpdateAction(force)
 			self._state_type = action_type
 		end
 		self._state_action = action
+
+		-- set action attribute for action buttons
+		self.action = self._state_type == "action" and action or 0
+		if self.config.actionButtonUI then
+			SetActionUIButton(self, self.action, self.cooldown)
+		end
+
 		Update(self)
 	end
 end
+
 -- NDui: add quality border
+local GetProfessionQuality = C_ActionBar and C_ActionBar.GetProfessionQuality
+
 local function ClearProfessionQuality(self)
 	if self.ProfessionQuality then
 		self.ProfessionQuality:Hide()
@@ -1706,7 +1866,7 @@ local function UpdateProfessionQuality(self)
 
 	local action = self._state_action
 	if action and IsItemAction(action) then
-		local quality = C_ActionBar.GetProfessionQuality(action)
+		local quality = GetProfessionQuality(action)
 		if quality then
 			if not self.ProfessionQuality then
 				self.ProfessionQuality = CreateFrame("Frame", nil, self)
@@ -1729,30 +1889,37 @@ function Update(self)
 		if self._state_type == "action" then
 			ActionButtons[self] = true
 			NonActionButtons[self] = nil
+			if not self.config.actionButtonUI then
+				ActionButtonsNonUI[self] = true
+			end
 		else
 			ActionButtons[self] = nil
 			NonActionButtons[self] = true
+			ActionButtonsNonUI[self] = nil
 		end
 		self:SetAlpha(1.0)
 		UpdateButtonState(self)
 		UpdateUsable(self)
 		UpdateCooldown(self)
 		UpdateFlash(self)
-		UpdateProfessionQuality(self)
+		if GetProfessionQuality then
+			UpdateProfessionQuality(self)
+		end
 	else
 		ActiveButtons[self] = nil
 		ActionButtons[self] = nil
 		NonActionButtons[self] = nil
+		ActionButtonsNonUI[self] = nil
 		if gridCounter == 0 and not self.config.showGrid then
 			self:SetAlpha(0.0)
 		end
 		self.cooldown:Hide()
 		self:SetChecked(false)
-		ClearProfessionQuality(self)
-
-		if self.chargeCooldown then
-			EndChargeCooldown(self.chargeCooldown)
+		if GetProfessionQuality then
+			ClearProfessionQuality(self)
 		end
+
+		ClearChargeCooldown(self)
 
 		if self.LevelLinkLockIcon then
 			self.LevelLinkLockIcon:SetShown(false)
@@ -1853,6 +2020,10 @@ function Update(self)
 
 	UpdateSpellHighlight(self)
 
+	UpdateAssistedCombatRotationFrame(self)
+
+	UpdatedAssistedHighlightFrame(self)
+
 	if GameTooltip_GetOwnerForbidden() == self then
 		UpdateTooltip(self)
 	end
@@ -1868,6 +2039,11 @@ function Update(self)
 			]]):format(formatHelper(self:GetAttribute("state")), formatHelper(self._state_type), formatHelper(self._state_action)))
 		end
 	end
+
+	-- Notify listeners post styling and state updates
+	if lib and lib.callbacks then
+		lib.callbacks:Fire("OnButtonStyled", self)
+	end
 	lib.callbacks:Fire("OnButtonUpdate", self)
 end
 
@@ -1881,7 +2057,6 @@ function UpdateButtonState(self)
 	else
 		self:SetChecked(false)
 	end
-	lib.callbacks:Fire("OnButtonState", self)
 end
 
 function UpdateUsable(self)
@@ -1913,8 +2088,6 @@ function UpdateUsable(self)
 			self.LevelLinkLockIcon:SetShown(isLevelLinkLocked)
 		end
 	end
-
-	lib.callbacks:Fire("OnButtonUsable", self)
 end
 
 function UpdateCount(self)
@@ -1924,6 +2097,14 @@ function UpdateCount(self)
 	end
 	if self:IsConsumableOrStackable() then
 		local count = self:GetCount()
+		local formatter = self.config and self.config.text and self.config.text.count and self.config.text.count.formatter
+		if type(formatter) == "function" then
+			local ok, text = pcall(formatter, count, nil)
+			if ok and type(text) == "string" then
+				self.Count:SetText(text)
+				return
+			end
+		end
 		if count > (self.maxDisplayCount or 9999) then
 			self.Count:SetText("*")
 		else
@@ -1932,6 +2113,14 @@ function UpdateCount(self)
 	else
 		local charges, maxCharges, _chargeStart, _chargeDuration = self:GetCharges()
 		if charges and maxCharges and maxCharges > 1 then
+			local formatter = self.config and self.config.text and self.config.text.count and self.config.text.count.formatter
+			if type(formatter) == "function" then
+				local ok, text = pcall(formatter, charges, maxCharges)
+				if ok and type(text) == "string" then
+					self.Count:SetText(text)
+					return
+				end
+			end
 			self.Count:SetText(charges)
 		else
 			self.Count:SetText("")
@@ -1939,48 +2128,54 @@ function UpdateCount(self)
 	end
 end
 
-function EndChargeCooldown(self)
-	self:Hide()
-	self:SetParent(UIParent)
-	self.parent.chargeCooldown = nil
-	self.parent = nil
-	tinsert(lib.ChargeCooldowns, self)
+function ClearChargeCooldown(self)
+	if self.chargeCooldown then
+		CooldownFrame_Clear(self.chargeCooldown)
+	end
+end
+
+local function CreateChargeCooldownFrame(parent)
+	lib.NumChargeCooldowns = lib.NumChargeCooldowns + 1
+	local cooldown = CreateFrame("Cooldown", "LAB10ChargeCooldown" .. lib.NumChargeCooldowns, parent, "CooldownFrameTemplate")
+	cooldown:SetHideCountdownNumbers(true)
+	cooldown:SetDrawSwipe(false)
+	cooldown:SetPoint("TOPLEFT", parent.icon, "TOPLEFT", 2, -2)
+	cooldown:SetPoint("BOTTOMRIGHT", parent.icon, "BOTTOMRIGHT", -2, 2)
+	cooldown:SetFrameLevel(parent:GetFrameLevel())
+	return cooldown
 end
 
 local function StartChargeCooldown(parent, chargeStart, chargeDuration, chargeModRate)
-	if not parent.chargeCooldown then
-		local cooldown = tremove(lib.ChargeCooldowns)
-		if not cooldown then
-			lib.NumChargeCooldowns = lib.NumChargeCooldowns + 1
-			cooldown = CreateFrame("Cooldown", "LAB10ChargeCooldown" .. lib.NumChargeCooldowns, parent, "CooldownFrameTemplate")
-			cooldown:SetScript("OnCooldownDone", EndChargeCooldown)
-			cooldown:SetHideCountdownNumbers(true)
-			cooldown:SetDrawSwipe(false)
-		end
-		cooldown:SetParent(parent)
-		cooldown:SetAllPoints(parent)
-		cooldown:SetFrameStrata("TOOLTIP")
-		cooldown:Show()
-		parent.chargeCooldown = cooldown
-		cooldown.parent = parent
+	if chargeStart == 0 then
+		ClearChargeCooldown(parent)
+		return
 	end
-	-- set cooldown
-	parent.chargeCooldown:SetDrawBling(parent.chargeCooldown:GetEffectiveAlpha() > 0.5)
+
+	parent.chargeCooldown = parent.chargeCooldown or CreateChargeCooldownFrame(parent)
+
 	CooldownFrame_Set(parent.chargeCooldown, chargeStart, chargeDuration, true, true, chargeModRate)
 
 	-- update charge cooldown skin when masque is used
 	if Masque and Masque.UpdateCharge then
 		Masque:UpdateCharge(parent)
 	end
+end
 
-	if not chargeStart or chargeStart == 0 then
-		EndChargeCooldown(parent.chargeCooldown)
+local function OnCooldownDone(self, requireCooldownUpdate)
+	self:SetScript("OnCooldownDone", nil)
+	if requireCooldownUpdate then
+		UpdateCooldown(self:GetParent())
 	end
 end
 
-local function OnCooldownDone(self)
-	self:SetScript("OnCooldownDone", nil)
-	UpdateCooldown(self:GetParent())
+function UpdateCooldownNumberHidden(self)
+	local shouldBeHidden
+	if self.config.cooldownCount == nil then
+		shouldBeHidden = self.cooldown.currentCooldownType == COOLDOWN_TYPE_LOSS_OF_CONTROL or GetCVarBool("countdownForCooldowns") ~= true
+	else
+		shouldBeHidden = not self.config.cooldownCount
+	end
+	self.cooldown:SetHideCountdownNumbers(shouldBeHidden)
 end
 
 function UpdateCooldown(self)
@@ -2016,38 +2211,65 @@ function UpdateCooldown(self)
 		charges, maxCharges, chargeStart, chargeDuration, chargeModRate = self:GetCharges()
 	end
 
-	self.cooldown:SetDrawBling(self.cooldown:GetEffectiveAlpha() > 0.5)
+	local cdconf = self.config and self.config.cooldown
+	local drawnBling
+	if cdconf and cdconf.drawBling ~= nil then
+		self.cooldown:SetDrawBling(cdconf.drawBling)
+		drawnBling = true
+	end
+	if not drawnBling then
+		self.cooldown:SetDrawBling(self.cooldown:GetEffectiveAlpha() > 0.5)
+	end
 
 	local hasLocCooldown = locStart and locDuration and locStart > 0 and locDuration > 0
 	local hasCooldown = enable and start and duration and start > 0 and duration > 0
+	local cooldownType
 	if hasLocCooldown and ((not hasCooldown) or ((locStart + locDuration) > (start + duration))) then
 		if self.cooldown.currentCooldownType ~= COOLDOWN_TYPE_LOSS_OF_CONTROL then
 			self.cooldown:SetEdgeTexture("Interface\\Cooldown\\edge-LoC")
 			self.cooldown:SetSwipeColor(0.17, 0, 0)
-			self.cooldown:SetHideCountdownNumbers(true)
 			self.cooldown.currentCooldownType = COOLDOWN_TYPE_LOSS_OF_CONTROL
+			UpdateCooldownNumberHidden(self)
 		end
+
 		CooldownFrame_Set(self.cooldown, locStart, locDuration, true, true, modRate)
-		if self.chargeCooldown then
-			EndChargeCooldown(self.chargeCooldown)
-		end
+		self.cooldown:SetScript("OnCooldownDone", OnCooldownDone, false)
+		ClearChargeCooldown(self)
+		cooldownType = "loc"
 	else
 		if self.cooldown.currentCooldownType ~= COOLDOWN_TYPE_NORMAL then
 			self.cooldown:SetEdgeTexture("Interface\\Cooldown\\edge")
 			self.cooldown:SetSwipeColor(0, 0, 0)
-			self.cooldown:SetHideCountdownNumbers(false)
 			self.cooldown.currentCooldownType = COOLDOWN_TYPE_NORMAL
+			UpdateCooldownNumberHidden(self)
 		end
-		if hasLocCooldown then
-			self.cooldown:SetScript("OnCooldownDone", OnCooldownDone)
-		end
+
+		self.cooldown:SetScript("OnCooldownDone", OnCooldownDone, hasLocCooldown)
 
 		if charges and maxCharges and maxCharges > 1 and charges < maxCharges then
 			StartChargeCooldown(self, chargeStart, chargeDuration, chargeModRate)
-		elseif self.chargeCooldown then
-			EndChargeCooldown(self.chargeCooldown)
+		else
+			ClearChargeCooldown(self)
+		end
+		-- Apply optional cooldown config for normal cooldowns
+		if cdconf then
+			if cdconf.edgeTexture then
+				self.cooldown:SetEdgeTexture(cdconf.edgeTexture)
+			end
+			if cdconf.swipeColor then
+				self.cooldown:SetSwipeColor(cdconf.swipeColor[1] or 0, cdconf.swipeColor[2] or 0, cdconf.swipeColor[3] or 0, cdconf.swipeColor[4] or 1)
+			end
+			if self.cooldown.SetReverse then
+				self.cooldown:SetReverse(cdconf.reverse and true or false)
+			end
 		end
 		CooldownFrame_Set(self.cooldown, start, duration, enable, false, modRate)
+		cooldownType = "normal"
+	end
+
+	-- Notify listeners that the cooldown visuals/state were updated
+	if lib and lib.callbacks and cooldownType then
+		lib.callbacks:Fire("OnCooldownUpdated", self, cooldownType)
 	end
 end
 
@@ -2093,13 +2315,20 @@ function UpdateHotkeys(self)
 		self.HotKey:SetText(RANGE_INDICATOR)
 		self.HotKey:Hide()
 	else
+		local formatter = self.config and self.config.text and self.config.text.hotkey and self.config.text.hotkey.formatter
+		if type(formatter) == "function" then
+			local ok, text = pcall(formatter, key)
+			if ok and type(text) == "string" then
+				key = text
+			end
+		end
 		self.HotKey:SetText(key)
 		self.HotKey:Show()
 	end
 end
-
+-- NDui: custom glow
 function ShowOverlayGlow(self)
-	if LCG then
+	if LCG and lib.eventFrame.showGlow then
 		LCG.ShowOverlayGlow(self)
 	end
 end
@@ -2110,13 +2339,100 @@ function HideOverlayGlow(self)
 	end
 end
 
+local IsSpellOverlayed = C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed or IsSpellOverlayed
 function UpdateOverlayGlow(self)
-	local spellId = self:GetSpellId()
+	local spellId = lib.eventFrame.showGlow and self:GetSpellId()
 	if spellId and IsSpellOverlayed(spellId) then
 		ShowOverlayGlow(self)
 	else
 		HideOverlayGlow(self)
 	end
+end
+
+function SpellVFX_CastingAnim_OnHide(self)
+	local parent = self:GetParent()
+	SpellVFX_ClearReticle(parent)
+	parent.cooldown:SetSwipeColor(0, 0, 0, 1)
+	UpdateCooldown(parent)
+end
+
+function SpellVFX_CastingAnim_Finish_OnFinished(self)
+	self:GetParent():GetParent():Hide()
+	local parentButton = self:GetParent():GetParent():GetParent()
+	SpellVFX_StopSpellCastAnim(parentButton, false, parentButton.actionButtonCastType)
+end
+
+function SpellVFX_ClearReticle(self)
+	if self.TargetReticleAnimFrame:IsShown() then
+		self.TargetReticleAnimFrame:Hide()
+	end
+end
+
+function SpellVFX_ClearInterruptDisplay(self)
+	if self.InterruptDisplay:IsShown() then
+		self.InterruptDisplay:Hide()
+	end
+end
+
+function SpellVFX_PlaySpellCastAnim(self, actionButtonCastType)
+	if not self.config.spellCastVFX then
+		return
+	end
+
+	-- __Swipe_Hook is to stop Masque from re-setting it
+	self.cooldown.__Swipe_Hook = true
+	self.cooldown:SetSwipeColor(0, 0, 0, 0)
+	self.cooldown.__Swipe_Hook = nil
+
+	SpellVFX_ClearInterruptDisplay(self)
+	SpellVFX_ClearReticle(self)
+	self.SpellCastAnimFrame:Setup(actionButtonCastType)
+	self.actionButtonCastType = actionButtonCastType
+end
+
+function SpellVFX_PlayTargettingReticleAnim(self)
+	if not self.config.spellCastVFX then
+		return
+	end
+
+	if self.InterruptDisplay:IsShown() then
+		self.InterruptDisplay:Hide()
+	end
+	if not self._state_type == "action" or not C_ActionBar.IsAssistedCombatAction(self._state_action) then
+		self.TargetReticleAnimFrame:Setup()
+	end
+end
+
+function SpellVFX_StopTargettingReticleAnim(self)
+	if self.TargetReticleAnimFrame:IsShown() then
+		self.TargetReticleAnimFrame:Hide()
+	end
+end
+
+function SpellVFX_StopSpellCastAnim(self, forceStop, actionButtonCastType)
+	SpellVFX_StopTargettingReticleAnim(self)
+
+	if self.actionButtonCastType == actionButtonCastType then
+		if forceStop then
+			self.SpellCastAnimFrame:Hide()
+		elseif self.SpellCastAnimFrame.Fill.CastingAnim:IsPlaying() then
+			self.SpellCastAnimFrame:FinishAnimAndPlayBurst()
+		end
+		self.actionButtonCastType = nil
+	end
+end
+
+function SpellVFX_PlaySpellInterruptedAnim(self)
+	if not self.config.spellCastVFX then
+		return
+	end
+
+	SpellVFX_StopSpellCastAnim(self, true, self.actionButtonCastType)
+	--Hide if it's already showing to clear the anim.
+	if self.InterruptDisplay:IsShown() then
+		self.InterruptDisplay:Hide()
+	end
+	self.InterruptDisplay:Show()
 end
 
 function ClearNewActionHighlight(action, preventIdenticalActionsFromClearing, value)
@@ -2212,6 +2528,54 @@ function UpdateSpellHighlight(self)
 	end
 end
 
+function UpdateAssistedCombatRotationFrame(self)
+	if not (C_ActionBar and C_ActionBar.IsAssistedCombatAction) then
+		return
+	end
+	local show = self._state_type == "action" and C_ActionBar.IsAssistedCombatAction(self._state_action)
+	local assistedCombatRotationFrame = self.AssistedCombatRotationFrame
+	-- create frame if needed
+	if show and not assistedCombatRotationFrame then
+		assistedCombatRotationFrame = CreateFrame("Frame", nil, self, "ActionBarButtonAssistedCombatRotationTemplate")
+		assistedCombatRotationFrame.UpdateGlow = function() end -- KkthnxUI mod: remove glow texture
+		self.AssistedCombatRotationFrame = assistedCombatRotationFrame
+	end
+
+	if assistedCombatRotationFrame then
+		assistedCombatRotationFrame:UpdateState()
+	end
+end
+
+function UpdatedAssistedHighlightFrame(self)
+	if not AssistedCombatManager then
+		return
+	end
+	local spellID = AssistedCombatManager.lastNextCastSpellID
+	local shown = self.config.actionButtonUI and self.config.assistedHighlight and spellID and self:GetSpellId() == spellID
+
+	local highlightFrame = self.AssistedCombatHighlightFrame
+	if shown then
+		if not highlightFrame then
+			highlightFrame = CreateFrame("FRAME", nil, self, "ActionBarButtonAssistedCombatHighlightTemplate")
+			self.AssistedCombatHighlightFrame = highlightFrame
+			highlightFrame:SetPoint("CENTER")
+			-- increase frame level so that its above other overlays (eg. proc highlight)
+			highlightFrame:SetFrameLevel(self:GetFrameLevel() + 10)
+			-- have to do this to get a single frame of the flipbook instead of the whole texture
+			highlightFrame.Flipbook.Anim:Play()
+			highlightFrame.Flipbook.Anim:Stop()
+		end
+		highlightFrame:Show()
+		if AssistedCombatManager.affectingCombat then
+			highlightFrame.Flipbook.Anim:Play()
+		else
+			highlightFrame.Flipbook.Anim:Stop()
+		end
+	elseif highlightFrame then
+		highlightFrame:Hide()
+	end
+end
+
 -- Hook UpdateFlyout so we can use the blizzy templates
 if ActionButton_UpdateFlyout then
 	hooksecurefunc("ActionButton_UpdateFlyout", function(self, ...)
@@ -2256,6 +2620,32 @@ if ActionButton_UpdateFlyout then
 			end
 		end
 		self.FlyoutArrow:Hide()
+	end
+elseif FlyoutButtonMixin and UseCustomFlyout then
+	function Generic:GetPopupDirection()
+		return self:GetAttribute("flyoutDirection") or "UP"
+	end
+
+	function Generic:IsPopupOpen()
+		return (lib.flyoutHandler and lib.flyoutHandler:IsShown() and lib.flyoutHandler:GetParent() == self)
+	end
+
+	function UpdateFlyout(self, isButtonDownOverride)
+		self.BorderShadow:Hide()
+		if self._state_type == "action" then
+			-- based on ActionButton_UpdateFlyout in ActionButton.lua
+			local actionType = GetActionInfo(self._state_action)
+			if actionType == "flyout" then
+				self.Arrow:Show()
+				self:UpdateArrowTexture()
+				self:UpdateArrowRotation()
+				self:UpdateArrowPosition()
+				-- return here, otherwise flyout is hidden
+				return
+			end
+		end
+
+		self.Arrow:Hide()
 	end
 else
 	function UpdateFlyout(self, isButtonDownOverride)
@@ -2741,7 +3131,7 @@ Custom.GetPassiveCooldownSpellID = function(self)
 end
 
 --- WoW Classic overrides
-if not WoWRetail and not WoWCata then
+if DisableOverlayGlow then
 	UpdateOverlayGlow = function() end
 end
 

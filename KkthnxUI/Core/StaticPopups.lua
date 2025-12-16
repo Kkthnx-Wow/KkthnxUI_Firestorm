@@ -69,17 +69,18 @@ StaticPopupDialogs["KKUI_QUEST_CHECK_ID"] = {
 }
 
 StaticPopupDialogs["KKUI_POPUP_LINK"] = {
-	text = format("|cff669dff%s |r", "KkthnxUI Popup"),
+	text = format("|cff5C8BCF%s |r", "KkthnxUI Popup"),
 	button1 = OKAY,
 	hasEditBox = 1,
 	OnShow = function(self, data)
+		data = data or "" -- Ensure data is valid
 		self.editBox:SetAutoFocus(false)
 		self.editBox.width = self.editBox:GetWidth()
 		self.editBox:SetWidth(280)
 		self.editBox:AddHistoryLine("text")
 		self.editBox.temptxt = data
 		self.editBox:SetText(data)
-		self.editBox:HighlightText()
+		self.editBox:HighlightText() -- Text highlighted on show
 		self.editBox:SetJustifyH("CENTER")
 	end,
 	OnHide = function(self)
@@ -96,9 +97,9 @@ StaticPopupDialogs["KKUI_POPUP_LINK"] = {
 	EditBoxOnTextChanged = function(self)
 		if self:GetText() ~= self.temptxt then
 			self:SetText(self.temptxt)
+			self:HighlightText()
+			self:ClearFocus()
 		end
-		self:HighlightText()
-		self:ClearFocus()
 	end,
 	OnAccept = K.Noop,
 	timeout = 0,
@@ -116,5 +117,17 @@ StaticPopupDialogs["KKUI_CHANGES_RELOAD"] = {
 	end,
 	hideOnEscape = false,
 	whileDead = 1,
+	preferredIndex = 3,
+}
+
+StaticPopupDialogs["SKIP_INSTALLER_CONFIRM"] = {
+	text = "Are you sure you want to skip the installer and proceed without reviewing its contents?",
+	button1 = ACCEPT,
+	button2 = CANCEL,
+	OnAccept = function()
+		ReloadUI()
+	end,
+	hideOnEscape = false,
+	whileDead = 0,
 	preferredIndex = 3,
 }

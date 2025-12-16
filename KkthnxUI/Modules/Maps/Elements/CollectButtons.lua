@@ -8,6 +8,7 @@ local string_find = string.find
 local string_match = string.match
 local string_upper = string.upper
 local table_insert = table.insert
+local table_wipe = table.wipe
 
 local CreateFrame = CreateFrame
 local Minimap = Minimap
@@ -16,6 +17,22 @@ local UIParent = UIParent
 
 function Module:CreateRecycleBin()
 	if not C["Minimap"].ShowRecycleBin then
+		-- Clean up if feature is disabled
+		if _G.RecycleBinFrame then
+			_G.RecycleBinFrame:Hide()
+		end
+		if _G.RecycleBinToggleButton then
+			_G.RecycleBinToggleButton:Hide()
+		end
+		return
+	end
+
+	-- Show existing frames if they exist
+	if _G.RecycleBinFrame then
+		_G.RecycleBinFrame:Show()
+	end
+	if _G.RecycleBinToggleButton then
+		_G.RecycleBinToggleButton:Show()
 		return
 	end
 
@@ -38,13 +55,13 @@ function Module:CreateRecycleBin()
 	bu:SetAlpha(0.6)
 	bu:SetSize(16, 16)
 	bu:ClearAllPoints()
-	if C["Minimap"].RecycleBinPosition.Value == 1 then
+	if C["Minimap"].RecycleBinPosition == 1 then
 		bu:SetPoint("BOTTOMLEFT", -7, -7)
-	elseif C["Minimap"].RecycleBinPosition.Value == 2 then
+	elseif C["Minimap"].RecycleBinPosition == 2 then
 		bu:SetPoint("BOTTOMRIGHT", 7, -7)
-	elseif C["Minimap"].RecycleBinPosition.Value == 3 then
+	elseif C["Minimap"].RecycleBinPosition == 3 then
 		bu:SetPoint("TOPLEFT", -7, 7)
-	elseif C["Minimap"].RecycleBinPosition.Value == 4 then
+	elseif C["Minimap"].RecycleBinPosition == 4 then
 		bu:SetPoint("TOPRIGHT", 7, 7)
 	else
 		bu:SetPoint("BOTTOMLEFT", -7, -7)
@@ -60,9 +77,9 @@ function Module:CreateRecycleBin()
 	local width, height = 220, 30
 	local bin = CreateFrame("Frame", "RecycleBinFrame", UIParent)
 	bin:ClearAllPoints()
-	if C["Minimap"].RecycleBinPosition.Value == 1 or C["Minimap"].RecycleBinPosition.Value == 2 then
+	if C["Minimap"].RecycleBinPosition == 1 or C["Minimap"].RecycleBinPosition == 2 then
 		bin:SetPoint("BOTTOMRIGHT", bu, "BOTTOMLEFT", -3, 7)
-	elseif C["Minimap"].RecycleBinPosition.Value == 3 or C["Minimap"].RecycleBinPosition.Value == 4 then
+	elseif C["Minimap"].RecycleBinPosition == 3 or C["Minimap"].RecycleBinPosition == 4 then
 		bin:SetPoint("BOTTOMRIGHT", bu, "BOTTOMLEFT", -3, -21)
 	else
 		bin:SetPoint("BOTTOMRIGHT", bu, "BOTTOMLEFT", -3, 7)
@@ -77,14 +94,52 @@ function Module:CreateRecycleBin()
 	local function clickFunc(force)
 		if force == 1 then
 			PlaySound(825)
-			UIFrameFadeOut(bin, 0.5, 1, 0)
+			UIFrameFadeOut(bin, 0.5, bin:GetAlpha(), 0)
 			K.Delay(0.5, hideBinButton)
 		end
 	end
 
+	-- Auto-close functionality
+	local autoCloseTimer
+	local function StartAutoCloseTimer()
+		if autoCloseTimer then
+			autoCloseTimer:Cancel()
+		end
+		autoCloseTimer = C_Timer.NewTimer(6, function()
+			if bin:IsShown() then
+				clickFunc(1)
+			end
+		end)
+	end
+
+	local function StopAutoCloseTimer()
+		if autoCloseTimer then
+			autoCloseTimer:Cancel()
+			autoCloseTimer = nil
+		end
+	end
+
+	-- Mouse enter/leave handlers for auto-close
+	bin:SetScript("OnEnter", function()
+		StopAutoCloseTimer()
+	end)
+
+	bin:SetScript("OnLeave", function()
+		StartAutoCloseTimer()
+	end)
+
+	bu:SetScript("OnEnter", function()
+		StopAutoCloseTimer()
+	end)
+
+	bu:SetScript("OnLeave", function()
+		StartAutoCloseTimer()
+	end)
+
 	local ignoredButtons = {
 		["GatherMatePin"] = true,
 		["HandyNotes.-Pin"] = true,
+		["TTMinimapButton"] = true,
 	}
 
 	local function isButtonIgnored(name)
@@ -166,6 +221,10 @@ function Module:CreateRecycleBin()
 					child:SetScript("OnMouseUp", nil)
 				elseif name == "BagSync_MinimapButton" then
 					child:HookScript("OnMouseUp", clickFunc)
+				elseif name == "WIM3MinimapButton" then
+					child.SetParent = K.Noop
+					child:SetFrameStrata("DIALOG")
+					child.SetFrameStrata = K.Noop
 				end
 
 				child.styled = true
@@ -173,7 +232,52 @@ function Module:CreateRecycleBin()
 		end
 	end
 
+	local shownButtons = {}
+	local function SortRubbish()
+		if #buttons == 0 then
+			return
+		end
+
+		table_wipe(shownButtons)
+		for _, button in pairs(buttons) do
+			if button and button.IsShown and button:IsShown() then -- fix for fuxking AHDB
+				table_insert(shownButtons, button)
+			end
+		end
+
+		local numShown = #shownButtons
+		local row = numShown == 0 and 1 or K.Round((numShown + rowMult) / iconsPerRow)
+		local newHeight = row * 37 + 3
+		bin:SetHeight(newHeight)
+
+		for index, button in pairs(shownButtons) do
+			button:ClearAllPoints()
+			if index == 1 then
+				button:SetPoint("BOTTOMRIGHT", bin, -6, 6)
+			elseif row > 1 and mod(index, row) == 1 or row == 1 then
+				button:SetPoint("RIGHT", shownButtons[index - row], "LEFT", -6, 0)
+			else
+				button:SetPoint("BOTTOM", shownButtons[index - 1], "TOP", 0, 6)
+			end
+		end
+	end
+
+	-- Add cleanup function for when feature is disabled
+	local function CleanupCollectButtons()
+		table_wipe(buttons)
+		table_wipe(shownButtons)
+		numMinimapChildren = 0
+		currentIndex = 0
+		StopAutoCloseTimer()
+	end
+
+	-- Improved collection function with better error handling
 	local function CollectRubbish()
+		if not C["Minimap"].ShowRecycleBin then
+			CleanupCollectButtons()
+			return
+		end
+
 		local numChildren = Minimap:GetNumChildren()
 		if numChildren ~= numMinimapChildren then
 			-- examine new children
@@ -200,43 +304,15 @@ function Module:CreateRecycleBin()
 		end
 	end
 
-	local shownButtons = {}
-	local function SortRubbish()
-		if #buttons == 0 then
-			return
-		end
-
-		table.wipe(shownButtons)
-		for _, button in pairs(buttons) do
-			if next(button) and button:IsShown() then -- fix for fuxking AHDB
-				table_insert(shownButtons, button)
-			end
-		end
-
-		local numShown = #shownButtons
-		local row = numShown == 0 and 1 or K.Round((numShown + rowMult) / iconsPerRow)
-		local newHeight = row * 37 + 3
-		bin:SetHeight(newHeight)
-
-		for index, button in pairs(shownButtons) do
-			button:ClearAllPoints()
-			if index == 1 then
-				button:SetPoint("BOTTOMRIGHT", bin, -6, 6)
-			elseif row > 1 and mod(index, row) == 1 or row == 1 then
-				button:SetPoint("RIGHT", shownButtons[index - row], "LEFT", -6, 0)
-			else
-				button:SetPoint("BOTTOM", shownButtons[index - 1], "TOP", 0, 6)
-			end
-		end
-	end
-
 	bu:SetScript("OnClick", function()
 		if bin:IsShown() then
+			StopAutoCloseTimer()
 			clickFunc(1)
 		else
 			PlaySound(825)
 			SortRubbish()
-			UIFrameFadeIn(bin, 0.5, 0, 1)
+			UIFrameFadeIn(bin, 0.5, bin:GetAlpha(), 1)
+			StartAutoCloseTimer()
 		end
 	end)
 

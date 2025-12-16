@@ -19,7 +19,7 @@ local currentSpecIndex, currentLootIndex, newMenu, numSpecs, numLocal
 
 local eventList = {
 	"PLAYER_ENTERING_WORLD",
-	"ACTIVE_TALENT_GROUP_CHANGED",
+	"ACTIVE_PLAYER_SPECIALIZATION_CHANGED",
 	"PLAYER_LOOT_SPEC_UPDATED",
 }
 
@@ -43,7 +43,7 @@ local function OnEvent()
 end
 
 local pvpTalents
-local pvpIconTexture = C_CurrencyInfo.GetCurrencyInfo(104).iconFileID
+local pvpIconTexture = C_CurrencyInfo.GetCurrencyInfo(1792).iconFileID
 
 local function OnEnter()
 	if not currentSpecIndex or currentSpecIndex == 5 then
@@ -214,7 +214,7 @@ local function BuildSpecMenu()
 	end
 
 	tinsert(newMenu, seperatorMenu)
-	tinsert(newMenu, { text = GetSpellInfo(384255), isTitle = true, notCheckable = true })
+	tinsert(newMenu, { text = C_Spell.GetSpellName(384255), isTitle = true, notCheckable = true })
 	tinsert(newMenu, {
 		text = BLUE_FONT_COLOR:WrapTextInColorCode(TALENT_FRAME_DROP_DOWN_STARTER_BUILD),
 		func = selectCurrentConfig,
@@ -227,12 +227,12 @@ local function BuildSpecMenu()
 	numLocal = #newMenu
 
 	refreshDefaultLootSpec()
-	K:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", refreshDefaultLootSpec)
+	K:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED", refreshDefaultLootSpec)
 
 	refreshAllTraits()
 	K:RegisterEvent("TRAIT_CONFIG_DELETED", refreshAllTraits)
 	K:RegisterEvent("TRAIT_CONFIG_UPDATED", refreshAllTraits)
-	K:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", refreshAllTraits)
+	K:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED", refreshAllTraits)
 end
 
 local function OnMouseUp(self, btn)
@@ -241,10 +241,10 @@ local function OnMouseUp(self, btn)
 	end
 
 	if btn == "LeftButton" then
-		ToggleTalentFrame(2)
+		PlayerSpellsUtil.ToggleClassTalentOrSpecFrame()
 	else
 		BuildSpecMenu()
-		EasyMenu(newMenu, K.EasyMenu, self, -80, 100, "MENU", 1)
+		K.LibEasyMenu.Create(newMenu, K.EasyMenu, self, -80, 100, "MENU", 1)
 		GameTooltip:Hide()
 	end
 end
@@ -255,19 +255,16 @@ function Module:CreateSpecDataText()
 	end
 
 	SpecDataText = CreateFrame("Frame", nil, UIParent)
-	SpecDataText:SetHitRectInsets(-16, 0, -10, -10)
 
 	SpecDataText.Text = K.CreateFontString(SpecDataText, 12)
 	SpecDataText.Text:ClearAllPoints()
-	SpecDataText.Text:SetPoint("LEFT", UIParent, "LEFT", 24, -210)
+	SpecDataText.Text:SetPoint("LEFT", SpecDataText, "LEFT", 24, 0)
 
 	SpecDataText.Texture = SpecDataText:CreateTexture(nil, "ARTWORK")
-	SpecDataText.Texture:SetPoint("RIGHT", SpecDataText.Text, "LEFT", 0, 2)
+	SpecDataText.Texture:SetPoint("LEFT", SpecDataText, "LEFT", 0, 2)
 	SpecDataText.Texture:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\DataText\\talents.blp")
 	SpecDataText.Texture:SetSize(24, 24)
 	SpecDataText.Texture:SetVertexColor(unpack(C["DataText"].IconColor))
-
-	SpecDataText:SetAllPoints(SpecDataText.Text)
 
 	local function _OnEvent(...)
 		OnEvent(...)
@@ -281,4 +278,22 @@ function Module:CreateSpecDataText()
 	SpecDataText:SetScript("OnEnter", OnEnter)
 	SpecDataText:SetScript("OnLeave", OnLeave)
 	SpecDataText:SetScript("OnMouseUp", OnMouseUp)
+
+	-- Keep frame and mover size in sync with icon + text on updates
+	SpecDataText:HookScript("OnEvent", function()
+		local textW = SpecDataText.Text:GetStringWidth() or 0
+		local iconW = (SpecDataText.Texture and SpecDataText.Texture:GetWidth()) or 0
+		local totalW = textW + iconW
+		local textH = SpecDataText.Text:GetLineHeight() or 12
+		local iconH = (SpecDataText.Texture and SpecDataText.Texture:GetHeight()) or 12
+		local totalH = math.max(textH, iconH)
+		SpecDataText:SetSize(math.max(totalW, 56), totalH)
+		if SpecDataText.mover then
+			SpecDataText.mover:SetWidth(math.max(totalW, 56))
+			SpecDataText.mover:SetHeight(totalH)
+		end
+	end)
+
+	-- Make the whole block (icon + text) movable
+	SpecDataText.mover = K.Mover(SpecDataText, "SpecDT", "SpecDT", { "LEFT", UIParent, "LEFT", 0, -210 }, 56, 12)
 end

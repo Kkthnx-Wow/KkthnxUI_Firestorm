@@ -2,19 +2,35 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Miscellaneous")
 
 -- General Lua functions
-local pairs, tinsert, select = pairs, tinsert, select
+local pairs = pairs
+local tinsert = tinsert
+local select = select
 
 -- WoW API functions related to spells and items
-local GetSpellCooldown, GetSpellInfo, GetItemCooldown, GetItemCount, GetItemInfo = GetSpellCooldown, GetSpellInfo, GetItemCooldown, GetItemCount, GetItemInfo
-local IsPassiveSpell, IsCurrentSpell, IsPlayerSpell = IsPassiveSpell, IsCurrentSpell, IsPlayerSpell
+local IsPlayerSpell = IsPlayerSpell
 
 -- WoW API functions related to professions and trade skills
-local GetProfessions, GetProfessionInfo, GetSpellBookItemInfo = GetProfessions, GetProfessionInfo, GetSpellBookItemInfo
-local PlayerHasToy, C_ToyBox_IsToyUsable, C_ToyBox_GetToyInfo = PlayerHasToy, C_ToyBox.IsToyUsable, C_ToyBox.GetToyInfo
-local C_TradeSkillUI_GetOnlyShowSkillUpRecipes, C_TradeSkillUI_SetOnlyShowSkillUpRecipes = C_TradeSkillUI.GetOnlyShowSkillUpRecipes, C_TradeSkillUI.SetOnlyShowSkillUpRecipes
-local C_TradeSkillUI_GetOnlyShowMakeableRecipes, C_TradeSkillUI_SetOnlyShowMakeableRecipes = C_TradeSkillUI.GetOnlyShowMakeableRecipes, C_TradeSkillUI.SetOnlyShowMakeableRecipes
+local GetProfessions = GetProfessions
+local GetProfessionInfo = GetProfessionInfo
+local PlayerHasToy = PlayerHasToy
 
-local BOOKTYPE_PROFESSION = BOOKTYPE_PROFESSION
+-- Cache WoW C API functions
+local C_Item_GetItemCooldown = C_Item.GetItemCooldown
+local C_Item_GetItemCount = C_Item.GetItemCount
+local C_Item_GetItemIconByID = C_Item.GetItemIconByID
+local C_Item_GetItemNameByID = C_Item.GetItemNameByID
+local C_Spell_GetSpellBookItemInfo = C_SpellBook.GetSpellBookItemInfo
+local C_Spell_GetSpellCooldown = C_Spell.GetSpellCooldown
+local C_Spell_GetSpellName = C_Spell.GetSpellName
+local C_Spell_GetSpellTexture = C_Spell.GetSpellTexture
+local C_Spell_IsCurrentSpell = C_Spell.IsCurrentSpell
+local C_ToyBox_GetToyInfo = C_ToyBox.GetToyInfo
+local C_TradeSkillUI_GetOnlyShowMakeableRecipes = C_TradeSkillUI.GetOnlyShowMakeableRecipes
+local C_TradeSkillUI_GetOnlyShowSkillUpRecipes = C_TradeSkillUI.GetOnlyShowSkillUpRecipes
+local C_TradeSkillUI_SetOnlyShowMakeableRecipes = C_TradeSkillUI.SetOnlyShowMakeableRecipes
+local C_TradeSkillUI_SetOnlyShowSkillUpRecipes = C_TradeSkillUI.SetOnlyShowSkillUpRecipes
+
+local BOOKTYPE_PROFESSION = BOOKTYPE_PROFESSION or 0
 local RUNEFORGING_ID = 53428
 local PICK_LOCK = 1804
 local CHEF_HAT = 134020
@@ -51,22 +67,18 @@ function Module:UpdateProfessions()
 		if numSpells > 0 then
 			for i = 1, numSpells do
 				local slotID = i + spelloffset
-				if not IsPassiveSpell(slotID, BOOKTYPE_PROFESSION) then
-					local spellID = select(2, GetSpellBookItemInfo(slotID, BOOKTYPE_PROFESSION))
-					if i == 1 then
-						Module:TradeTabs_Create(spellID)
-					else
-						Module:TradeTabs_Create(spellID)
-					end
+				if not C_Spell_GetSpellBookItemInfo(slotID, BOOKTYPE_PROFESSION).isPassive then
+					local spellID = C_Spell_GetSpellBookItemInfo(slotID, BOOKTYPE_PROFESSION).spellID
+					Module:TradeTabs_Create(spellID)
 				end
 			end
 		end
 	end
 
-	if isCook and PlayerHasToy(CHEF_HAT) and C_ToyBox_IsToyUsable(CHEF_HAT) then
+	if isCook and PlayerHasToy(CHEF_HAT) then
 		Module:TradeTabs_Create(nil, CHEF_HAT)
 	end
-	if GetItemCount(THERMAL_ANVIL) > 0 then
+	if C_Item_GetItemCount(THERMAL_ANVIL) > 0 then
 		Module:TradeTabs_Create(nil, nil, THERMAL_ANVIL)
 	end
 end
@@ -76,7 +88,7 @@ function Module:TradeTabs_Update()
 		local spellID = tab.spellID
 		local itemID = tab.itemID
 
-		if IsCurrentSpell(spellID) then
+		if spellID and C_Spell_IsCurrentSpell(spellID) then
 			tab:SetChecked(true)
 			tab.cover:Show()
 		else
@@ -86,13 +98,26 @@ function Module:TradeTabs_Update()
 
 		local start, duration
 		if itemID then
-			start, duration = GetItemCooldown(itemID)
+			start, duration = C_Item_GetItemCooldown(itemID)
 		else
-			start, duration = GetSpellCooldown(spellID)
+			local cooldownInfo = C_Spell_GetSpellCooldown(spellID)
+			start = cooldownInfo and cooldownInfo.startTime
+			duration = cooldownInfo and cooldownInfo.duration
 		end
 
 		if start and duration and duration > 1.5 then
 			tab.CD:SetCooldown(start, duration)
+		end
+	end
+end
+
+function Module:TradeTabs_Reskin()
+	for _, tab in pairs(tabList) do
+		tab:CreateBorder()
+		tab:StyleButton()
+		local texture = tab:GetNormalTexture()
+		if texture then
+			texture:SetTexCoord(unpack(K.TexCoords))
 		end
 	end
 end
@@ -103,21 +128,22 @@ function Module:TradeTabs_Create(spellID, toyID, itemID)
 	if toyID then
 		_, name, texture = C_ToyBox_GetToyInfo(toyID)
 	elseif itemID then
-		name, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemID)
+		name, texture = C_Item_GetItemNameByID(itemID), C_Item_GetItemIconByID(itemID)
 	else
-		name, _, texture = GetSpellInfo(spellID)
+		name, texture = C_Spell_GetSpellName(spellID), C_Spell_GetSpellTexture(spellID)
 	end
 
 	if not name then -- precaution
 		return
 	end
 
-	local tab = CreateFrame("CheckButton", nil, ProfessionsFrame, "SpellBookSkillLineTabTemplate, SecureActionButtonTemplate")
+	local tab = CreateFrame("CheckButton", nil, ProfessionsFrame, "SecureActionButtonTemplate")
+	tab:SetSize(32, 32)
 	tab.tooltip = name
 	tab.spellID = spellID
 	tab.itemID = toyID or itemID
 	tab.type = (toyID and "toy") or (itemID and "item") or "spell"
-	tab:RegisterForClicks("AnyDown")
+	tab:RegisterForClicks("AnyUp", "AnyDown")
 	if spellID == 818 then -- cooking fire
 		tab:SetAttribute("type", "macro")
 		tab:SetAttribute("macrotext", "/cast [@player]" .. name)
@@ -126,7 +152,6 @@ function Module:TradeTabs_Create(spellID, toyID, itemID)
 		tab:SetAttribute(tab.type, spellID or name)
 	end
 	tab:SetNormalTexture(texture)
-	tab:GetHighlightTexture():SetColorTexture(1, 1, 1, 0.25)
 	tab:Show()
 
 	tab.CD = CreateFrame("Cooldown", nil, tab, "CooldownFrameTemplate")
@@ -136,7 +161,7 @@ function Module:TradeTabs_Create(spellID, toyID, itemID)
 	tab.cover:SetAllPoints()
 	tab.cover:EnableMouse(true)
 
-	tab:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 2, -index * 50)
+	tab:SetPoint("TOPLEFT", ProfessionsFrame, "TOPRIGHT", 6, -index * 40)
 	tinsert(tabList, tab)
 	index = index + 1
 end
@@ -162,7 +187,8 @@ function Module:TradeTabs_FilterIcons()
 	for index, value in pairs(buttonList) do
 		local bu = CreateFrame("Button", nil, ProfessionsFrame.CraftingPage.RecipeList, "BackdropTemplate")
 		bu:SetSize(22, 22)
-		bu:SetPoint("BOTTOMRIGHT", ProfessionsFrame.CraftingPage.RecipeList.FilterButton, "TOPRIGHT", -(index - 1) * 28, 10)
+		-- bu:SetPoint("BOTTOMRIGHT", ProfessionsFrame.CraftingPage.RecipeList.FilterButton, "TOPRIGHT", -(index - 1) * 28, 10)
+		bu:SetPoint("BOTTOMRIGHT", ProfessionsFrame.CraftingPage.RecipeList.FilterDropdown, "TOPRIGHT", -(index - 1) * 28 + 6, 10)
 		bu:CreateBorder()
 		bu.Icon = bu:CreateTexture(nil, "ARTWORK")
 		local atlas = string.match(value[1], "Atlas:(.+)$")
@@ -199,6 +225,7 @@ function Module:TradeTabs_OnLoad()
 
 	Module:UpdateProfessions()
 
+	Module:TradeTabs_Reskin()
 	Module:TradeTabs_Update()
 	K:RegisterEvent("TRADE_SKILL_SHOW", Module.TradeTabs_Update)
 	K:RegisterEvent("TRADE_SKILL_CLOSE", Module.TradeTabs_Update)

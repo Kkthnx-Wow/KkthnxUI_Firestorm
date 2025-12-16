@@ -1,5 +1,5 @@
 --[[
-Copyright 2011-2024 João Cardoso
+Copyright 2011-2025 João Cardoso
 Unfit is distributed under the terms of the GNU General Public License (Version 3).
 As a special exception, the copyright holders of this library give you permission to embed it
 with independent modules to produce an addon, regardless of the license terms of these
@@ -15,7 +15,8 @@ GNU General Public License for more details.
 This file is part of Unfit.
 --]]
 
-local Lib = LibStub:NewLibrary("Unfit-1.0-KkthnxUI", 13)
+local LibStub = assert(rawget(_G, "LibStub"), "LibStub not found")
+local Lib = LibStub:NewLibrary("LibUnfit-1.0-KkthnxUI", 15)
 if not Lib then
 	return
 end
@@ -23,12 +24,28 @@ end
 --[[ Data ]]
 --
 
-do
-	local Class = UnitClassBase("player")
-	local Unusable
+-- Locals for faster access (Lua 5.1 best practices)
+local C_Item = rawget(_G, "C_Item")
+local GetItemInfoInstant = rawget(_G, "GetItemInfoInstant") or (C_Item and rawget(C_Item, "GetItemInfoInstant"))
+local UnitClassBase = rawget(_G, "UnitClassBase")
+local Enum = rawget(_G, "Enum")
+local CreateFrame = rawget(_G, "CreateFrame")
+local debugprofilestop = rawget(_G, "debugprofilestop") or function()
+	return 0
+end
+local tostring = tostring
+local setmetatable = setmetatable
 
-	if Class == "DEATHKNIGHT" then
-		Unusable = { -- weapon, armor, dual-wield
+-- Constants
+local ITEM_CLASS_WEAPON = Enum and Enum.ItemClass and Enum.ItemClass.Weapon
+local ITEM_CLASS_ARMOR = Enum and Enum.ItemClass and Enum.ItemClass.Armor
+local INVTYPE_WEAPONOFFHAND = "INVTYPE_WEAPONOFFHAND"
+do
+	local class = UnitClassBase("player")
+	local unusable
+
+	if class == "DEATHKNIGHT" then
+		unusable = { -- weapon, armor, dual-wield
 			{
 				Enum.ItemWeaponSubclass.Bows,
 				Enum.ItemWeaponSubclass.Guns,
@@ -42,8 +59,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Shield },
 		}
-	elseif Class == "DEMONHUNTER" then
-		Unusable = {
+	elseif class == "DEMONHUNTER" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe2H,
 				Enum.ItemWeaponSubclass.Bows,
@@ -59,8 +76,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 		}
-	elseif Class == "DRUID" then
-		Unusable = {
+	elseif class == "DRUID" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe1H,
 				Enum.ItemWeaponSubclass.Axe2H,
@@ -76,8 +93,8 @@ do
 			{ Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 			true,
 		}
-	elseif Class == "EVOKER" then
-		Unusable = {
+	elseif class == "EVOKER" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Bows,
 				Enum.ItemWeaponSubclass.Guns,
@@ -90,8 +107,8 @@ do
 			{ Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 			true,
 		}
-	elseif Class == "HUNTER" then
-		Unusable = {
+	elseif class == "HUNTER" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Mace1H,
 				Enum.ItemWeaponSubclass.Mace2H,
@@ -101,8 +118,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 		}
-	elseif Class == "MAGE" then
-		Unusable = {
+	elseif class == "MAGE" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe1H,
 				Enum.ItemWeaponSubclass.Axe2H,
@@ -125,8 +142,8 @@ do
 			},
 			true,
 		}
-	elseif Class == "MONK" then
-		Unusable = {
+	elseif class == "MONK" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe2H,
 				Enum.ItemWeaponSubclass.Bows,
@@ -141,8 +158,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 		}
-	elseif Class == "PALADIN" then
-		Unusable = {
+	elseif class == "PALADIN" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Bows,
 				Enum.ItemWeaponSubclass.Guns,
@@ -157,8 +174,8 @@ do
 			{},
 			true,
 		}
-	elseif Class == "PRIEST" then
-		Unusable = {
+	elseif class == "PRIEST" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe1H,
 				Enum.ItemWeaponSubclass.Axe2H,
@@ -181,8 +198,8 @@ do
 			},
 			true,
 		}
-	elseif Class == "ROGUE" then
-		Unusable = {
+	elseif class == "ROGUE" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe2H,
 				Enum.ItemWeaponSubclass.Mace2H,
@@ -194,8 +211,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Mail, Enum.ItemArmorSubclass.Plate, Enum.ItemArmorSubclass.Shield },
 		}
-	elseif Class == "SHAMAN" then
-		Unusable = {
+	elseif class == "SHAMAN" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Bows,
 				Enum.ItemWeaponSubclass.Guns,
@@ -209,8 +226,8 @@ do
 			},
 			{ Enum.ItemArmorSubclass.Plate },
 		}
-	elseif Class == "WARLOCK" then
-		Unusable = {
+	elseif class == "WARLOCK" then
+		unusable = {
 			{
 				Enum.ItemWeaponSubclass.Axe1H,
 				Enum.ItemWeaponSubclass.Axe2H,
@@ -233,42 +250,100 @@ do
 			},
 			true,
 		}
-	elseif Class == "WARRIOR" then
-		Unusable = { { Enum.ItemWeaponSubclass.Warglaive, Enum.ItemWeaponSubclass.Wand }, {} }
+	elseif class == "WARRIOR" then
+		unusable = { { Enum.ItemWeaponSubclass.Warglaive, Enum.ItemWeaponSubclass.Wand }, {} }
 	else
-		Unusable = { {}, {} }
+		unusable = { {}, {} }
 	end
 
 	Lib.unusable = {}
-	Lib.cannotDual = Unusable[3]
+	Lib.cannotDual = unusable[3] and true or false
 
-	for i, class in ipairs({ Enum.ItemClass.Weapon, Enum.ItemClass.Armor }) do
-		local list = {}
-		for _, subclass in ipairs(Unusable[i]) do
-			list[subclass] = true
+	-- Build lookup tables (prefer numeric for-loops over ipairs for speed)
+	local itemClasses = { Enum.ItemClass.Weapon, Enum.ItemClass.Armor }
+	for i = 1, 2 do
+		local classId = itemClasses[i]
+		local classList = unusable[i]
+		local lookup = {}
+		for j = 1, #classList do
+			lookup[classList[j]] = true
 		end
-
-		Lib.unusable[class] = list
+		Lib.unusable[classId] = lookup
 	end
 end
 
 --[[ API ]]
 --
 
-function Lib:IsItemUnusable(item)
-	if item then
-		local slot, _, _, class, subclass = select(9, GetItemInfo(item))
-		return Lib:IsClassUnusable(class, subclass, slot)
+-- Simple per-item memoization cache with weak keys/values to limit memory growth
+Lib._itemUnusableCache = Lib._itemUnusableCache or setmetatable({}, { __mode = "kv" })
+
+-- Profiling helpers (use in /script while developing)
+Lib._profileMarks = Lib._profileMarks or {}
+function Lib:ProfileStart(mark)
+	self._profileMarks[mark or "default"] = debugprofilestop()
+end
+function Lib:ProfileEnd(mark)
+	local key = mark or "default"
+	local start = self._profileMarks[key]
+	if start then
+		local elapsed = debugprofilestop() - start
+		self._profileMarks[key] = nil
+		self._lastProfile = elapsed
+		return elapsed
 	end
 end
 
-function Lib:IsClassUnusable(class, subclass, slot)
-	if class and subclass and Lib.unusable[class] then
-		return slot ~= "" and Lib.unusable[class][subclass] or slot == "INVTYPE_WEAPONOFFHAND" and Lib.cannotDual
+-- Public API: check if a given item is unusable by the player's class
+function Lib:IsItemUnusable(item)
+	if not item then
+		return
 	end
+	local cached = self._itemUnusableCache[item]
+	if cached ~= nil then
+		return cached
+	end
+
+	local _, _, _, slot, _, class, subclass = GetItemInfoInstant(item)
+	local result = self:IsClassUnusable(class, subclass, slot) and true or false
+	self._itemUnusableCache[item] = result
+	return result
+end
+
+-- Public API: class/subclass/slot based check (fast-path lookups, explicit returns)
+function Lib:IsClassUnusable(class, subclass, slot)
+	local classMap = class and subclass and self.unusable[class]
+	if not classMap then
+		return false
+	end
+
+	-- Match original logic: require a non-empty slot for subclass gating
+	if slot ~= "" and classMap[subclass] then
+		return true
+	end
+
+	-- Offhand weapon restriction (dual-wield)
+	if slot == INVTYPE_WEAPONOFFHAND and self.cannotDual then
+		return true
+	end
+
+	return false
 end
 
 function Lib:Embed(object)
 	object.IsItemUnusable = Lib.IsItemUnusable
 	object.IsClassUnusable = Lib.IsClassUnusable
+end
+
+-- Cache management: clear memoized answers on login (safe, cheap)
+do
+	local frame = Lib._evFrame or CreateFrame("Frame")
+	Lib._evFrame = frame
+	frame:UnregisterAllEvents()
+	frame:RegisterEvent("PLAYER_LOGIN")
+	frame:SetScript("OnEvent", function()
+		for k in pairs(Lib._itemUnusableCache) do
+			Lib._itemUnusableCache[k] = nil
+		end
+	end)
 end

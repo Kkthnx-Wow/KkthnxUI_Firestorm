@@ -7,11 +7,14 @@ local string_lower = string.lower
 local string_trim = string.trim
 local tonumber = tonumber
 
--- WoW API Functions
+-- WoW API Functions (cached locals for performance and modernization)
 local C_QuestLog_IsQuestFlaggedCompleted = C_QuestLog.IsQuestFlaggedCompleted
 local CombatLogClearEntries = CombatLogClearEntries
 local DoReadyCheck = DoReadyCheck
-local GetItemInfo = GetItemInfo
+local C_Container_GetContainerNumSlots = C_Container.GetContainerNumSlots
+local C_Container_GetContainerItemInfo = C_Container.GetContainerItemInfo
+local C_Container_GetContainerItemLink = C_Container.GetContainerItemLink
+local C_Item_GetItemInfo = C_Item and C_Item.GetItemInfo
 local PlaySound = PlaySound
 local UIErrorsFrame = UIErrorsFrame
 
@@ -108,10 +111,13 @@ end
 
 local function DeleteQuestItems()
 	for bag = 0, 4 do
-		for slot = 1, C_Container.GetContainerNumSlots(bag) do
-			local itemLink = C_Container.GetContainerItemLink(bag, slot)
-			if itemLink and select(12, GetItemInfo(itemLink)) == _G.LE_ITEM_CLASS_QUESTITEM then
+		for slot = 1, C_Container_GetContainerNumSlots(bag) do
+			local itemLink = C_Container_GetContainerItemLink(bag, slot)
+			if itemLink then
+				local classID = C_Item_GetItemInfo and select(12, C_Item_GetItemInfo(itemLink))
+				if classID == _G.LE_ITEM_CLASS_QUESTITEM then
 				_G.print("Quest Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
+				end
 			end
 		end
 	end
@@ -120,10 +126,12 @@ end
 
 local function DeleteHeirlooms()
 	for bag = 0, 4 do
-		for slot = 1, C_Container.GetContainerNumSlots(bag) do
-			local item = { C_Container.GetContainerItemInfo(bag, slot) }
-			if item[4] == 7 then -- Heirloom items
-				_G.print("Heirloom Item to Delete: " .. item[1] .. " in Bag: " .. bag .. " Slot: " .. slot)
+		for slot = 1, C_Container_GetContainerNumSlots(bag) do
+			local info = C_Container_GetContainerItemInfo(bag, slot)
+			-- Use modern container API struct; quality matches Enum.ItemQuality.Heirloom on modern clients
+			if info and info.quality == Enum.ItemQuality.Heirloom then
+				local itemLink = info.hyperlink or C_Container_GetContainerItemLink(bag, slot) or ("item:" .. (info.itemID or ""))
+				_G.print("Heirloom Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
 			end
 		end
 	end
@@ -179,7 +187,7 @@ local function AbandonZoneQuests()
 end
 
 local function StoreAndDisableAddons()
-	if next(KkthnxUIDB.DisabledAddOns) then
+	if KkthnxUIDB.Global and next(KkthnxUIDB.Global.DisabledAddOns) then
 		print("Debug mode is already active. Use '/kkdebug off' to restore addons.")
 		return
 	end
@@ -207,7 +215,11 @@ local function StoreAndDisableAddons()
 			for i = 1, addonCount do
 				local name = C_AddOns.GetAddOnInfo(i)
 				if name ~= "KkthnxUI" and C_AddOns.IsAddOnLoaded(name) then
-					KkthnxUIDB.DisabledAddOns[name] = true
+					if not KkthnxUIDB.Global then
+						KkthnxUIDB.Global = {}
+					end
+					KkthnxUIDB.Global.DisabledAddOns = KkthnxUIDB.Global.DisabledAddOns or {}
+					KkthnxUIDB.Global.DisabledAddOns[name] = true
 					C_AddOns.DisableAddOn(name)
 				end
 			end
@@ -223,16 +235,20 @@ local function StoreAndDisableAddons()
 end
 
 local function RestoreAddons()
-	StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
+		StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
 		text = "You are about to re-enable all previously disabled addons.|n|nThanks for using |cff5C8BCFKkthnxUI|r |cffff0000<3|r",
 		button1 = "Yes",
 		button2 = "No",
 		OnAccept = function()
-			for name in pairs(KkthnxUIDB.DisabledAddOns) do
+			if not (KkthnxUIDB.Global and KkthnxUIDB.Global.DisabledAddOns) then
+				return
+			end
+
+			for name in pairs(KkthnxUIDB.Global.DisabledAddOns) do
 				C_AddOns.EnableAddOn(name)
 			end
 
-			wipe(KkthnxUIDB.DisabledAddOns)
+			wipe(KkthnxUIDB.Global.DisabledAddOns)
 			-- print("Addons have been restored to their previous states. Reloading UI...") -- Pointless
 			ReloadUI()
 		end,
@@ -393,7 +409,7 @@ local commandMap = {
 }
 
 -- Slash Command Handler
-SlashCmdList["KKUI"] = function(input)
+SlashCmdList["KKUI_COMMANDS"] = function(input)
 	local command, args = strsplit(" ", input, 2)
 	command = string.lower(command)
 
@@ -403,4 +419,51 @@ SlashCmdList["KKUI"] = function(input)
 		K.Print("Unknown command: " .. command)
 	end
 end
-_G.SLASH_KKUI1 = "/kk"
+_G.SLASH_KKUI_COMMANDS1 = "/kk"
+
+SlashCmdList["KKUI_PROFILE"] = function(msg)
+	if K.ProfileGUI then
+		local command = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+		if command == "show" or command == "" then
+			K.ProfileGUI:Show()
+		elseif command == "hide" then
+			K.ProfileGUI:Hide()
+		elseif command == "toggle" then
+			K.ProfileGUI:Toggle()
+		elseif command == "import" then
+			if K.ProfileGUI.Frame and K.ProfileGUI.Frame:IsShown() then
+				K.ProfileGUI:ShowImportDialog()
+			else
+				K.ProfileGUI:Show()
+				C_Timer.After(0.2, function()
+					K.ProfileGUI:ShowImportDialog()
+				end)
+			end
+		elseif command == "export" then
+			if K.ProfileGUI.Frame and K.ProfileGUI.Frame:IsShown() then
+				K.ProfileGUI:ShowExportDialog()
+			else
+				K.ProfileGUI:Show()
+				C_Timer.After(0.2, function()
+					K.ProfileGUI:ShowExportDialog()
+				end)
+			end
+		elseif command == "help" then
+			print("|cff669DFFKkthnxUI Profile Manager:|r")
+			print("  |cffffffffUsage: /profile <command>|r")
+			print("  |cff00ff00show|r - Show profile manager")
+			print("  |cff00ff00hide|r - Hide profile manager")
+			print("  |cff00ff00toggle|r - Toggle profile manager")
+			print("  |cff00ff00import|r - Open import dialog")
+			print("  |cff00ff00export|r - Open export dialog")
+			print("  |cff00ff00help|r - Show this help")
+		else
+			print("|cff669DFFKkthnxUI Profile Manager:|r Unknown command '" .. command .. "'. Use '/profile help' for available commands.")
+		end
+	else
+		print("|cff669DFFKkthnxUI:|r ProfileGUI system not available.")
+	end
+end
+_G.SLASH_KKUI_PROFILE1 = "/profile"
+_G.SLASH_KKUI_PROFILE2 = "/kprofile"
+_G.SLASH_KKUI_PROFILE3 = "/kkthnxprofile"

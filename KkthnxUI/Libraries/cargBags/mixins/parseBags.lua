@@ -31,6 +31,11 @@ DESCRIPTION
 local _, ns = ...
 local cargBags = ns.cargBags
 
+-- Cache globals for performance
+local string_match = string.match
+local tonumber = tonumber
+local type = type
+
 local bagStrings = {
 	["backpack"] = { 0 },
 	["bags"] = { 1, 2, 3, 4, 5 },
@@ -40,6 +45,7 @@ local bagStrings = {
 	["bankreagent"] = { -3 },
 	["bank"] = { 6, 7, 8, 9, 10, 11, 12 },
 	["keyring"] = { -2 },
+	["accountbank"] = { 13, 14, 15, 16, 17 },
 }
 cargBags.BagStrings = bagStrings
 
@@ -58,17 +64,21 @@ function cargBags:ParseBags(bags)
 	if bagStrings[bags] then
 		return bagStrings[bags]
 	end
-	local min, max = bags:match("(%d+)-(%d+)")
+	local min, max = string_match(bags, "(%d+)-(%d+)")
 	if min then
 		local t = {}
-		for i = min, max do
+		local nmin, nmax = tonumber(min), tonumber(max)
+		for i = nmin, nmax do
 			t[#t + 1] = i
 		end
 		bagStrings[bags] = t
 		return t
-	elseif tonumber(bags) then
-		local t = { tonumber(bags) }
-		bagStrings[bags] = t
-		return t
+	else
+		local v = tonumber(bags)
+		if v then
+			local t = { v }
+			bagStrings[bags] = t
+			return t
+		end
 	end
 end

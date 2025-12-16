@@ -10,7 +10,6 @@ function Module:OnEnable()
 		"CreateAutoGoodbye",
 		"CreateAutoInvite",
 		"CreateAutoKeystone",
-		"CreateAutoOpenItems",
 		"CreateAutoPartySyncAccept",
 		"CreateAutoRelease",
 		"CreateAutoResurrect",

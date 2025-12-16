@@ -21,7 +21,7 @@ local C_QuestLog_GetQuestIDForQuestWatchIndex = C_QuestLog.GetQuestIDForQuestWat
 local C_QuestLog_GetQuestIDForWorldQuestWatchIndex = C_QuestLog.GetQuestIDForWorldQuestWatchIndex
 
 -- Constants and flags
-local MAX_DISTANCE_YARDS = 1e3 -- Maximum distance in yards, needs review
+local MAX_DISTANCE_YARDS = 1e4 -- Maximum distance in yards, needs review
 local onlyCurrentZone = true -- Flag to indicate if only the current zone is considered
 
 local ExtraQuestButton = CreateFrame("Button", "KKUI_ExtraQuestButton", UIParent, "SecureActionButtonTemplate, SecureHandlerStateTemplate, SecureHandlerAttributeTemplate")
@@ -55,10 +55,8 @@ local onAttributeChanged = [[
 			self:ClearBindings()
 		end
 	end
-
 	if self:IsShown() then
 		self:ClearBindings()
-
 		local key1, key2 = GetBindingKey("EXTRAACTIONBUTTON1")
 		if key1 then
 			self:SetBindingClick(1, key1, self, "LeftButton")

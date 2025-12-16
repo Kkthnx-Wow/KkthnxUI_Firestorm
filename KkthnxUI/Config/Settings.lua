@@ -1,20 +1,10 @@
-local C = KkthnxUI[2]
+local K, C = KkthnxUI[1], KkthnxUI[2]
 
-local DISABLE = DISABLE
-local EMOTE = EMOTE
-local GUILD = GUILD
-local NONE = NONE
-local PARTY = PARTY
-local PLAYER = PLAYER
-local RAID = RAID
-local SAY = SAY
-local YELL = YELL
-
-local BlipMedia = "Interface\\AddOns\\KkthnxUI\\Media\\MiniMap\\"
+K.Defaults = K.Defaults or {}
+local Defaults = K.Defaults
 
 -- Actionbar
--- Actionbar
-C["ActionBar"] = {
+Defaults["ActionBar"] = {
 	Enable = true,
 	Hotkeys = true,
 	Macro = true,
@@ -27,6 +17,8 @@ C["ActionBar"] = {
 	FadeMicroMenu = false,
 	ShowStance = true,
 	EquipColor = false,
+	KeyDown = true,
+	ButtonLock = true,
 	VehButtonSize = 34,
 
 	Bar1 = true,
@@ -114,7 +106,7 @@ C["ActionBar"] = {
 }
 
 -- Announcements
-C["Announcements"] = {
+Defaults["Announcements"] = {
 	AlertInChat = false,
 	AlertInWild = false,
 	KeystoneAlert = false,
@@ -135,28 +127,19 @@ C["Announcements"] = {
 	RareAlert = false,
 	ResetInstance = true,
 	SaySapped = false,
-	AlertChannel = {
-		Options = {
-			[EMOTE] = 6,
-			[PARTY .. " / " .. RAID] = 2,
-			[PARTY] = 1,
-			[RAID] = 3,
-			[SAY] = 4,
-			[YELL] = 5,
-		},
-		Value = 2,
-	},
+	AlertChannel = 2,
+	QuestProgressEveryNth = 1,
+	AnnounceWorldQuests = false,
 }
 
 -- Automation
-C["Automation"] = {
+Defaults["Automation"] = {
 	AutoKeystone = false,
-	AutoCollapse = false,
+	-- AutoCollapse = false,
 	AutoDeclineDuels = false,
 	AutoDeclinePetDuels = false,
 	AutoGoodbye = false,
 	AutoInvite = false,
-	AutoOpenItems = false,
 	AutoPartySync = false,
 	AutoQuest = false,
 	AutoRelease = false,
@@ -165,14 +148,14 @@ C["Automation"] = {
 	AutoReward = false,
 	AutoScreenshot = false,
 	AutoSetRole = false,
-	AutoSkipCinematic = false,
+	ConfirmCinematicSkip = false,
 	AutoSummon = false,
 	NoBadBuffs = false,
 	WhisperInvite = "inv+",
 	WhisperInviteRestriction = true, -- Testing
 }
 
-C["Inventory"] = {
+Defaults["Inventory"] = {
 	AutoSell = true,
 	BagBar = true,
 	BagBarMouseover = false,
@@ -185,6 +168,7 @@ C["Inventory"] = {
 	BankWidth = 12,
 	DeleteButton = true,
 	Enable = true,
+	FilterAOE = true,
 	FilterAnima = true,
 	FilterAzerite = false,
 	FilterCollection = true,
@@ -196,9 +180,10 @@ C["Inventory"] = {
 	FilterJunk = true,
 	FilterLegendary = true,
 	FilterLower = true,
+	FilterLegacy = false,
 	FilterQuest = true,
-	FilterRelic = false,
 	FilterStone = true,
+	FilterKeystone = true,
 	GatherEmpty = false,
 	IconSize = 36,
 	ItemFilter = true,
@@ -209,32 +194,14 @@ C["Inventory"] = {
 	SpecialBagsColor = false,
 	UpgradeIcon = true,
 	iLvlToShow = 1,
-	GrowthDirection = {
-		Options = {
-			["Horizontal"] = "HORIZONTAL",
-			["Vertical"] = "VERTICAL",
-		},
-		Value = "HORIZONTAL",
-	},
-	SortDirection = {
-		Options = {
-			["Ascending"] = "ASCENDING",
-			["Descending"] = "DESCENDING",
-		},
-		Value = "DESCENDING",
-	},
-	AutoRepair = {
-		Options = {
-			[NONE] = 0,
-			[GUILD] = 1,
-			[PLAYER] = 2,
-		},
-		Value = 2,
-	},
+	GrowthDirection = 1,
+	SortDirection = 2,
+	AutoRepair = 2,
+	ColorUnusableItems = true,
 }
 
 -- Buffs & Debuffs
-C["Auras"] = {
+Defaults["Auras"] = {
 	BuffSize = 32,
 	BuffsPerRow = 16,
 	DebuffSize = 34,
@@ -250,10 +217,12 @@ C["Auras"] = {
 }
 
 -- Chat
-C["Chat"] = {
+Defaults["Chat"] = {
 	Background = true,
 	ChatItemLevel = true,
 	ChatMenu = true,
+	ConfigButton = true,
+	CopyButton = true,
 	Emojis = false,
 	Enable = true,
 	Fading = true,
@@ -263,23 +232,15 @@ C["Chat"] = {
 	Lock = true,
 	LogMax = 0,
 	OldChatNames = false,
+	RollButton = true,
 	Sticky = false,
 	WhisperColor = true,
 	Width = 400,
-	TimestampFormat = {
-		Options = {
-			["Disable"] = 1,
-			["03:27 PM"] = 2,
-			["03:27:32 PM"] = 3,
-			["15:27"] = 4,
-			["15:27:32"] = 5,
-		},
-		Value = 1,
-	},
+	TimestampFormat = 1,
 }
 
 -- Datatext
-C["DataText"] = {
+Defaults["DataText"] = {
 	Coords = false,
 	Friends = false,
 	Gold = false,
@@ -295,17 +256,15 @@ C["DataText"] = {
 	Time = true,
 }
 
-C["AuraWatch"] = {
+Defaults["AuraWatch"] = {
 	Enable = true,
 	ClickThrough = false,
 	IconScale = 1,
 	DeprecatedAuras = false,
-	QuakeRing = false,
-	InternalCD = {},
 }
 
 -- General
-C["General"] = {
+Defaults["General"] = {
 	AutoScale = true,
 	ColorTextures = false,
 	MinimapIcon = false,
@@ -318,39 +277,14 @@ C["General"] = {
 	UseGlobal = false,
 	Texture = "KkthnxUI",
 	SmoothAmount = 0.25,
-	BorderStyle = {
-		Options = {
-			["KkthnxUI"] = "KkthnxUI",
-			["AzeriteUI"] = "AzeriteUI",
-			["KkthnxUI_Pixel"] = "KkthnxUI_Pixel",
-			["KkthnxUI_Blank"] = "KkthnxUI_Blank",
-		},
-		Value = "KkthnxUI",
-	},
-	NumberPrefixStyle = {
-		Options = {
-			["Standard: b/m/k"] = 1,
-			["Asian: y/w"] = 2,
-			["Full Digits"] = 3,
-		},
-		Value = 1,
-	},
-	Profiles = {
-		Options = {},
-	},
-	GlowMode = {
-		Options = {
-			["Pixel"] = 1,
-			["Autocast"] = 2,
-			["Action Button"] = 3,
-			["Proc Glow"] = 4,
-		},
-		Value = 3,
-	},
+	BorderStyle = "KkthnxUI",
+	NumberPrefixStyle = 1,
+	GlowMode = 3,
+	VersionCheck = true,
 }
 
 -- Loot
-C["Loot"] = {
+Defaults["Loot"] = {
 	AutoConfirm = false,
 	AutoGreed = false,
 	Enable = true,
@@ -359,7 +293,7 @@ C["Loot"] = {
 }
 
 -- Minimap
-C["Minimap"] = {
+Defaults["Minimap"] = {
 	Calendar = true,
 	EasyVolume = false,
 	Enable = true,
@@ -367,41 +301,12 @@ C["Minimap"] = {
 	QueueStatusText = false,
 	ShowRecycleBin = true,
 	Size = 210,
-	RecycleBinPosition = {
-		Options = {
-			["BottomLeft"] = 1,
-			["BottomRight"] = 2,
-			["TopLeft"] = 3,
-			["TopRight"] = 4,
-		},
-		Value = "BottomLeft",
-	},
-	LocationText = {
-		Options = {
-			["Always Display"] = "SHOW",
-			["Hide"] = "Hide",
-			["Minimap Mouseover"] = "MOUSEOVER",
-		},
-		Value = "MOUSEOVER",
-	},
-	BlipTexture = {
-		Options = {
-			["Default"] = "Interface\\MiniMap\\ObjectIconsAtlas",
-			["Blank"] = BlipMedia .. "Blip-Blank",
-			["Blizzard Big R"] = BlipMedia .. "Blip-BlizzardBigR",
-			["Blizzard Big"] = BlipMedia .. "Blip-BlizzardBig",
-			["Charmed"] = BlipMedia .. "Blip-Charmed",
-			["Glass Spheres"] = BlipMedia .. "Blip-GlassSpheres",
-			["Nandini New"] = BlipMedia .. "Blip-Nandini-New",
-			["Nandini"] = BlipMedia .. "Blip-Nandini",
-			["SolidSpheres"] = BlipMedia .. "Blip-SolidSpheres",
-		},
-		Value = "Interface\\MiniMap\\ObjectIconsAtlas",
-	},
+	RecycleBinPosition = 1,
+	LocationText = 3,
 }
 
 -- Miscellaneous
-C["Misc"] = {
+Defaults["Misc"] = {
 	RaidTool = true,
 	RMRune = false,
 	DBMCount = "10",
@@ -421,36 +326,23 @@ C["Misc"] = {
 	MaxCameraZoom = 2.6,
 	MuteSounds = true,
 	NoTalkingHead = false,
-	DeathCounter = true,
-	ParagonEnable = false,
 	QuestTool = false,
 	QueueTimers = false,
+	QueueTimerAudio = true,
+	QueueTimerWarning = true,
+	QueueTimerHideOtherTimers = true,
 	QuickJoin = false,
+	QuickMenuList = true,
 	ShowWowHeadLinks = false,
 	SlotDurability = false,
 	TradeTabs = false,
 	EasyMarking = false,
-	EasyMarkKey = {
-		Options = {
-			["CTRL"] = 1,
-			["ALT"] = 2,
-			["SHIFT"] = 3,
-			["DISABLE"] = 4,
-		},
-		Value = 1,
-	},
-	ShowMarkerBar = {
-		Options = {
-			["Grids"] = 1,
-			["Horizontal"] = 2,
-			["Vertical"] = 3,
-			["DISABLE"] = 4,
-		},
-		Value = 4,
-	},
+	YClassColors = true,
+	EasyMarkKey = 1,
+	ShowMarkerBar = 4,
 }
 
-C["Nameplate"] = {
+Defaults["Nameplate"] = {
 	ColorByDot = false, -- This is not ready
 	DotColor = { 1, 0.5, 0.2 },
 	DotSpellList = {
@@ -460,7 +352,6 @@ C["Nameplate"] = {
 	AuraSize = 28,
 	CastTarget = false,
 	CastbarGlow = true,
-	ClassAuras = true,
 	ClassIcon = false,
 	ColoredTarget = true,
 	CustomColor = { 0, 0.8, 0.3 },
@@ -487,22 +378,21 @@ C["Nameplate"] = {
 	NameplateClassPower = true,
 	OffTankColor = { 0.2, 0.7, 0.5 },
 	PPGCDTicker = true,
-	HarmWidth = 190,
-	HarmHeight = 60,
+	PPPowerText = true,
+	HarmWidth = 200,
+	HarmHeight = 62,
 	EnemyThru = false,
 	FriendlyThru = false,
-	HelpWidth = 190,
-	HelpHeight = 60,
+	HelpWidth = 200,
+	HelpHeight = 62,
 	PPHeight = 10,
 	PPHideOOC = true,
 	PPIconSize = 32,
 	PPOnFire = false,
 	PPPHeight = 8,
-	PPPowerText = true,
-	PPWidth = 200,
 	PlateAuras = true,
-	PlateHeight = 16,
-	PlateWidth = 188,
+	PlateHeight = 18,
+	PlateWidth = 200,
 	PowerUnitList = "",
 	QuestIndicator = true,
 	SecureColor = { 1, 0, 1 },
@@ -514,46 +404,13 @@ C["Nameplate"] = {
 	TargetIndicatorColor = { 1, 1, 0 },
 	TransColor = { 1, 0.8, 0 },
 	VerticalSpacing = 0.7,
-	AuraFilter = {
-		Options = {
-			["White & Black List"] = 1,
-			["List & Player"] = 2,
-			["List & Player & CCs"] = 3,
-		},
-		Value = 3,
-	},
-	TargetIndicator = {
-		Options = {
-			["Disable"] = 1,
-			["Top Arrow"] = 2,
-			["Right Arrow"] = 3,
-			["Border Glow"] = 4,
-			["Top Arrow + Glow"] = 5,
-			["Right Arrow + Glow"] = 6,
-		},
-		Value = 4,
-	},
-	TargetIndicatorTexture = {
-		Options = {
-			["Blue Arrow 2" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\BlueArrow2:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\BlueArrow2]],
-			["Blue Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\BlueArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\BlueArrow]],
-			["Neon Blue Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonBlueArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonBlueArrow]],
-			["Neon Green Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonGreenArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonGreenArrow]],
-			["Neon Pink Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonPinkArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonPinkArrow]],
-			["Neon Red Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonRedArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonRedArrow]],
-			["Neon Purple Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonPurpleArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonPurpleArrow]],
-			["Purple Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\PurpleArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\PurpleArrow]],
-			["Red Arrow 2" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\RedArrow2.tga:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\RedArrow2]],
-			["Red Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\RedArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\RedArrow]],
-			["Red Chevron Arrow" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\RedChevronArrow:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\RedChevronArrow]],
-			["Red Chevron Arrow2" .. "|TInterface\\Addons\\KkthnxUI\\Media\\Nameplates\\RedChevronArrow2:0|t"] = [[Interface\AddOns\KkthnxUI\Media\Nameplates\RedChevronArrow2]],
-		},
-		Value = [[Interface\AddOns\KkthnxUI\Media\Nameplates\NeonBlueArrow]],
-	},
+	AuraFilter = 3,
+	TargetIndicator = 4,
+	TargetIndicatorTexture = "Interface\\Addons\\KkthnxUI\\Media\\Nameplates\\NeonBlueArrow",
 }
 
 -- Skins
-C["Skins"] = {
+Defaults["Skins"] = {
 	Bartender4 = false,
 	BigWigs = false,
 	BlizzardFrames = true,
@@ -577,7 +434,7 @@ C["Skins"] = {
 }
 
 -- Tooltip
-C["Tooltip"] = {
+Defaults["Tooltip"] = {
 	ClassColor = false,
 	CombatHide = false,
 	Cursor = false,
@@ -594,28 +451,12 @@ C["Tooltip"] = {
 	ShowMount = false,
 	SpecLevelByShift = true,
 	TargetBy = true,
-	CursorMode = {
-		Options = {
-			[DISABLE] = 1,
-			["LEFT"] = 2,
-			["TOP"] = 3,
-			["RIGHT"] = 4,
-		},
-		Value = 1,
-	},
-	TipAnchor = {
-		Options = {
-			["TOPLEFT"] = 1,
-			["TOPRIGHT"] = 2,
-			["BOTTOMLEFT"] = 3,
-			["BOTTOMRIGHT"] = 4,
-		},
-		Value = 4,
-	},
+	CursorMode = 1,
+	TipAnchor = 4,
 }
 
 -- Unitframe
-C["Unitframe"] = {
+Defaults["Unitframe"] = {
 	AdditionalPower = false,
 	AllTextScale = 1, -- Testing
 	AutoAttack = true,
@@ -650,6 +491,7 @@ C["Unitframe"] = {
 	ResurrectSound = false,
 	ShowHealPrediction = true,
 	ShowPlayerLevel = true,
+	HideMaxPlayerLevel = false,
 	Smooth = false,
 	Stagger = true,
 
@@ -706,29 +548,11 @@ C["Unitframe"] = {
 	HideFocusTargetLevel = false,
 	HideFocusTargetName = false,
 	HideFocusTarget = false,
-
-	HealthbarColor = {
-		Options = {
-			["Dark"] = "Dark",
-			["Value"] = "Value",
-			["Class"] = "Class",
-		},
-		Value = "Class",
-	},
-	PortraitStyle = {
-		Options = {
-			["Overlay Portrait"] = "OverlayPortrait",
-			["3D Portraits"] = "ThreeDPortraits",
-			["Class Portraits"] = "ClassPortraits",
-			["New Class Portraits"] = "NewClassPortraits",
-			["Default Portraits"] = "DefaultPortraits",
-			["No Portraits"] = "NoPortraits",
-		},
-		Value = "DefaultPortraits",
-	},
+	HealthbarColor = 1,
+	PortraitStyle = 1,
 }
 
-C["Party"] = {
+Defaults["Party"] = {
 	CastbarIcon = false,
 	Castbars = false,
 	Enable = true,
@@ -743,17 +567,32 @@ C["Party"] = {
 	ShowPlayer = true,
 	Smooth = false,
 	TargetHighlight = false,
-	HealthbarColor = {
-		Options = {
-			["Dark"] = "Dark",
-			["Value"] = "Value",
-			["Class"] = "Class",
-		},
-		Value = "Class",
-	},
+	HealthbarColor = 1,
 }
 
-C["Boss"] = {
+-- SimpleParty (Raid-style compact party frames)
+Defaults["SimpleParty"] = {
+	Enable = false,
+	HealthbarColor = 1,
+	HealthHeight = 44,
+	HealthWidth = 70,
+	HorizonParty = false,
+	ManabarShow = false,
+	PowerBarShow = false,
+	PowerBarHeight = 5,
+	RaidBuffsStyle = 2,
+	RaidBuffs = 1,
+	ShowHealPrediction = true,
+	Smooth = false,
+	TargetHighlight = false,
+	AuraTrackIcons = true,
+	AuraTrackSpellTextures = true,
+	AuraTrackThickness = 5,
+	DebuffWatch = true,
+	DebuffWatchDefault = true,
+}
+
+Defaults["Boss"] = {
 	CastbarIcon = true,
 	Castbars = true,
 	Enable = true,
@@ -762,17 +601,10 @@ C["Boss"] = {
 	HealthWidth = 150,
 	PowerHeight = 12,
 	YOffset = 54,
-	HealthbarColor = {
-		Options = {
-			["Dark"] = "Dark",
-			["Value"] = "Value",
-			["Class"] = "Class",
-		},
-		Value = "Class",
-	},
+	HealthbarColor = 1,
 }
 
-C["Arena"] = {
+Defaults["Arena"] = {
 	CastbarIcon = true,
 	Castbars = true,
 	Enable = true,
@@ -781,23 +613,16 @@ C["Arena"] = {
 	HealthWidth = 134,
 	PowerHeight = 10,
 	YOffset = 54,
-	HealthbarColor = {
-		Options = {
-			["Dark"] = "Dark",
-			["Value"] = "Value",
-			["Class"] = "Class",
-		},
-		Value = "Class",
-	},
+	HealthbarColor = 1,
 }
 
 -- Raidframe
-C["Raid"] = {
+Defaults["Raid"] = {
 	DebuffWatch = true,
 	DebuffWatchDefault = true,
 	DesaturateBuffs = false,
 	Enable = true,
-	Height = 46,
+	Height = 44,
 	HorizonRaid = false,
 	MainTankFrames = true,
 	PowerBarShow = false,
@@ -811,52 +636,46 @@ C["Raid"] = {
 	ShowTeamIndex = false,
 	Smooth = false,
 	TargetHighlight = false,
-	Width = 76,
-	RaidBuffsStyle = {
-		Options = {
-			["Aura Track"] = "Aura Track",
-			["Standard"] = "Standard",
-			["None"] = "None",
-		},
-		Value = "Aura Track",
-	},
-	RaidBuffs = {
-		Options = {
-			["Only my buffs"] = "Self",
-			["Only castable buffs"] = "Castable",
-			["All buffs"] = "All",
-		},
-		Value = "Self",
-	},
+	Width = 70,
+	RaidBuffsStyle = 2,
+	RaidBuffs = 1,
 	AuraTrack = true,
 	AuraTrackIcons = true,
 	AuraTrackSpellTextures = true,
 	AuraTrackThickness = 5,
-
-	HealthbarColor = {
-		Options = {
-			["Dark"] = "Dark",
-			["Value"] = "Value",
-			["Class"] = "Class",
-		},
-		Value = "Class",
-	},
-	HealthFormat = {
-		Options = {
-			["Disable HP"] = 1,
-			["Health Percentage"] = 2,
-			["Health Remaining"] = 3,
-			["Health Lost"] = 4,
-		},
-		Value = 1,
-	},
+	HealthbarColor = 1,
+	HealthFormat = 1,
+	UseRaidForParty = false,
 }
 
 -- Worldmap
-C["WorldMap"] = {
+Defaults["WorldMap"] = {
 	AlphaWhenMoving = 0.35,
 	Coordinates = true,
 	FadeWhenMoving = true,
 	MapRevealGlow = true,
 	SmallWorldMap = true,
+	-- Waypoint options
+	AutoOpenWaypoint = true,
 }
+
+-- Copy defaults into the live config table so the UI can operate
+do
+	local function shallowCopyDefaults()
+		for group, options in pairs(Defaults) do
+			C[group] = C[group] or {}
+			local dst = C[group]
+			for option, value in pairs(options) do
+				-- shallow copy is sufficient here; Database will later
+				-- re-apply full defaults with deep copy via K.CopyTable
+				dst[option] = value
+			end
+		end
+	end
+
+	if K.CopyTable then
+		K.CopyTable(Defaults, C)
+	else
+		shallowCopyDefaults()
+	end
+end

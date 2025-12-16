@@ -6,7 +6,7 @@ https://www.wowace.com/projects/libbuttonglow-1-0
 -- luacheck: globals CreateFromMixins ObjectPoolMixin CreateTexturePool CreateFramePool
 
 local MAJOR_VERSION = "LibCustomGlow-1.0-KkthnxUI"
-local MINOR_VERSION = 19
+local MINOR_VERSION = 20
 if not LibStub then
 	error(MAJOR_VERSION .. " requires LibStub.")
 end
@@ -437,6 +437,7 @@ function lib.AutoCastGlow_Start(r, color, N, frequency, scale, xOffset, yOffset,
 	f.info.N = N
 	f.info.period = period
 	f:SetScript("OnUpdate", acUpdate)
+	acUpdate(f, 0)
 end
 
 function lib.AutoCastGlow_Stop(r, key)
@@ -955,7 +956,7 @@ local function GetGlowType()
 	if not C then
 		return
 	end
-	return LCG_GlowList[C["General"] and C["General"].GlowMode.Value or 4]
+	return LCG_GlowList[C["General"] and C["General"].GlowMode or 4]
 end
 
 lib.ShowOverlayGlow = function(button)

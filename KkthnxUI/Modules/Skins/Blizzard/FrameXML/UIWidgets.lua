@@ -12,37 +12,48 @@ local function ResetLabelColor(text, _, _, _, _, force)
 	end
 end
 
+local function HideRegion(region)
+	if region then
+		if region.SetTexture then
+			region:SetTexture(nil)
+		end
+		region:ClearAllPoints()
+		region:SetParent(K.UIFrameHider)
+		region:Hide()
+	end
+end
+
 local function ReskinWidgetStatusBar(bar)
 	if bar and not bar.styled then
 		if bar.BG then
-			bar.BG:SetAlpha(0)
+			HideRegion(bar.BG)
 		end
 		if bar.BGLeft then
-			bar.BGLeft:SetAlpha(0)
+			HideRegion(bar.BGLeft)
 		end
 		if bar.BGRight then
-			bar.BGRight:SetAlpha(0)
+			HideRegion(bar.BGRight)
 		end
 		if bar.BGCenter then
-			bar.BGCenter:SetAlpha(0)
+			HideRegion(bar.BGCenter)
 		end
 		if bar.BorderLeft then
-			bar.BorderLeft:SetAlpha(0)
+			HideRegion(bar.BorderLeft)
 		end
 		if bar.BorderRight then
-			bar.BorderRight:SetAlpha(0)
+			HideRegion(bar.BorderRight)
 		end
 		if bar.BorderCenter then
-			bar.BorderCenter:SetAlpha(0)
+			HideRegion(bar.BorderCenter)
 		end
 		if bar.Spark then
-			bar.Spark:SetAlpha(0)
+			HideRegion(bar.Spark)
 		end
 		if bar.SparkGlow then
-			bar.SparkGlow:SetAlpha(0)
+			HideRegion(bar.SparkGlow)
 		end
 		if bar.BorderGlow then
-			bar.BorderGlow:SetAlpha(0)
+			HideRegion(bar.BorderGlow)
 		end
 		if bar.Label then
 			-- bar.Label:SetPoint("CENTER", 0, -5)
@@ -179,23 +190,7 @@ tinsert(C.defaultThemes, function()
 	hooksecurefunc(_G.ObjectiveTrackerUIWidgetContainer, "UpdateWidgetLayout", ReskinPowerBarWidget)
 	ReskinPowerBarWidget(_G.ObjectiveTrackerUIWidgetContainer)
 
-	hooksecurefunc(_G.TopScenarioWidgetContainerBlock.WidgetContainer, "UpdateWidgetLayout", ReskinPowerBarWidget)
-
-	hooksecurefunc(_G.BottomScenarioWidgetContainerBlock.WidgetContainer, "UpdateWidgetLayout", function(self)
-		if not self.widgetFrames then
-			return
-		end
-
-		for _, widgetFrame in pairs(self.widgetFrames) do
-			if widgetFrame.widgetType == Type_SpellDisplay then
-				if not widgetFrame:IsForbidden() then
-					ReskinSpellDisplayWidget(widgetFrame.Spell)
-				end
-			end
-		end
-	end)
-
-	-- if font outline enabled in tooltip, fix text shows in two lines on Torghast info
+	-- if font outline enabled in tooltip, fix text shows in two lines on Torghast info || This breaks tooltips in worldmap on world quests.
 	-- hooksecurefunc(_G.UIWidgetTemplateTextWithStateMixin, "Setup", function(self)
 	-- 	self.Text:SetWidth(self.Text:GetStringWidth() + 2)
 	-- end)

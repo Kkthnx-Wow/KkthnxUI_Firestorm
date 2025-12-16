@@ -1,9 +1,10 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:NewModule("Cooldown")
 
--- Importing required functions
-local pairs, format, floor, strfind = pairs, format, floor, strfind
-local GetTime, GetActionCooldown, tonumber = GetTime, GetActionCooldown, tonumber
+-- Localizing global functions and constants
+local _G = _G
+local pairs, format, floor, strfind = pairs, string.format, math.floor, string.find
+local GetTime, GetActionCooldown, tonumber = _G.GetTime, _G.GetActionCooldown, tonumber
 
 -- Constants for cooldown display
 local FONT_SIZE = 19
@@ -74,6 +75,9 @@ function Module:TimerOnUpdate(elapsed)
 	if self.nextUpdate > 0 then
 		self.nextUpdate = self.nextUpdate - elapsed
 	else
+		if self.modRate == 0 then -- prevent divide by zero
+			self.modRate = 1
+		end
 		local passTime = GetTime() - self.start
 		local remain = passTime >= 0 and ((self.duration - passTime) / self.modRate) or self.duration
 		if remain > 0 then
@@ -161,6 +165,11 @@ function Module:StartTimer(start, duration, modRate)
 			self:Hide()
 		end
 	end
+
+	-- Disable blizzard cooldown numbers
+	if self.SetHideCountdownNumbers then
+		self:SetHideCountdownNumbers(true)
+	end
 end
 
 function Module:HideCooldownNumbers()
@@ -211,28 +220,24 @@ function Module:RegisterActionButton()
 	end
 end
 
+function Module:OnSetHideCountdownNumbers(hide)
+	local disable = not (hide or self.noCooldownCount or self:IsForbidden())
+	if disable then
+		self:SetHideCountdownNumbers(true)
+	end
+end
+
 function Module:OnEnable()
 	if not C["ActionBar"]["Cooldown"] then
 		return
 	end
 
-	-- Hook the SetCooldown function to start the timer
-	hooksecurefunc(getmetatable(ActionButton1Cooldown).__index, "SetCooldown", Module.StartTimer)
-
-	-- Hide cooldown numbers
+	local cooldownIndex = getmetatable(ActionButton1Cooldown).__index
+	hooksecurefunc(cooldownIndex, "SetCooldown", Module.StartTimer)
+	hooksecurefunc(cooldownIndex, "SetHideCountdownNumbers", Module.OnSetHideCountdownNumbers)
 	hooksecurefunc("CooldownFrame_SetDisplayAsPercentage", Module.HideCooldownNumbers)
-
-	-- Register for action bar cooldown updates
 	K:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN", Module.ActionbarUpateCooldown)
 
-	-- Register action button frames
-	if _G["ActionBarButtonEventsFrame"].frames then
-		for _, frame in pairs(_G["ActionBarButtonEventsFrame"].frames) do
-			Module.RegisterActionButton(frame)
-		end
-	end
-	hooksecurefunc(ActionBarButtonEventsFrameMixin, "RegisterFrame", Module.RegisterActionButton)
-
-	-- Hide default cooldown
+	-- Hide Default Cooldown
 	SetCVar("countdownForCooldowns", 0)
 end

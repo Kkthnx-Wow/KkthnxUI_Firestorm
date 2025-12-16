@@ -45,7 +45,7 @@ function Module:AddLineForID(id, linkType, noadd)
 
 	if linkType == types.item then
 		local bagCount = GetItemCount(id)
-		local bankCount = GetItemCount(id, true) - bagCount
+		local bankCount = C_Item.GetItemCount(id, true, nil, true, true) - bagCount
 		local itemStackCount = select(8, GetItemInfo(id))
 		if bankCount > 0 then
 			self:AddDoubleLine(BAGSLOT .. "/" .. BANK .. ":", K.InfoColor .. bagCount .. "/" .. bankCount)
@@ -63,6 +63,10 @@ end
 
 function Module:SetHyperLinkID(link)
 	if self:IsForbidden() then
+		return
+	end
+
+	if not link then
 		return
 	end
 
@@ -101,10 +105,17 @@ function Module:CreateTooltipID()
 			return
 		end
 
-		local _, _, _, _, _, _, caster, _, _, id = UnitAura(...)
+		local auraData = C_UnitAuras.GetAuraDataByIndex(...)
+		if not auraData then
+			return
+		end
+
+		local caster = auraData.sourceUnit
+		local id = auraData.spellId
 		if id then
 			Module.AddLineForID(self, id, types.spell)
 		end
+
 		if caster then
 			local name = GetUnitName(caster, true)
 			local hexColor = K.RGBToHex(K.UnitColor(caster))

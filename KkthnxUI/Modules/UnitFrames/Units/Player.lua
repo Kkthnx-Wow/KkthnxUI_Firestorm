@@ -7,6 +7,7 @@ local string_format = string.format
 
 -- WoW API
 local CreateFrame = CreateFrame
+local IsLevelAtEffectiveMaxLevel = IsLevelAtEffectiveMaxLevel
 
 function Module.PostUpdateAddPower(element, cur, max)
 	if element.Text and max > 0 then
@@ -37,10 +38,14 @@ function Module:CreatePlayer()
 
 	local playerWidth = C["Unitframe"].PlayerHealthWidth
 	local playerHeight = C["Unitframe"].PlayerHealthHeight
-	local playerPortraitStyle = C["Unitframe"].PortraitStyle.Value
+	local playerPortraitStyle = C["Unitframe"].PortraitStyle
 
 	local UnitframeTexture = K.GetTexture(C["General"].Texture)
 	local HealPredictionTexture = K.GetTexture(C["General"].Texture)
+
+	if not self then
+		return
+	end
 
 	local Overlay = CreateFrame("Frame", nil, self) -- We will use this to overlay onto our special borders.
 	Overlay:SetFrameStrata(self:GetFrameStrata())
@@ -64,11 +69,11 @@ function Module:CreatePlayer()
 		K:SmoothBar(Health)
 	end
 
-	if C["Unitframe"].HealthbarColor.Value == "Value" then
+	if C["Unitframe"].HealthbarColor == 3 then
 		Health.colorSmooth = true
 		Health.colorClass = false
 		Health.colorReaction = false
-	elseif C["Unitframe"].HealthbarColor.Value == "Dark" then
+	elseif C["Unitframe"].HealthbarColor == 2 then
 		Health.colorSmooth = false
 		Health.colorClass = false
 		Health.colorReaction = false
@@ -104,16 +109,16 @@ function Module:CreatePlayer()
 	Power.Value:SetFont(select(1, Power.Value:GetFont()), 11, select(3, Power.Value:GetFont()))
 	self:Tag(Power.Value, "[power]")
 
-	if playerPortraitStyle ~= "NoPortraits" then
+	if playerPortraitStyle ~= 0 then
 		local Portrait
 
-		if playerPortraitStyle == "OverlayPortrait" then
+		if playerPortraitStyle == 4 then
 			Portrait = CreateFrame("PlayerModel", "KKUI_PlayerPortrait", self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
-		elseif playerPortraitStyle == "ThreeDPortraits" then
+		elseif playerPortraitStyle == 5 then
 			Portrait = CreateFrame("PlayerModel", "KKUI_PlayerPortrait", Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
@@ -129,7 +134,7 @@ function Module:CreatePlayer()
 			Portrait.Border:SetAllPoints(Portrait)
 			Portrait.Border:CreateBorder()
 
-			if playerPortraitStyle == "ClassPortraits" or playerPortraitStyle == "NewClassPortraits" then
+			if playerPortraitStyle == 2 or playerPortraitStyle == 3 then
 				Portrait.PostUpdate = Module.UpdateClassPortraits
 			end
 		end
@@ -255,57 +260,77 @@ function Module:CreatePlayer()
 		frame:SetAllPoints(Health)
 		local frameLevel = frame:GetFrameLevel()
 
+		local normalTexture = K.GetTexture(C["General"].Texture)
+
 		-- Position and size
 		local myBar = CreateFrame("StatusBar", nil, frame)
 		myBar:SetPoint("TOP")
 		myBar:SetPoint("BOTTOM")
 		myBar:SetPoint("LEFT", Health:GetStatusBarTexture(), "RIGHT")
-		myBar:SetStatusBarTexture(HealPredictionTexture)
+		myBar:SetStatusBarTexture(normalTexture)
 		myBar:SetStatusBarColor(0, 1, 0.5, 0.5)
+		myBar:SetFrameLevel(frameLevel)
 		myBar:Hide()
 
 		local otherBar = CreateFrame("StatusBar", nil, frame)
 		otherBar:SetPoint("TOP")
 		otherBar:SetPoint("BOTTOM")
 		otherBar:SetPoint("LEFT", myBar:GetStatusBarTexture(), "RIGHT")
-		otherBar:SetStatusBarTexture(HealPredictionTexture)
+		otherBar:SetStatusBarTexture(normalTexture)
 		otherBar:SetStatusBarColor(0, 1, 0, 0.5)
+		otherBar:SetFrameLevel(frameLevel)
 		otherBar:Hide()
 
 		local absorbBar = CreateFrame("StatusBar", nil, frame)
 		absorbBar:SetPoint("TOP")
 		absorbBar:SetPoint("BOTTOM")
 		absorbBar:SetPoint("LEFT", otherBar:GetStatusBarTexture(), "RIGHT")
-		absorbBar:SetStatusBarTexture(HealPredictionTexture)
-		absorbBar:SetStatusBarColor(0.66, 1, 1, 0.7)
+		absorbBar:SetStatusBarTexture(normalTexture)
+		absorbBar:SetStatusBarColor(0.66, 1, 1)
 		absorbBar:SetFrameLevel(frameLevel)
+		absorbBar:SetAlpha(0.5)
 		absorbBar:Hide()
+		local tex = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(absorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		overAbsorbBar:SetAllPoints()
-		overAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		overAbsorbBar:SetStatusBarColor(0.66, 1, 1, 0.5)
+		overAbsorbBar:SetStatusBarTexture(normalTexture)
+		overAbsorbBar:SetStatusBarColor(0.66, 1, 1)
 		overAbsorbBar:SetFrameLevel(frameLevel)
+		overAbsorbBar:SetAlpha(0.35)
 		overAbsorbBar:Hide()
+		local tex = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		healAbsorbBar:SetPoint("TOP")
 		healAbsorbBar:SetPoint("BOTTOM")
 		healAbsorbBar:SetPoint("RIGHT", Health:GetStatusBarTexture())
 		healAbsorbBar:SetReverseFill(true)
-		healAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		local tex = healAbsorbBar:GetStatusBarTexture()
+		healAbsorbBar:SetStatusBarTexture(normalTexture)
+		healAbsorbBar:SetStatusBarColor(1, 0, 0.5)
+		healAbsorbBar:SetFrameLevel(frameLevel)
+		healAbsorbBar:SetAlpha(0.35)
+		healAbsorbBar:Hide()
+		local tex = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
 		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
 		tex:SetHorizTile(true)
 		tex:SetVertTile(true)
-		healAbsorbBar:Hide()
 
-		local overAbsorb = Health:CreateTexture(nil, "OVERLAY")
-		overAbsorb:SetWidth(15)
+		local overAbsorb = Health:CreateTexture(nil, "OVERLAY", nil, 2)
+		overAbsorb:SetWidth(8)
 		overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
 		overAbsorb:SetBlendMode("ADD")
-		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 2)
-		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -2)
+		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 0)
+		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -0)
 		overAbsorb:Hide()
 
 		local overHealAbsorb = frame:CreateTexture(nil, "OVERLAY")
@@ -334,7 +359,7 @@ function Module:CreatePlayer()
 	-- Level
 	if C["Unitframe"].ShowPlayerLevel then
 		local Level = self:CreateFontString(nil, "OVERLAY")
-		if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+		if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 			Level:Show()
 			Level:SetPoint("TOP", self.Portrait, 0, 15)
 		else
@@ -344,6 +369,26 @@ function Module:CreatePlayer()
 		self:Tag(Level, "[fulllevel]")
 
 		self.Level = Level
+
+		-- Handle dynamic max level hiding
+		if C["Unitframe"].HideMaxPlayerLevel then
+			local function UpdateLevelVisibility()
+				if IsLevelAtEffectiveMaxLevel(K.Level) then
+					Level:Hide()
+				else
+					if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
+						Level:Show()
+					end
+				end
+			end
+
+			-- Initial check
+			UpdateLevelVisibility()
+
+			-- Update on level changes
+			self:RegisterEvent("PLAYER_LEVEL_UP", UpdateLevelVisibility, true)
+			self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateLevelVisibility, true)
+		end
 	end
 
 	if C["Unitframe"].Stagger then
@@ -368,7 +413,7 @@ function Module:CreatePlayer()
 		AdditionalPower.frequentUpdates = true
 		AdditionalPower:SetWidth(12)
 		AdditionalPower:SetOrientation("VERTICAL")
-		if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+		if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 			AdditionalPower:SetPoint("TOPLEFT", self.Portrait, -18, 0)
 			AdditionalPower:SetPoint("BOTTOMLEFT", self.Portrait, -18, 0)
 		else
@@ -419,12 +464,13 @@ function Module:CreatePlayer()
 		K.Mover(FloatingCombatFeedback, "CombatText", "PlayerCombatText", { "BOTTOM", self, "TOPLEFT", 0, 120 })
 
 		for i = 1, 36 do
-			FloatingCombatFeedback[i] = parentFrame:CreateFontString("$parentText", "OVERLAY")
+			FloatingCombatFeedback[i] = FloatingCombatFeedback:CreateFontString("$parentText", "OVERLAY")
 		end
 
 		FloatingCombatFeedback.font = select(1, KkthnxUIFontOutline:GetFont())
 		FloatingCombatFeedback.fontFlags = "OUTLINE"
 		FloatingCombatFeedback.abbreviateNumbers = true
+		FloatingCombatFeedback:SetFrameStrata("HIGH")
 
 		self.FloatingCombatFeedback = FloatingCombatFeedback
 	end
@@ -441,21 +487,21 @@ function Module:CreatePlayer()
 
 		local two = CreateFrame("StatusBar", nil, bar)
 		two:SetStatusBarTexture(UnitframeTexture)
-		two:SetStatusBarColor(0.8, 0.8, 0.8)
+		two:SetStatusBarColor(0.20, 0.60, 0.80) -- Light blue color
 		two:CreateBorder()
 		two:Hide()
 		two:SetAllPoints()
 
 		local main = CreateFrame("StatusBar", nil, bar)
 		main:SetStatusBarTexture(UnitframeTexture)
-		main:SetStatusBarColor(0.8, 0.8, 0.8)
+		main:SetStatusBarColor(0.20, 0.80, 0.20) -- Light green color
 		main:CreateBorder()
 		main:Hide()
 		main:SetAllPoints()
 
 		local off = CreateFrame("StatusBar", nil, bar)
 		off:SetStatusBarTexture(UnitframeTexture)
-		off:SetStatusBarColor(0.8, 0.8, 0.8)
+		off:SetStatusBarColor(0.80, 0.20, 0.20) -- Light red color
 		off:CreateBorder()
 		off:Hide()
 		if C["Unitframe"].OffOnTop then
@@ -483,7 +529,7 @@ function Module:CreatePlayer()
 
 	local LeaderIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	LeaderIndicator:SetSize(16, 16)
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		LeaderIndicator:SetPoint("TOPLEFT", self.Portrait, 0, 10)
 	else
 		LeaderIndicator:SetPoint("TOPLEFT", Health, 0, 10)
@@ -491,7 +537,7 @@ function Module:CreatePlayer()
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	AssistantIndicator:SetSize(16, 16)
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		AssistantIndicator:SetPoint("TOPLEFT", self.Portrait, 0, 8)
 	else
 		AssistantIndicator:SetPoint("TOPLEFT", Health, 0, 8)
@@ -500,7 +546,7 @@ function Module:CreatePlayer()
 	if C["Unitframe"].PvPIndicator then
 		local PvPIndicator = self:CreateTexture(nil, "OVERLAY")
 		PvPIndicator:SetSize(30, 33)
-		if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+		if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 			PvPIndicator:SetPoint("RIGHT", self.Portrait, "LEFT", -2, 0)
 		else
 			PvPIndicator:SetPoint("RIGHT", Health, "LEFT", -2, 0)
@@ -517,7 +563,7 @@ function Module:CreatePlayer()
 	CombatIndicator:SetAlpha(0.7)
 
 	local RaidTargetIndicator = Overlay:CreateTexture(nil, "OVERLAY")
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		RaidTargetIndicator:SetPoint("TOP", self.Portrait, "TOP", 0, 8)
 	else
 		RaidTargetIndicator:SetPoint("TOP", Health, "TOP", 0, 8)
@@ -525,7 +571,7 @@ function Module:CreatePlayer()
 	RaidTargetIndicator:SetSize(16, 16)
 
 	local ReadyCheckIndicator = Overlay:CreateTexture(nil, "OVERLAY")
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		ReadyCheckIndicator:SetPoint("CENTER", self.Portrait)
 	else
 		ReadyCheckIndicator:SetPoint("CENTER", Health)
@@ -534,7 +580,7 @@ function Module:CreatePlayer()
 
 	local ResurrectIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	ResurrectIndicator:SetSize(44, 44)
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		ResurrectIndicator:SetPoint("CENTER", self.Portrait)
 	else
 		ResurrectIndicator:SetPoint("CENTER", Health)
@@ -543,7 +589,7 @@ function Module:CreatePlayer()
 	do
 		local RestingIndicator = CreateFrame("Frame", "KKUI_RestingFrame", Overlay)
 		RestingIndicator:SetSize(5, 5)
-		if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+		if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 			RestingIndicator:SetPoint("TOPLEFT", self.Portrait, "TOPLEFT", -2, 4)
 		else
 			RestingIndicator:SetPoint("TOPLEFT", Health, "TOPLEFT", -2, 4)
@@ -576,7 +622,7 @@ function Module:CreatePlayer()
 			[6] = { false, false, false },
 		}
 
-		RestingIndicator:SetScript("OnUpdate", function(self, elapsed)
+		local function OnUpdateResting(self, elapsed)
 			self.elapsed = (self.elapsed or 0) + elapsed
 			if self.elapsed > stepSpeed then
 				step = step + 1
@@ -590,17 +636,27 @@ function Module:CreatePlayer()
 
 				self.elapsed = 0
 			end
+		end
+
+		RestingIndicator:SetScript("OnUpdate", OnUpdateResting)
+
+		RestingIndicator:SetScript("OnHide", function(self)
+			step = 6
+			-- Clean up OnUpdate script when hidden to save performance
+			self:SetScript("OnUpdate", nil)
+			self.elapsed = 0
 		end)
 
-		RestingIndicator:SetScript("OnHide", function()
-			step = 6
+		RestingIndicator:SetScript("OnShow", function(self)
+			-- Restore OnUpdate script when shown
+			self:SetScript("OnUpdate", OnUpdateResting)
 		end)
 
 		self.RestingIndicator = RestingIndicator
 	end
 
 	local QuestSyncIndicator = Overlay:CreateTexture(nil, "OVERLAY")
-	if playerPortraitStyle ~= "NoPortraits" and playerPortraitStyle ~= "OverlayPortrait" then
+	if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 		QuestSyncIndicator:SetPoint("BOTTOM", self.Portrait, "BOTTOM", 0, -13)
 	else
 		QuestSyncIndicator:SetPoint("BOTTOM", Health, "BOTTOM", 0, -13)

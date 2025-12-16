@@ -2,6 +2,8 @@ local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("Installer")
 
 local table_wipe = table.wipe
+local pairs = pairs
+local type = type
 
 local function ForceHekiliOptions()
 	if not C_AddOns.IsAddOnLoaded("Hekili") then
@@ -176,7 +178,13 @@ local function ForceHekiliOptions()
 		},
 	}
 
-	KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest = false
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+	meta.HekiliRequest = false
+	KkthnxUIDB.Global.Characters[K.UserKey] = meta
 end
 
 local function ForceMaxDPSOptions()
@@ -200,7 +208,13 @@ local function ForceMaxDPSOptions()
 		},
 	}
 
-	KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest = false
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+	meta.MaxDpsRequest = false
+	KkthnxUIDB.Global.Characters[K.UserKey] = meta
 end
 
 local function ForceDBMOptions()
@@ -258,7 +272,13 @@ local function ForceDBMOptions()
 	DBM_ASO["Default"]["WarningFontSize"] = 18
 	DBM_ASO["Default"]["SpecialWarningFontSize2"] = 24
 
-	KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest = false
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+	meta.DBMRequest = false
+	KkthnxUIDB.Global.Characters[K.UserKey] = meta
 end
 
 local function ForceCursorTrail()
@@ -283,27 +303,34 @@ local function ForceCursorTrail()
 		["Strata"] = "HIGH",
 	}
 
-	KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest = false
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+	meta.CursorTrailRequest = false
+	KkthnxUIDB.Global.Characters[K.UserKey] = meta
 end
 
 function Module:ForceAddonSkins()
-	if not K.isDeveloper() then
+	if not K.isDeveloper then -- This is personal for now.
 		return
 	end
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest then
+	local meta = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	if meta and meta.DBMRequest then
 		ForceDBMOptions()
 	end
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest then
+	if meta and meta.MaxDpsRequest then
 		ForceMaxDPSOptions()
 	end
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest then
+	if meta and meta.CursorTrailRequest then
 		ForceCursorTrail()
 	end
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest then
+	if meta and meta.HekiliRequest then
 		ForceHekiliOptions()
 	end
 end

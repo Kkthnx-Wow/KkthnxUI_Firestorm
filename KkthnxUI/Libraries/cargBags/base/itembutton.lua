@@ -20,17 +20,44 @@
 local _, ns = ...
 local cargBags = ns.cargBags
 
-local ReagentButtonInventorySlot = ReagentButtonInventorySlot
+-- Cache globals for performance
+local setmetatable = setmetatable
+local string_format = string.format
+local table_insert = table.insert
+local table_remove = table.remove
+local type = type
+
+local AccountBankPanel = AccountBankPanel
+local BankFrame = BankFrame
+local BankFrameItemButton_OnEnter = BankFrameItemButton_OnEnter
 local ButtonInventorySlot = ButtonInventorySlot
+local ContainerFrameItemButtonMixin = ContainerFrameItemButtonMixin
+local CreateFrame = CreateFrame
+local C_Container_SplitContainerItem = C_Container.SplitContainerItem
+local Enum = Enum
+local ReagentBankFrame = ReagentBankFrame
+local ReagentButtonInventorySlot = ReagentButtonInventorySlot
+
 local BANK_CONTAINER = BANK_CONTAINER or -1
 local REAGENTBANK_CONTAINER = REAGENTBANK_CONTAINER or -3
-local SplitContainerItem = C_Container.SplitContainerItem
+local ACCOUNTBANK_CONTAINERS = {
+	[Enum.BagIndex.AccountBankTab_1 or 13] = true,
+	[Enum.BagIndex.AccountBankTab_2 or 14] = true,
+	[Enum.BagIndex.AccountBankTab_3 or 15] = true,
+	[Enum.BagIndex.AccountBankTab_4 or 16] = true,
+	[Enum.BagIndex.AccountBankTab_5 or 17] = true,
+}
 
 --[[!
 	@class ItemButton
 		This class serves as the basis for all itemSlots in a container
 ]]
 local ItemButton = cargBags:NewClass("ItemButton", nil, "ItemButton")
+
+-- Provide GetBagID accessor expected by Blizzard mixins/templates
+function ItemButton:GetBagID()
+	return self.bagId
+end
 
 --[[!
 	Gets a template name for the bagID
@@ -39,14 +66,7 @@ local ItemButton = cargBags:NewClass("ItemButton", nil, "ItemButton")
 ]]
 function ItemButton:GetTemplate(bagID)
 	bagID = bagID or self.bagId
-	return (bagID == REAGENTBANK_CONTAINER and "ReagentBankItemButtonGenericTemplate")
-		or (bagID == BANK_CONTAINER and "BankItemButtonGenericTemplate")
-		or (bagID and "ContainerFrameItemButtonTemplate")
-		or "",
-		(bagID == REAGENTBANK_CONTAINER and ReagentBankFrame)
-			or (bagID == BANK_CONTAINER and BankFrame)
-			or (bagID and _G["ContainerFrame" .. (bagID + 1)])
-			or ""
+	return (bagID == REAGENTBANK_CONTAINER and "ReagentBankItemButtonGenericTemplate") or (bagID == BANK_CONTAINER and "BankItemButtonGenericTemplate") or (bagID and "ContainerFrameItemButtonTemplate") or "", (bagID == REAGENTBANK_CONTAINER and ReagentBankFrame) or (bagID == BANK_CONTAINER and BankFrame) or (bagID and _G["ContainerFrame" .. (bagID + 1)]) or (ACCOUNTBANK_CONTAINERS[bagID] and AccountBankPanel) or ""
 end
 
 local mt_gen_key = {
@@ -63,25 +83,28 @@ local mt_gen_key = {
 	@return button <ItemButton>
 ]]
 local function BankSplitStack(button, split)
-	SplitContainerItem(BANK_CONTAINER, button:GetID(), split)
+	C_Container_SplitContainerItem(BANK_CONTAINER, button:GetID(), split)
 end
 
 local function ReagenBankSplitStack(button, split)
-	SplitContainerItem(REAGENTBANK_CONTAINER, button:GetID(), split)
+	C_Container_SplitContainerItem(REAGENTBANK_CONTAINER, button:GetID(), split)
 end
 
 function ItemButton:New(bagID, slotID)
 	self.recycled = self.recycled or setmetatable({}, mt_gen_key)
 
 	local tpl, parent = self:GetTemplate(bagID)
-	local button = table.remove(self.recycled[tpl]) or self:Create(tpl, parent)
+	local button = table_remove(self.recycled[tpl]) or self:Create(tpl, parent)
 
 	button.bagId = bagID
 	button.slotId = slotID
 	button:SetID(slotID)
 	button:Show()
-	button:HookScript("OnEnter", button.ButtonOnEnter)
-	button:HookScript("OnLeave", button.ButtonOnLeave)
+	if not button._hooked then
+		button:HookScript("OnEnter", button.ButtonOnEnter)
+		button:HookScript("OnLeave", button.ButtonOnLeave)
+		button._hooked = true
+	end
 	if bagID == REAGENTBANK_CONTAINER then
 		button.GetInventorySlot = ReagentButtonInventorySlot
 		button.UpdateTooltip = BankFrameItemButton_OnEnter
@@ -104,12 +127,21 @@ end
 	@callback button:OnCreate(tpl)
 ]]
 
+local allButtons = {}
+local function GetButton(slot, name)
+	if not allButtons[slot] then
+		allButtons[slot] = CreateFrame("ItemButton", name, nil, "ContainerFrameItemButtonTemplate, BackdropTemplate")
+	end
+	return allButtons[slot]
+end
+
 function ItemButton:Create(tpl, parent)
 	local impl = self.implementation
 	impl.numSlots = (impl.numSlots or 0) + 1
 	local name = ("%sSlot%d"):format(impl.name, impl.numSlots)
 
-	local button = setmetatable(CreateFrame("ItemButton", name, parent, tpl .. ", BackdropTemplate"), self.__index)
+	local button = setmetatable(GetButton(impl.numSlots, name), self.__index)
+	button:SetParent(parent)
 
 	if button.Scaffold then
 		button:Scaffold(tpl)
@@ -136,6 +168,7 @@ function ItemButton:Create(tpl, parent)
 	end
 
 	button:RegisterForDrag("LeftButton") -- fix button drag in 9.0
+	button.UpdateTooltip = ContainerFrameItemButtonMixin.OnUpdate
 
 	return button
 end
@@ -145,7 +178,7 @@ end
 ]]
 function ItemButton:Free()
 	self:Hide()
-	table.insert(self.recycled[self:GetTemplate()], self)
+	table_insert(self.recycled[self:GetTemplate()], self)
 end
 
 --[[!
@@ -154,5 +187,5 @@ end
 	@return item <table>
 ]]
 function ItemButton:GetInfo(item)
-	return self.implementation:GetCustomItemInfo(self.bagId, self.slotId, item)
+	return self.implementation:GetItemInfo(self.bagId, self.slotId, item)
 end

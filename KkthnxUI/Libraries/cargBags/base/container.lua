@@ -20,6 +20,15 @@
 local _, ns = ...
 local cargBags = ns.cargBags
 
+-- Cache globals for performance
+local ipairs = ipairs
+local pairs = pairs
+local setmetatable = setmetatable
+local table_insert = table.insert
+local table_remove = table.remove
+
+local CreateFrame = CreateFrame
+
 --[[!
 	@class Container
 		The container class provides the virtual bags for cargBags
@@ -51,7 +60,7 @@ function Container:New(name, ...)
 	container:ScheduleContentCallback()
 
 	container.implementation.contByName[name] = container -- Make this into pretty function?
-	table.insert(container.implementation.contByID, container)
+	table_insert(container.implementation.contByID, container)
 
 	container:SetParent(self.implementation)
 
@@ -72,7 +81,7 @@ function Container:AddButton(button)
 	button.container = self
 	button:SetParent(self.bags[button.bagId])
 	self:ScheduleContentCallback()
-	table.insert(self.buttons, button)
+	table_insert(self.buttons, button)
 	if button.OnAdd then
 		button:OnAdd(self)
 	end
@@ -98,7 +107,7 @@ function Container:RemoveButton(button)
 			if self.OnButtonRemove then
 				self:OnButtonRemove(button)
 			end
-			return table.remove(self.buttons, i)
+			return table_remove(self.buttons, i)
 		end
 	end
 end
@@ -123,7 +132,9 @@ end)
 ]]
 function Container:ScheduleContentCallback()
 	scheduled[self] = true
-	updater:Show()
+	if not updater:IsShown() then
+		updater:Show()
+	end
 end
 
 --[[
@@ -132,7 +143,7 @@ end
 	@param ... Arguments which are passed to the function
 ]]
 function Container:ApplyToButtons(func, ...)
-	for _, button in pairs(self.buttons) do
+	for _, button in ipairs(self.buttons) do
 		func(button, ...)
 	end
 end

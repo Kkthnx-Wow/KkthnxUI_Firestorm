@@ -5,6 +5,7 @@ local Module = K:GetModule("DataText")
 local pairs = pairs
 local string_format = string.format
 local unpack = unpack
+local math_max = math.max
 
 -- WoW API and Constants
 local CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
@@ -15,7 +16,6 @@ local C_Timer_NewTicker = C_Timer.NewTicker
 local C_WowTokenPublic_GetCurrentMarketPrice = C_WowTokenPublic.GetCurrentMarketPrice
 local C_WowTokenPublic_UpdateMarketPrice = C_WowTokenPublic.UpdateMarketPrice
 local GameTooltip = GameTooltip
-local GetAutoCompleteRealms = GetAutoCompleteRealms
 local GetMoney = GetMoney
 local IsControlKeyDown = IsControlKeyDown
 local NO = NO
@@ -42,11 +42,15 @@ StaticPopupDialogs["RESETGOLD"] = {
 	button1 = YES,
 	button2 = NO,
 	OnAccept = function()
-		wipe(KkthnxUIDB.Gold)
-		if not KkthnxUIDB.Gold[myRealm] then
-			KkthnxUIDB.Gold[myRealm] = {}
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
 		end
-		KkthnxUIDB.Gold[myRealm][myName] = { GetMoney(), K.Class, K.Faction, K.Race:lower() }
+
+		wipe(KkthnxUIDB.Global.Gold)
+		if not KkthnxUIDB.Global.Gold[myRealm] then
+			KkthnxUIDB.Global.Gold[myRealm] = {}
+		end
+		KkthnxUIDB.Global.Gold[myRealm][myName] = { GetMoney(), K.Class, K.Faction }
 	end,
 	whileDead = 1,
 }
@@ -69,24 +73,14 @@ local function getClassIcon(class)
 end
 
 local factionIcons = {
-	["Horde"] = "ui_horde_honorboundmedal",
-	["Alliance"] = "UI_Alliance_7LegionMedal",
+	["Horde"] = "UI_HordeIcon",
+	["Alliance"] = "UI_AllianceIcon",
 	["Unknown"] = "INV_Misc_QuestionMark",
 }
 
 local function getFactionIcon(faction)
 	local icon = factionIcons[faction] or "INV_Misc_QuestionMark"
 	return "|TInterface\\ICONS\\" .. icon .. ":12:12:0:0:50:50:4:46:4:46|t "
-end
-
-local raceMappings = {
-	["zandalari troll"] = "zandalari",
-}
-
-local function getRaceIcon(race)
-	-- print(race)
-	race = raceMappings[race] or string.gsub(race, " ", "")
-	return "|A:raceicon-" .. race .. "-" .. (K.Sex == 3 and "female" or "male") .. ":13:13:0:0|a "
 end
 
 local function getSlotString()
@@ -120,7 +114,7 @@ local function OnEvent(_, event, arg1)
 		oldMoney = GetMoney()
 		GoldDataText:UnregisterEvent(event)
 
-		if KkthnxUIDB.ShowSlots then
+		if KkthnxUIDB.Global.ShowSlots then
 			GoldDataText:RegisterEvent("BAG_UPDATE")
 		end
 	elseif event == "BAG_UPDATE" then
@@ -129,7 +123,7 @@ local function OnEvent(_, event, arg1)
 		end
 	end
 
-	if not ticker and not K.IsFirestorm then
+	if not ticker then
 		C_WowTokenPublic_UpdateMarketPrice()
 		ticker = C_Timer_NewTicker(60, UpdateMarketPrice)
 	end
@@ -146,33 +140,57 @@ local function OnEvent(_, event, arg1)
 		if C["DataText"].HideText then
 			GoldDataText.Text:SetText("")
 		else
-			if KkthnxUIDB.ShowSlots then
+			if KkthnxUIDB.Global.ShowSlots then
 				GoldDataText.Text:SetText(getSlotString())
 			else
 				GoldDataText.Text:SetText(K.FormatMoney(newMoney))
 			end
 		end
+
+		-- Keep frame and mover size in sync with icon + text
+		local textW = GoldDataText.Text:GetStringWidth() or 0
+		local iconW = (GoldDataText.Texture and GoldDataText.Texture:GetWidth()) or 0
+		local totalW = textW + iconW
+		local textH = GoldDataText.Text:GetLineHeight() or 12
+		local iconH = (GoldDataText.Texture and GoldDataText.Texture:GetHeight()) or 12
+		local totalH = math_max(textH, iconH)
+		GoldDataText:SetSize(math_max(totalW, 56), totalH)
+		if GoldDataText.mover then
+			GoldDataText.mover:SetWidth(math_max(totalW, 56))
+			GoldDataText.mover:SetHeight(totalH)
+		end
 	end
 
-	if not KkthnxUIDB.Gold[myRealm] then
-		KkthnxUIDB.Gold[myRealm] = {}
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
 	end
 
-	if not KkthnxUIDB.Gold[myRealm][myName] then
-		KkthnxUIDB.Gold[myRealm][myName] = {}
+	if not KkthnxUIDB.Global.Gold then
+		KkthnxUIDB.Global.Gold = {}
 	end
 
-	KkthnxUIDB.Gold[myRealm][myName][1] = GetMoney()
-	KkthnxUIDB.Gold[myRealm][myName][2] = K.Class
-	KkthnxUIDB.Gold[myRealm][myName][3] = K.Faction
-	KkthnxUIDB.Gold[myRealm][myName][4] = K.Race:lower()
+	if not KkthnxUIDB.Global.Gold[myRealm] then
+		KkthnxUIDB.Global.Gold[myRealm] = {}
+	end
+
+	if not KkthnxUIDB.Global.Gold[myRealm][myName] then
+		KkthnxUIDB.Global.Gold[myRealm][myName] = {}
+	end
+
+	KkthnxUIDB.Global.Gold[myRealm][myName][1] = GetMoney()
+	KkthnxUIDB.Global.Gold[myRealm][myName][2] = K.Class
+	KkthnxUIDB.Global.Gold[myRealm][myName][3] = K.Faction
 
 	oldMoney = newMoney
 end
 K.GoldButton_OnEvent = OnEvent
 
 local function clearCharGold(_, realm, name)
-	KkthnxUIDB.Gold[realm][name] = nil
+	if not (KkthnxUIDB.Global and KkthnxUIDB.Global.Gold and KkthnxUIDB.Global.Gold[realm]) then
+		return
+	end
+
+	KkthnxUIDB.Global.Gold[realm][name] = nil
 	DropDownList1:Hide()
 	RebuildCharList()
 end
@@ -185,7 +203,7 @@ function RebuildCharList()
 	end
 
 	local index = 1
-	for realm, data in pairs(KkthnxUIDB.Gold) do
+	for realm, data in pairs(KkthnxUIDB.Global.Gold or {}) do
 		for name, value in pairs(data) do
 			if not (realm == myRealm and name == myName) then
 				index = index + 1
@@ -203,9 +221,17 @@ function RebuildCharList()
 end
 
 local title
-local function OnEnter(self) -- We need self for the bags since we use this on the bags gold info
-	GameTooltip:SetOwner(self, "ANCHOR_NONE") -- Dont change from self, note above
-	GameTooltip:SetPoint(K.GetAnchors(self)) -- Dont change from self, note above
+local function OnEnter(self)
+	if not self then
+		return
+	end
+
+	GameTooltip:SetOwner(GoldDataText, "ANCHOR_NONE")
+	if self == GoldDataText then
+		GameTooltip:SetPoint(K.GetAnchors(GoldDataText))
+	else
+		GameTooltip:SetPoint(K.GetAnchors(self))
+	end
 	GameTooltip:ClearLines()
 
 	GameTooltip:AddLine(K.InfoColor .. CURRENCY)
@@ -223,28 +249,28 @@ local function OnEnter(self) -- We need self for the bags since we use this on t
 
 	local totalGold = 0
 	GameTooltip:AddLine(CHARACTER_BUTTON .. ":", 0.5, 0.7, 1)
-	if KkthnxUIDB.Gold[myRealm] then
-		for k, v in pairs(KkthnxUIDB.Gold[myRealm]) do
-			local gold, class, faction, race = unpack(v)
+	if KkthnxUIDB.Global.Gold and KkthnxUIDB.Global.Gold[myRealm] then
+		for k, v in pairs(KkthnxUIDB.Global.Gold[myRealm]) do
+			local gold, class, faction = unpack(v)
 			local name = Ambiguate(k .. "-" .. myRealm, "none")
 			if gold > showGoldGap or UnitIsUnit(name, "player") then
 				local r, g, b = K.ColorClass(class)
-				GameTooltip:AddDoubleLine(getRaceIcon(race) .. getFactionIcon(faction) .. getClassIcon(class) .. name, K.FormatMoney(gold), r, g, b, 1, 1, 1)
+				GameTooltip:AddDoubleLine(getFactionIcon(faction) .. getClassIcon(class) .. name, K.FormatMoney(gold), r, g, b, 1, 1, 1)
 				totalGold = totalGold + gold
 			end
 		end
 	end
 
 	local isShiftKeyDown = IsShiftKeyDown()
-	for realm, data in pairs(KkthnxUIDB.Gold) do
+	for realm, data in pairs(KkthnxUIDB.Global.Gold or {}) do
 		if realm ~= myRealm then
 			for k, v in pairs(data) do
-				local gold, class, faction, race = unpack(v)
+				local gold, class, faction = unpack(v)
 				if gold > showGoldGap then
 					if isShiftKeyDown then -- show other realms while holding shift
 						local name = Ambiguate(k .. "-" .. realm, "none")
 						local r, g, b = K.ColorClass(class)
-						GameTooltip:AddDoubleLine(getRaceIcon(race) .. getFactionIcon(faction) .. getClassIcon(class) .. name, K.FormatMoney(gold), r, g, b, 1, 1, 1)
+						GameTooltip:AddDoubleLine(getFactionIcon(faction) .. getClassIcon(class) .. name, K.FormatMoney(gold), r, g, b, 1, 1, 1)
 					end
 					totalGold = totalGold + gold
 				end
@@ -253,18 +279,20 @@ local function OnEnter(self) -- We need self for the bags since we use this on t
 	end
 
 	if not isShiftKeyDown then
-		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L["Hold Shift"], 0.63, 0.82, 1)
 	end
 
+	local accountmoney = C_Bank.FetchDepositedMoney(Enum.BankType.Account)
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddDoubleLine(TOTAL .. ":", K.FormatMoney(totalGold), 0.5, 0.7, 1, 1, 1, 1)
+	GameTooltip:AddDoubleLine(CHARACTER .. ":", K.FormatMoney(totalGold), 0.63, 0.82, 1, 1, 1, 1)
+	GameTooltip:AddDoubleLine(ACCOUNT_BANK_PANEL_TITLE .. ":", K.FormatMoney(accountmoney), 0.63, 0.82, 1, 1, 1, 1)
+	GameTooltip:AddDoubleLine(TOTAL .. ":", K.FormatMoney(totalGold + accountmoney), 0.63, 0.82, 1, 1, 1, 1)
 
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddDoubleLine("|TInterface\\ICONS\\WoW_Token01:12:12:0:0:50:50:4:46:4:46|t " .. TOKEN_FILTER_LABEL .. ":", K.FormatMoney(C_WowTokenPublic_GetCurrentMarketPrice() or 0), 0.5, 0.7, 1, 1, 1, 1)
 
 	title = false
-	local chargeInfo = C_CurrencyInfo_GetCurrencyInfo(2912) -- Tier charges
+	local chargeInfo = C_CurrencyInfo_GetCurrencyInfo(3269) -- Tier charges
 	if chargeInfo then
 		if not title then
 			GameTooltip:AddLine(" ")
@@ -306,7 +334,7 @@ local function OnEnter(self) -- We need self for the bags since we use this on t
 	if self == GoldDataText then
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(" ", K.RightButton .. "Switch Mode" .. " ", 1, 1, 1, 0.5, 0.7, 1)
-		if KkthnxUIDB.ShowSlots then
+		if KkthnxUIDB.Global.ShowSlots then
 			GameTooltip:AddDoubleLine(" ", K.LeftButton .. BINDING_NAME_TOGGLEBACKPACK .. " ", 1, 1, 1, 0.5, 0.7, 1)
 		else
 			GameTooltip:AddDoubleLine(" ", K.LeftButton .. BINDING_NAME_TOGGLECURRENCY .. " ", 1, 1, 1, 0.5, 0.7, 1)
@@ -326,8 +354,11 @@ local function OnMouseUp(self, btn)
 			end
 			K.LibEasyMenu.Create(menuList, K.EasyMenu, self, -80, 100, "MENU", 1)
 		else
-			KkthnxUIDB["ShowSlots"] = not KkthnxUIDB["ShowSlots"]
-			if KkthnxUIDB["ShowSlots"] then
+			if not KkthnxUIDB.Global then
+				KkthnxUIDB.Global = {}
+			end
+			KkthnxUIDB.Global.ShowSlots = not KkthnxUIDB.Global.ShowSlots
+			if KkthnxUIDB.Global.ShowSlots then
 				GoldDataText:RegisterEvent("BAG_UPDATE")
 			else
 				GoldDataText:UnregisterEvent("BAG_UPDATE")
@@ -336,7 +367,7 @@ local function OnMouseUp(self, btn)
 		end
 		OnEnter(self) -- Update our tooltip for inventory or currency
 	else
-		if KkthnxUIDB.ShowSlots then
+		if KkthnxUIDB.Global.ShowSlots then
 			ToggleAllBags()
 		else
 			ToggleCharacter("TokenFrame")
@@ -355,15 +386,15 @@ function Module:CreateGoldDataText()
 	if C["DataText"].Gold then
 		GoldDataText.Text = K.CreateFontString(GoldDataText, 12)
 		GoldDataText.Text:ClearAllPoints()
-		GoldDataText.Text:SetPoint("LEFT", UIParent, "LEFT", 24, -302)
+		GoldDataText.Text:SetPoint("LEFT", GoldDataText, "LEFT", 24, 0)
 
 		GoldDataText.Texture = GoldDataText:CreateTexture(nil, "ARTWORK")
-		GoldDataText.Texture:SetPoint("RIGHT", GoldDataText.Text, "LEFT", 0, 2)
+		GoldDataText.Texture:SetPoint("LEFT", GoldDataText, "LEFT", 0, 2)
 		GoldDataText.Texture:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\DataText\\bags.blp")
 		GoldDataText.Texture:SetSize(24, 24)
 		GoldDataText.Texture:SetVertexColor(unpack(C["DataText"].IconColor))
 
-		GoldDataText:SetAllPoints(GoldDataText.Text)
+		-- Size will be controlled dynamically based on text+icon width
 	end
 
 	for _, event in pairs(eventList) do
@@ -376,5 +407,10 @@ function Module:CreateGoldDataText()
 
 	if C["DataText"].Gold then
 		GoldDataText:SetScript("OnMouseUp", OnMouseUp)
+		-- Make the whole block (icon + text) movable
+		GoldDataText.mover = K.Mover(GoldDataText, "GoldDT", "GoldDT", { "LEFT", UIParent, "LEFT", 0, -300 }, 56, 12)
+		-- Initialize mover width to current total width (with a sane minimum)
+		local w = (GoldDataText.Text:GetStringWidth() or 0) + (GoldDataText.Texture and GoldDataText.Texture:GetWidth() or 0)
+		GoldDataText.mover:SetWidth(math_max(w, 56))
 	end
 end

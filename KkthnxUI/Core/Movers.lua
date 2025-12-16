@@ -4,7 +4,11 @@ local Module = K:NewModule("Mover")
 -- Sourced: NDui (siweia)
 -- Edited: KkthnxUI (Kkthnx)
 
+local pairs = pairs
+local table_insert = table.insert
+local table_remove = table.remove
 local table_wipe = table.wipe
+local type = type
 local unpack = unpack
 
 local CANCEL = CANCEL
@@ -30,26 +34,35 @@ local f
 local updater
 
 function K:Mover(text, value, anchor, width, height, isAuraWatch)
+	-- Ensure `self` is valid
+	if not self or type(self) ~= "table" then
+		return
+	end
+
 	local key = "Mover"
 	if isAuraWatch then
 		key = "AuraWatchMover"
 	end
 
-	local mover = CreateFrame("Button", "KKUI_Mover", UIParent)
-	mover:SetWidth(width or self:GetWidth())
-	mover:SetHeight(height or self:GetHeight())
+	-- Use a unique name to avoid global collisions, or keep anonymous if preferred
+	local uniqueName = "KKUI_Mover_" .. tostring(value or "Anon")
+	local mover = CreateFrame("Button", uniqueName, UIParent)
+	mover:SetWidth(width or (self.GetWidth and self:GetWidth() or 50)) -- Default to 50 if self:GetWidth is unavailable
+	mover:SetHeight(height or (self.GetHeight and self:GetHeight() or 50)) -- Default to 50 if self:GetHeight is unavailable
 	mover:CreateBorder(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, { 38 / 255, 125 / 255, 206 / 255, 80 / 255 })
 	mover:Hide()
 
 	mover.text = K.CreateFontString(mover, 12, text, "")
 	mover.text:SetWordWrap(true)
 
-	-- print("KKUI_Mover" .. text)
+	-- Per-profile mover storage
+	C["Movers"] = C["Movers"] or {}
+	local moversDB = C["Movers"]
 
-	if not KkthnxUIDB.Variables[K.Realm][K.Name][key][value] then
+	if not moversDB[value] then
 		mover:SetPoint(unpack(anchor))
 	else
-		mover:SetPoint(unpack(KkthnxUIDB.Variables[K.Realm][K.Name][key][value]))
+		mover:SetPoint(unpack(moversDB[value]))
 	end
 
 	mover:EnableMouse(true)
@@ -71,17 +84,27 @@ function K:Mover(text, value, anchor, width, height, isAuraWatch)
 		table.insert(MoverList, mover)
 	end
 
-	self:ClearAllPoints()
-	self:SetPoint("TOPLEFT", mover)
+	-- Validate `self` before setting points
+	if self.ClearAllPoints and self.SetPoint then
+		self:ClearAllPoints()
+		self:SetPoint("TOPLEFT", mover)
+	else
+		error("K:Mover: 'self' does not have valid frame methods (ClearAllPoints, SetPoint).")
+	end
 
 	return mover
 end
 
 function Module:CalculateMoverPoints(mover, trimX, trimY)
-	local screenWidth = K.Round(UIParent:GetRight())
-	local screenHeight = K.Round(UIParent:GetTop())
-	local screenCenter = K.Round(UIParent:GetCenter(), nil)
+	local screenWidth = K.Round(UIParent:GetRight() or 0)
+	local screenHeight = K.Round(UIParent:GetTop() or 0)
+	local screenCenter = K.Round(UIParent:GetCenter() or 0)
 	local x, y = mover:GetCenter()
+
+	-- Validate x and y
+	if not x or not y then
+		return 0, 0, "CENTER" -- Fallback values
+	end
 
 	local LEFT = screenWidth / 3
 	local RIGHT = screenWidth * 2 / 3
@@ -136,7 +159,12 @@ function Module:DoTrim(trimX, trimY)
 		f.__y.__current = y
 		mover:ClearAllPoints()
 		mover:SetPoint(point, UIParent, point, x, y)
-		KkthnxUIDB.Variables[K.Realm][K.Name][mover.__key][mover.__value] = { point, "UIParent", point, x, y }
+
+		C["Movers"] = C["Movers"] or {}
+		C["Movers"][mover.__value] = { point, "UIParent", point, x, y }
+		if K.Database and K.Database.SetConfigPath then
+			K.Database:SetConfigPath("Movers." .. mover.__value, C["Movers"][mover.__value])
+		end
 	end
 end
 
@@ -150,7 +178,13 @@ function Module:Mover_OnClick(btn)
 	elseif IsControlKeyDown() and btn == "RightButton" then
 		self:ClearAllPoints()
 		self:SetPoint(unpack(self.__anchor))
-		KkthnxUIDB.Variables[K.Realm][K.Name][self.__key][self.__value] = nil
+
+		if C["Movers"] then
+			C["Movers"][self.__value] = nil
+			if K.Database and K.Database.SetConfigPath then
+				K.Database:SetConfigPath("Movers." .. self.__value, nil)
+			end
+		end
 	end
 
 	updater.__owner = self
@@ -182,7 +216,12 @@ function Module:Mover_OnDragStop()
 
 	self:ClearAllPoints()
 	self:SetPoint(orig, "UIParent", tar, x, y)
-	KkthnxUIDB.Variables[K.Realm][K.Name][self.__key][self.__value] = { orig, "UIParent", tar, x, y }
+
+	C["Movers"] = C["Movers"] or {}
+	C["Movers"][self.__value] = { orig, "UIParent", tar, x, y }
+	if K.Database and K.Database.SetConfigPath then
+		K.Database:SetConfigPath("Movers." .. self.__value, C["Movers"][self.__value])
+	end
 	Module.UpdateTrimFrame(self)
 	updater:Hide()
 end
@@ -214,8 +253,13 @@ _G.StaticPopupDialogs["RESET_MOVER"] = {
 	button1 = OKAY,
 	button2 = CANCEL,
 	OnAccept = function()
-		table_wipe(KkthnxUIDB.Variables[K.Realm][K.Name]["Mover"])
-		table_wipe(KkthnxUIDB.Variables[K.Realm][K.Name]["AuraWatchMover"])
+		if C["Movers"] then
+			table_wipe(C["Movers"])
+			if K.Database and K.Database.SetConfigPath then
+				K.Database:SetConfigPath("Movers", {})
+			end
+		end
+
 		_G.ReloadUI()
 	end,
 }

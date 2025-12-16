@@ -1,8 +1,10 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Unitframes")
 
-local format = format
-local min = min
+local string_format = string.format
+local string_upper = string.upper
+local math_min = math.min
+local math_floor = math.floor
 
 local GetTime = GetTime
 local IsPlayerSpell = IsPlayerSpell
@@ -10,6 +12,9 @@ local UnitExists = UnitExists
 local UnitInVehicle = UnitInVehicle
 local UnitIsUnit = UnitIsUnit
 local UnitName = UnitName
+local UnitIsPlayer = UnitIsPlayer
+local UnitClass = UnitClass
+local UnitReaction = UnitReaction
 local YOU = YOU
 
 local channelingTicks = {
@@ -53,23 +58,30 @@ end
 
 local function CreateAndUpdateBarTicks(bar, ticks, numTicks)
 	for i = 1, #ticks do
-		ticks[i]:Hide()
+		local t = ticks[i]
+		if t and t:IsShown() then
+			t:Hide()
+		end
 	end
 
 	if numTicks and numTicks > 0 then
 		local width, height = bar:GetSize()
 		local delta = width / numTicks
 		for i = 1, numTicks - 1 do
-			if not ticks[i] then
-				ticks[i] = bar:CreateTexture(nil, "OVERLAY")
-				ticks[i]:SetTexture(C["Media"].Textures.White8x8Texture)
-				ticks[i]:SetVertexColor(0, 0, 0, 0.7)
-				ticks[i]:SetWidth(K.Mult)
-				ticks[i]:SetHeight(height)
+			local tex = ticks[i]
+			if not tex then
+				tex = bar:CreateTexture(nil, "OVERLAY")
+				tex:SetAtlas("UI-Frame-DastardlyDuos-ProgressBar-BorderTick", false)
+				tex:SetWidth(3)
+				tex:SetHeight(height)
+				tex:SetVertexColor(0.8, 0.8, 0.8, 0.8)
+				ticks[i] = tex
 			end
-			ticks[i]:ClearAllPoints()
-			ticks[i]:SetPoint("RIGHT", bar, "LEFT", delta * i, 0)
-			ticks[i]:Show()
+			tex:ClearAllPoints()
+			tex:SetPoint("RIGHT", bar, "LEFT", delta * i, 0)
+			if not tex:IsShown() then
+				tex:Show()
+			end
 		end
 	end
 end
@@ -116,7 +128,7 @@ function Module:OnCastbarUpdate(elapsed)
 							self.pipStage = i
 							local nextStage = self.numStages == i and 1 or i + 1
 							local nextPip = self.Pips[nextStage]
-							UIFrameFadeIn(nextPip.tex, 0.25, 0.3, 1)
+							K.UIFrameFadeIn(nextPip.tex, 0.25, 0.3, 1)
 						end
 						break
 					end
@@ -164,11 +176,14 @@ local function UpdateSpellTarget(self, unit)
 	if unitTarget and UnitExists(unitTarget) then
 		local nameString
 		if UnitIsUnit(unitTarget, "player") then
-			nameString = format("|cffff0000%s|r", ">" .. strupper(YOU) .. "<")
+			nameString = string_format("|cffff0000%s|r", ">" .. string_upper(YOU) .. "<")
 		else
 			nameString = K.RGBToHex(K.UnitColor(unitTarget)) .. UnitName(unitTarget)
 		end
-		self.spellTarget:SetText(nameString)
+		if self._lastSpellTarget ~= nameString then
+			self.spellTarget:SetText(nameString)
+			self._lastSpellTarget = nameString
+		end
 	else
 		ResetSpellTarget(self) -- when unit loses target
 	end
@@ -188,7 +203,7 @@ local function UpdateCastBarColor(self, unit)
 		color = K.Colors.castbar.notInterruptibleColor
 	end
 
-	-- Set the bar color to the obtained color
+	-- Set the bar color (no caching to avoid missed updates)
 	self:SetStatusBarColor(color[1], color[2], color[3])
 end
 
@@ -207,12 +222,24 @@ function Module:PostCastStart(unit)
 	elseif unit == "player" then
 		if safeZone then
 			local sendTime = self.__sendTime
-			local timeDiff = sendTime and min((GetTime() - sendTime), self.max)
+			local timeDiff = sendTime and math_min((GetTime() - sendTime), self.max)
 			if timeDiff and timeDiff ~= 0 then
-				safeZone:SetWidth(self:GetWidth() * timeDiff / self.max)
-				safeZone:Show()
-				lagString:SetFormattedText("%d ms", timeDiff * 1000)
-				lagString:Show()
+				local width = self:GetWidth() * timeDiff / self.max
+				if self._lastSafeZoneWidth ~= width then
+					safeZone:SetWidth(width)
+					self._lastSafeZoneWidth = width
+				end
+				if not safeZone:IsShown() then
+					safeZone:Show()
+				end
+				local lagMs = math_floor(timeDiff * 1000)
+				if self._lastLagMs ~= lagMs then
+					lagString:SetFormattedText("%d ms", lagMs)
+					self._lastLagMs = lagMs
+				end
+				if not lagString:IsShown() then
+					lagString:Show()
+				end
 			else
 				safeZone:Hide()
 				lagString:Hide()
@@ -272,7 +299,8 @@ Module.PipColors = {
 	[1] = { 0.08, 1, 0, 0.3 },
 	[2] = { 1, 0.1, 0.1, 0.3 },
 	[3] = { 1, 0.5, 0, 0.3 },
-	[4] = { 0.1, 0.9, 0.9, 0.3 },
+	[4] = { 0.1, 0.7, 0.7, 0.3 },
+	[5] = { 0, 1, 1, 0.3 },
 }
 function Module:CreatePip(stage)
 	local _, height = self:GetSize()

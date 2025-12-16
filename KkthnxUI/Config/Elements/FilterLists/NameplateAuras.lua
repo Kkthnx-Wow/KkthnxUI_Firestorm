@@ -1,6 +1,7 @@
 local C = KkthnxUI[2]
 
 C.NameplateWhiteList = {
+	[268756] = true, -- 望远镜饰品
 	-- Buffs
 	[642] = true, -- Divine Shield
 	[1022] = true, -- Hand of Protection
@@ -56,6 +57,12 @@ C.NameplateBlackList = {
 }
 
 C.NameplateCustomUnits = {
+	-- Corruption
+	[162290] = true, -- 腐化的觅血鲨
+	[162247] = true, -- 腐化的狱卒
+	[162251] = true, -- 腐化的召唤师
+	[162245] = true, -- 腐化的折磨者
+	[162248] = true, -- 腐化的守护者
 	-- Nzoth vision
 	[153401] = true, -- K'xir Dominator
 	[157610] = true, -- K'xir Dominator
@@ -94,7 +101,7 @@ C.NameplateShowPowerList = {
 }
 
 C.NameplateTargetNPCs = {
-	[165251] = true, -- Sylvan Fox
+	-- [165251] = true, -- Sylvan Fox
 	[174773] = true, -- Spiteful Fiend
 }
 
@@ -188,7 +195,7 @@ C.MajorSpells = {
 	[381694] = true, -- Decaying Senses, Fernskin
 	[388060] = true, -- Stinking Breath, Fernskin
 	[383385] = true, -- Rotting Surge, Fernskin
-	[382172] = true, -- Necrotic Breath, Fernskin
+	[382712] = true, -- Necrotic Breath, Fernskin
 	[384899] = true, -- Bone Arrow Rain, Fernskin
 	[378282] = true, -- Molten Core, Nassarius
 	[383651] = true, -- Molten Legion, Nassarius

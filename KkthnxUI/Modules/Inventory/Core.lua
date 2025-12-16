@@ -1,39 +1,63 @@
 ﻿local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:NewModule("Bags")
 
-local Unfit = K.LibUnfit
 local cargBags = K.cargBags
+local Unfit = K.LibUnfit
 
 local ceil = ceil
 local ipairs = ipairs
+local pairs = pairs
 local string_match = string.match
 local table_wipe = table.wipe
+local tinsert = table.insert
+local tonumber = tonumber
+local type = type
 local unpack = unpack
 
 local C_AzeriteEmpoweredItem_IsAzeriteEmpoweredItemByID = C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItemByID
+local C_Bank_CanPurchaseBankTab = C_Bank.CanPurchaseBankTab
+local C_Bank_CanViewBank = C_Bank.CanViewBank
 local C_Container_GetContainerItemInfo = C_Container.GetContainerItemInfo
+local C_Container_SetInsertItemsLeftToRight = C_Container.SetInsertItemsLeftToRight
+local C_Container_SetSortBagsRightToLeft = C_Container.SetSortBagsRightToLeft
+local C_Container_SortAccountBankBags = C_Container.SortAccountBankBags
 local C_NewItems_IsNewItem = C_NewItems.IsNewItem
 local C_NewItems_RemoveNewItem = C_NewItems.RemoveNewItem
 local C_Soulbinds_IsItemConduitByItemInfo = C_Soulbinds.IsItemConduitByItemInfo
+local C_Spell_GetSpellName = C_Spell.GetSpellName
 local ClearCursor = ClearCursor
 local CreateFrame = CreateFrame
 local DeleteCursorItem = DeleteCursorItem
+local DepositReagentBank = DepositReagentBank
+local GameTooltip = GameTooltip
+local GetCVarBool = GetCVarBool
 local GetContainerItemID = C_Container.GetContainerItemID
 local GetContainerNumSlots = C_Container.GetContainerNumSlots
 local GetInventoryItemID = GetInventoryItemID
-local GetItemInfo = GetItemInfo
+local GetItemInfo = C_Item.GetItemInfo
 local InCombatLockdown = InCombatLockdown
 local IsAltKeyDown = IsAltKeyDown
 local IsControlKeyDown = IsControlKeyDown
-local IsCosmeticItem = IsCosmeticItem
+local IsCosmeticItem = C_Item.IsCosmeticItem
 local IsReagentBankUnlocked = IsReagentBankUnlocked
+local IsShiftKeyDown = IsShiftKeyDown
 local PickupContainerItem = C_Container.PickupContainerItem
 local PlaySound = PlaySound
+local SetCVar = SetCVar
+local SetCVarBitfield = SetCVarBitfield
+local SetItemCraftingQualityOverlay = SetItemCraftingQualityOverlay
 local SOUNDKIT = SOUNDKIT
 local SortBags = C_Container.SortBags
 local SortBankBags = C_Container.SortBankBags
 local SortReagentBankBags = C_Container.SortReagentBankBags
 local SplitContainerItem = C_Container.SplitContainerItem
+local StaticPopup_Hide = StaticPopup_Hide
+local StaticPopup_Show = StaticPopup_Show
+local StaticPopup_Visible = StaticPopup_Visible
+local UIParent = UIParent
+
+local ACCOUNT_BANK_TYPE = Enum.BankType.Account or 2
+local CHAR_BANK_TYPE = Enum.BankType.Character or 0
 
 local deleteEnable
 local favouriteEnable
@@ -144,8 +168,10 @@ local BagSmartFilter = {
 		text = string.lower(text)
 		if text == "boe" then
 			return item.bindOn == "equip"
+		elseif text == "aoe" then
+			return item.bindOn == "accountequip"
 		else
-			return IsItemMatched(item.subType, text) or IsItemMatched(item.equipLoc, text) or IsItemMatched(item.name, text)
+			return IsItemMatched(item.subType, text) or IsItemMatched(item.equipLoc, text) or IsItemMatched(item.name, text) or IsItemMatched((item.expacID or 0) + 1, text)
 		end
 	end,
 
@@ -268,23 +294,49 @@ function Module:CreateBagBar(settings, columns)
 	self.BagBar = bagBar
 end
 
+function Module:CreateBagTab(settings, columns)
+	local bagTab = self:SpawnPlugin("BagTab", settings.Bags)
+	bagTab:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", 0, -6)
+	bagTab:CreateBorder()
+	bagTab.highlightFunction = highlightFunction
+	bagTab.isGlobal = true
+	bagTab:Hide()
+	bagTab.columns = columns
+	bagTab.UpdateAnchor = updateBagBar
+	bagTab:UpdateAnchor()
+
+	local purchaseButton = CreateFrame("Button", "KKUI_BankPurchaseButton", bagTab, "InsecureActionButtonTemplate")
+	purchaseButton:SetSize(120, 22)
+	purchaseButton:SetPoint("TOP", bagTab, "BOTTOM", 0, -5)
+	K.CreateFontString(purchaseButton, 14, PURCHASE, "info")
+	purchaseButton:SkinButton()
+	purchaseButton:Hide()
+
+	purchaseButton:RegisterForClicks("AnyUp", "AnyDown")
+	purchaseButton:SetAttribute("type", "click")
+	purchaseButton:SetAttribute("clickbutton", _G.AccountBankPanel.PurchasePrompt.TabCostFrame.PurchaseButton)
+
+	self.BagBar = bagTab
+end
+
 local function CloseOrRestoreBags(self, btn)
 	if btn == "RightButton" then
 		local bag = self.__owner.main
 		local bank = self.__owner.bank
 		local reagent = self.__owner.reagent
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bag:GetName()] = nil
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bank:GetName()] = nil
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][reagent:GetName()] = nil
+		local account = self.__owner.accountbank
+		-- TempAnchor is legacy; positions are now controlled by Movers/profile
 		bag:ClearAllPoints()
 		bag:SetPoint(unpack(bag.__anchor))
 		bank:ClearAllPoints()
 		bank:SetPoint(unpack(bank.__anchor))
 		reagent:ClearAllPoints()
-		reagent:SetPoint(unpack(reagent.__anchor))
+		reagent:SetPoint(unpack(bank.__anchor))
+		account:ClearAllPoints()
+		account:SetPoint(unpack(bank.__anchor))
 		PlaySound(SOUNDKIT.IG_MINIMAP_OPEN)
 	else
-		CloseAllBags()
+		Module:CloseBags()
 	end
 end
 
@@ -316,21 +368,21 @@ function Module:CreateReagentButton(f)
 	reagentButton.Icon = reagentButton:CreateTexture(nil, "ARTWORK")
 	reagentButton.Icon:SetAllPoints()
 	reagentButton.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-	reagentButton.Icon:SetTexture("Interface\\ICONS\\INV_Enchant_DustArcane")
+	reagentButton.Icon:SetTexture(3566850)
 
 	reagentButton:RegisterForClicks("AnyUp")
 	reagentButton:SetScript("OnClick", function(_, btn)
+		if not C_Bank_CanViewBank(CHAR_BANK_TYPE) then
+			return
+		end
+
 		if not IsReagentBankUnlocked() then
-			_G.StaticPopup_Show("CONFIRM_BUY_REAGENTBANK_TAB")
+			StaticPopup_Show("CONFIRM_BUY_REAGENTBANK_TAB")
 		else
 			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
-			_G.ReagentBankFrame:Show()
-			_G.BankFrame.selectedTab = 2
-			f.reagent:Show()
-			f.bank:Hide()
-
+			BankFrame_ShowPanel("ReagentBankFrame") -- trigger context matching
 			if btn == "RightButton" then
-				_G.DepositReagentBank()
+				DepositReagentBank()
 			end
 		end
 	end)
@@ -338,6 +390,69 @@ function Module:CreateReagentButton(f)
 	K.AddTooltip(reagentButton, "ANCHOR_TOP")
 
 	return reagentButton
+end
+
+function Module:CreateAccountBankButton(f)
+	local accountBankButton = CreateFrame("Button", nil, self)
+	accountBankButton:SetSize(18, 18)
+	accountBankButton:CreateBorder()
+	accountBankButton:StyleButton()
+
+	accountBankButton.Icon = accountBankButton:CreateTexture(nil, "ARTWORK")
+	accountBankButton.Icon:SetAllPoints()
+	accountBankButton.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
+	accountBankButton.Icon:SetTexture(939373)
+
+	accountBankButton:RegisterForClicks("AnyUp")
+	accountBankButton:SetScript("OnClick", function(_, btn)
+		if not C_Bank_CanViewBank(ACCOUNT_BANK_TYPE) then
+			return
+		end
+
+		if AccountBankPanel:ShouldShowLockPrompt() then
+			UIErrorsFrame:AddMessage(K.InfoColor .. ACCOUNT_BANK_LOCKED_PROMPT)
+		else
+			PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
+			BankFrame_ShowPanel("AccountBankPanel") -- trigger context matching
+		end
+	end)
+	accountBankButton.title = ACCOUNT_BANK_PANEL_TITLE
+	K.AddTooltip(accountBankButton, "ANCHOR_TOP")
+
+	return accountBankButton
+end
+
+function Module:CreateAccountMoney()
+	local frame = CreateFrame("Button", nil, self)
+	frame:SetSize(50, 22)
+
+	local tag = self:SpawnPlugin("TagDisplay", "[accountmoney]", self)
+	tag:SetFontObject(K.UIFontOutline)
+	tag:SetPoint("RIGHT", frame, -2, 0)
+	frame.tag = tag
+
+	frame:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	frame:SetScript("OnClick", function(_, btn)
+		if btn == "RightButton" then
+			StaticPopup_Hide("BANK_MONEY_DEPOSIT")
+			if StaticPopup_Visible("BANK_MONEY_WITHDRAW") then
+				StaticPopup_Hide("BANK_MONEY_WITHDRAW")
+			else
+				StaticPopup_Show("BANK_MONEY_WITHDRAW", nil, nil, { bankType = ACCOUNT_BANK_TYPE })
+			end
+		else
+			StaticPopup_Hide("BANK_MONEY_WITHDRAW")
+			if StaticPopup_Visible("BANK_MONEY_DEPOSIT") then
+				StaticPopup_Hide("BANK_MONEY_DEPOSIT")
+			else
+				StaticPopup_Show("BANK_MONEY_DEPOSIT", nil, nil, { bankType = ACCOUNT_BANK_TYPE })
+			end
+		end
+	end)
+	frame.title = K.LeftButton .. BANK_DEPOSIT_MONEY_BUTTON_LABEL .. "|n" .. K.RightButton .. BANK_WITHDRAW_MONEY_BUTTON_LABEL
+	K.AddTooltip(frame, "ANCHOR_TOP")
+
+	return frame
 end
 
 function Module:CreateBankButton(f)
@@ -349,14 +464,15 @@ function Module:CreateBankButton(f)
 	BankButton.Icon = BankButton:CreateTexture(nil, "ARTWORK")
 	BankButton.Icon:SetAllPoints()
 	BankButton.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-	BankButton.Icon:SetAtlas("Banker")
+	BankButton.Icon:SetTexture(413587)
 
 	BankButton:SetScript("OnClick", function()
+		if not C_Bank_CanViewBank(CHAR_BANK_TYPE) then
+			return
+		end
+
 		PlaySound(SOUNDKIT.IG_CHARACTER_INFO_TAB)
-		_G.ReagentBankFrame:Hide()
-		_G.BankFrame.selectedTab = 1
-		f.reagent:Hide()
-		f.bank:Show()
+		BankFrame_ShowPanel("BankSlotsFrame") -- trigger context matching
 	end)
 
 	BankButton.title = BANK
@@ -366,7 +482,12 @@ function Module:CreateBankButton(f)
 end
 
 local function updateDepositButtonStatus(bu)
-	if C["Inventory"].AutoDeposit then
+	if not bu then
+		return
+	end
+
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	if charDB and charDB.AutoDeposit then
 		bu.KKUI_Border:SetVertexColor(1, 0.8, 0)
 	else
 		bu.KKUI_Border:SetVertexColor(1, 1, 1)
@@ -374,7 +495,8 @@ local function updateDepositButtonStatus(bu)
 end
 
 function Module:AutoDeposit()
-	if C["Inventory"].AutoDeposit and not IsShiftKeyDown() then
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	if charDB and charDB.AutoDeposit and not IsShiftKeyDown() then
 		DepositReagentBank()
 	end
 end
@@ -388,11 +510,18 @@ function Module:CreateDepositButton()
 	DepositButton.Icon = DepositButton:CreateTexture(nil, "ARTWORK")
 	DepositButton.Icon:SetAllPoints()
 	DepositButton.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-	DepositButton.Icon:SetTexture("Interface\\ICONS\\misc_arrowdown")
+	DepositButton.Icon:SetTexture("450905")
 
+	DepositButton:RegisterForClicks("AnyUp")
 	DepositButton:SetScript("OnClick", function(_, btn)
 		if btn == "RightButton" then
-			C["Inventory"].AutoDeposit = not C["Inventory"].AutoDeposit
+			if not KkthnxUIDB.Global then
+				KkthnxUIDB.Global = {}
+			end
+			KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+			local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+			charDB.AutoDeposit = not charDB.AutoDeposit
+			KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 			updateDepositButtonStatus(DepositButton)
 		else
 			DepositReagentBank()
@@ -401,12 +530,53 @@ function Module:CreateDepositButton()
 
 	DepositButton.title = REAGENTBANK_DEPOSIT
 	K.AddTooltip(DepositButton, "ANCHOR_TOP", K.InfoColor .. L["AutoDepositTip"])
+	updateDepositButtonStatus(DepositButton)
 
 	return DepositButton
 end
 
+local function updateAccountBankDeposit(bu)
+	if GetCVarBool("bankAutoDepositReagents") then
+		bu.KKUI_Border:SetVertexColor(1, 0.8, 0)
+	else
+		K.SetBorderColor(bu.KKUI_Border)
+	end
+end
+
+function Module:CreateAccountBankDeposit()
+	local AccountBankDepositButton = CreateFrame("Button", nil, self)
+	AccountBankDepositButton:SetSize(18, 18)
+	AccountBankDepositButton:CreateBorder()
+	AccountBankDepositButton:StyleButton()
+
+	AccountBankDepositButton.Icon = AccountBankDepositButton:CreateTexture(nil, "ARTWORK")
+	AccountBankDepositButton.Icon:SetAllPoints()
+	AccountBankDepositButton.Icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
+	AccountBankDepositButton.Icon:SetTexture("450905")
+
+	AccountBankDepositButton:RegisterForClicks("AnyUp")
+	AccountBankDepositButton:SetScript("OnClick", function(_, btn)
+		if btn == "RightButton" then
+			local isOn = GetCVarBool("bankAutoDepositReagents")
+			SetCVar("bankAutoDepositReagents", isOn and 0 or 1)
+			updateAccountBankDeposit(AccountBankDepositButton)
+		else
+			C_Bank.AutoDepositItemsIntoBank(ACCOUNT_BANK_TYPE)
+		end
+	end)
+	AccountBankDepositButton.title = ACCOUNT_BANK_DEPOSIT_BUTTON_LABEL
+	K.AddTooltip(AccountBankDepositButton, "ANCHOR_TOP", K.InfoColor .. "|nLeft-click to deposit warband items|n|nright-click to switch deposit modes.|n|nIf the button border is visible, items from your bags will also be deposited into your warband bank.")
+	updateAccountBankDeposit(AccountBankDepositButton)
+
+	return AccountBankDepositButton
+end
+
 local function ToggleBackpacks(self)
 	local parent = self.__owner
+	if not parent.BagBar then
+		return
+	end
+
 	K.TogglePanel(parent.BagBar)
 	if parent.BagBar:IsShown() then
 		self.KKUI_Border:SetVertexColor(1, 0.8, 0)
@@ -417,7 +587,7 @@ local function ToggleBackpacks(self)
 	end
 end
 
-function Module:CreateBagToggle()
+function Module:CreateBagToggle(click)
 	local bagToggleButton = CreateFrame("Button", nil, self)
 	bagToggleButton:SetSize(18, 18)
 	bagToggleButton:CreateBorder()
@@ -432,6 +602,10 @@ function Module:CreateBagToggle()
 	bagToggleButton:SetScript("OnClick", ToggleBackpacks)
 	bagToggleButton.title = BACKPACK_TOOLTIP
 	K.AddTooltip(bagToggleButton, "ANCHOR_TOP")
+
+	if click then
+		ToggleBackpacks(bagToggleButton)
+	end
 
 	return bagToggleButton
 end
@@ -452,6 +626,8 @@ function Module:CreateSortButton(name)
 			SortBankBags()
 		elseif name == "Reagent" then
 			SortReagentBankBags()
+		elseif name == "Account" then
+			C_Container_SortAccountBankBags()
 		else
 			if C["Inventory"].ReverseSort then
 				if InCombatLockdown() then
@@ -510,6 +686,13 @@ function Module:GetEmptySlot(name)
 		if slotID then
 			return 5, slotID
 		end
+	elseif name == "Account" then
+		for bagID = 13, 17 do
+			local slotID = Module:GetContainerEmptySlot(bagID)
+			if slotID then
+				return bagID, slotID
+			end
+		end
 	end
 end
 
@@ -525,6 +708,7 @@ local freeSlotContainer = {
 	["Bank"] = true,
 	["Reagent"] = true,
 	["BagReagent"] = true,
+	["Account"] = true,
 }
 
 function Module:CreateFreeSlots()
@@ -542,7 +726,7 @@ function Module:CreateFreeSlots()
 	K.AddTooltip(slot, "ANCHOR_RIGHT", "FreeSlots")
 	slot.__name = name
 
-	local tag = self:SpawnPlugin("TagDisplay", "|cff669dff[space]|r", slot)
+	local tag = self:SpawnPlugin("TagDisplay", "|cff5C8BCF[space]|r", slot)
 	tag:SetFontObject(K.UIFontOutline)
 	tag:SetFont(select(1, tag:GetFont()), 16, select(3, tag:GetFont()))
 	tag:SetPoint("CENTER", 0, 0)
@@ -561,7 +745,13 @@ end
 
 local function saveSplitCount(self)
 	local count = self:GetText() or ""
-	KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount = tonumber(count) or 1
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+	charDB.SplitCount = tonumber(count) or 1
+	KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 end
 
 local function editBoxClearFocus(self)
@@ -617,7 +807,9 @@ function Module:CreateSplitButton()
 			self.Icon:SetDesaturated(true)
 			self.text = enabledText
 			splitFrame:Show()
-			editBox:SetText(KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			local value = charDB and charDB.SplitCount or 1
+			editBox:SetText(value)
 		else
 			self.__turnOff()
 		end
@@ -643,8 +835,10 @@ local function splitOnClick(self)
 	local texture = info and info.iconFileID
 	local itemCount = info and info.stackCount
 	local locked = info and info.isLocked
-	if texture and not locked and itemCount and itemCount > KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount then
-		SplitContainerItem(self.bagId, self.slotId, KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	local splitCount = charDB and charDB.SplitCount or 1
+	if texture and not locked and itemCount and itemCount > splitCount then
+		SplitContainerItem(self.bagId, self.slotId, splitCount)
 
 		local bagID, slotID = Module:GetEmptySlot("Bag")
 		if slotID then
@@ -654,7 +848,9 @@ local function splitOnClick(self)
 end
 
 local function GetCustomGroupTitle(index)
-	return KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] or (CUSTOM .. " " .. FILTER .. " " .. index)
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	local names = charDB and charDB.CustomNames
+	return (names and names[index]) or (CUSTOM .. " " .. FILTER .. " " .. index)
 end
 
 StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
@@ -664,7 +860,14 @@ StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
 	OnAccept = function(self)
 		local index = Module.selectGroupIndex
 		local text = self.editBox:GetText()
-		KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] = text ~= "" and text or nil
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		charDB.CustomNames = charDB.CustomNames or {}
+		charDB.CustomNames[index] = text ~= "" and text or nil
+		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 
 		Module.CustomMenu[index + 2].text = GetCustomGroupTitle(index)
 		Module.ContainerGroups["Bag"][index].label:SetText(GetCustomGroupTitle(index))
@@ -687,11 +890,18 @@ end
 function Module:MoveItemToCustomBag(index)
 	local itemID = Module.selectItemID
 	if index == 0 then
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = nil
+		if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] and KkthnxUIDB.Global.Characters[K.UserKey].CustomItems then
+			KkthnxUIDB.Global.Characters[K.UserKey].CustomItems[itemID] = nil
 		end
 	else
-		KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = index
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		charDB.CustomItems = charDB.CustomItems or {}
+		charDB.CustomItems[itemID] = index
+		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 	end
 	Module:UpdateAllBags()
 end
@@ -699,7 +909,9 @@ end
 function Module:IsItemInCustomBag()
 	local index = self.arg1
 	local itemID = Module.selectItemID
-	return (index == 0 and not KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID]) or (KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] == index)
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	local custom = charDB and charDB.CustomItems or {}
+	return (index == 0 and not custom[itemID]) or (custom[itemID] == index)
 end
 
 function Module:CreateFavouriteButton()
@@ -784,7 +996,7 @@ local function favouriteOnClick(self)
 		Module.selectItemID = itemID
 		Module.CustomMenu[1].text = link
 		Module.CustomMenu[1].icon = texture
-		EasyMenu(Module.CustomMenu, K.EasyMenu, self, 0, 0, "MENU")
+		K.LibEasyMenu.Create(Module.CustomMenu, K.EasyMenu, self, 0, 0, "MENU")
 	end
 end
 
@@ -841,11 +1053,18 @@ local function customJunkOnClick(self)
 	local itemID = info and info.itemID
 	local price = select(11, GetItemInfo(itemID))
 	if texture and price > 0 then
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = nil
-		else
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = true
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
 		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		charDB.CustomJunkList = charDB.CustomJunkList or {}
+		if charDB.CustomJunkList[itemID] then
+			charDB.CustomJunkList[itemID] = nil
+		else
+			charDB.CustomJunkList[itemID] = true
+		end
+		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 		ClearCursor()
 		Module:UpdateAllBags()
 	end
@@ -929,7 +1148,9 @@ function Module:OpenBags()
 end
 
 function Module:CloseBags()
-	CloseAllBags()
+	if self.Bags and self.Bags:IsShown() then
+		ToggleAllBags()
+	end
 end
 
 function Module:OnEnable()
@@ -953,6 +1174,7 @@ function Module:OnEnable()
 		return
 	end
 
+	-- Check for conflicting bag addons (cached at local level for faster access)
 	if C_AddOns.IsAddOnLoaded("AdiBags") or C_AddOns.IsAddOnLoaded("ArkInventory") or C_AddOns.IsAddOnLoaded("cargBags_Nivaya") or C_AddOns.IsAddOnLoaded("cargBags") or C_AddOns.IsAddOnLoaded("Bagnon") or C_AddOns.IsAddOnLoaded("Combuctor") or C_AddOns.IsAddOnLoaded("TBag") or C_AddOns.IsAddOnLoaded("BaudBag") then
 		return
 	end
@@ -982,11 +1204,14 @@ function Module:OnEnable()
 	Module.BagsType[0] = 0 -- Backpack
 	Module.BagsType[-1] = 0 -- Bank
 	Module.BagsType[-3] = 0 -- Reagent
+	for bagID = 13, 17 do
+		Module.BagsType[bagID] = 0 -- accountbank
+	end
 
 	local f = {}
 	local filters = Module:GetFilters()
 	local MyContainer = Backpack:GetContainerClass()
-	Module.ContainerGroups = { ["Bag"] = {}, ["Bank"] = {} }
+	Module.ContainerGroups = { ["Bag"] = {}, ["Bank"] = {}, ["Account"] = {} }
 
 	local function AddNewContainer(bagType, index, name, filter)
 		local newContainer = MyContainer:New(name, { BagType = bagType, Index = index })
@@ -995,22 +1220,24 @@ function Module:OnEnable()
 	end
 
 	function Backpack:OnInit()
-		AddNewContainer("Bag", 6, "BagReagent", filters.onlyBagReagent)
-		AddNewContainer("Bag", 18, "Junk", filters.bagsJunk)
 		for i = 1, 5 do
 			AddNewContainer("Bag", i, "BagCustom" .. i, filters["bagCustom" .. i])
 		end
+		AddNewContainer("Bag", 6, "BagReagent", filters.onlyBagReagent)
+		AddNewContainer("Bag", 20, "Junk", filters.bagsJunk)
 		AddNewContainer("Bag", 9, "EquipSet", filters.bagEquipSet)
+		AddNewContainer("Bag", 10, "BagAOE", filters.bagAOE)
 		AddNewContainer("Bag", 7, "AzeriteItem", filters.bagAzeriteItem)
-		AddNewContainer("Bag", 17, "BagLower", filters.bagLower)
+		AddNewContainer("Bag", 17, "BagLegacy", filters.bagLegacy)
+		AddNewContainer("Bag", 19, "BagLower", filters.bagLower)
 		AddNewContainer("Bag", 8, "Equipment", filters.bagEquipment)
-		AddNewContainer("Bag", 10, "BagCollection", filters.bagCollection)
-		AddNewContainer("Bag", 15, "Consumable", filters.bagConsumable)
-		AddNewContainer("Bag", 11, "BagGoods", filters.bagGoods)
-		AddNewContainer("Bag", 16, "BagQuest", filters.bagQuest)
-		AddNewContainer("Bag", 12, "BagAnima", filters.bagAnima)
-		AddNewContainer("Bag", 13, "BagRelic", filters.bagRelic)
+		AddNewContainer("Bag", 11, "BagCollection", filters.bagCollection)
 		AddNewContainer("Bag", 14, "BagStone", filters.bagStone)
+		AddNewContainer("Bag", 18, "BagKeystone", filters.bagKeystone)
+		AddNewContainer("Bag", 15, "Consumable", filters.bagConsumable)
+		AddNewContainer("Bag", 12, "BagGoods", filters.bagGoods)
+		AddNewContainer("Bag", 16, "BagQuest", filters.bagQuest)
+		AddNewContainer("Bag", 13, "BagAnima", filters.bagAnima)
 
 		f.main = MyContainer:New("Bag", { Bags = "bags", BagType = "Bag" })
 		f.main.__anchor = { "BOTTOMRIGHT", -50, 100 }
@@ -1021,15 +1248,17 @@ function Module:OnEnable()
 			AddNewContainer("Bank", i, "BankCustom" .. i, filters["bankCustom" .. i])
 		end
 		AddNewContainer("Bank", 8, "BankEquipSet", filters.bankEquipSet)
+		AddNewContainer("Bank", 9, "BankAOE", filters.bankAOE)
 		AddNewContainer("Bank", 6, "BankAzeriteItem", filters.bankAzeriteItem)
-		AddNewContainer("Bank", 9, "BankLegendary", filters.bankLegendary)
+		AddNewContainer("Bank", 10, "BankLegendary", filters.bankLegendary)
+		AddNewContainer("Bank", 16, "BankLegacy", filters.bankLegacy)
+		AddNewContainer("Bank", 17, "BankLower", filters.bankLower)
 		AddNewContainer("Bank", 7, "BankEquipment", filters.bankEquipment)
-		AddNewContainer("Bank", 10, "BankCollection", filters.bankCollection)
-		AddNewContainer("Bank", 15, "BankLower", filters.bankLower)
-		AddNewContainer("Bank", 13, "BankConsumable", filters.bankConsumable)
-		AddNewContainer("Bank", 11, "BankGoods", filters.bankGoods)
-		AddNewContainer("Bank", 14, "BankQuest", filters.bankQuest)
-		AddNewContainer("Bank", 12, "BankAnima", filters.bankAnima)
+		AddNewContainer("Bank", 11, "BankCollection", filters.bankCollection)
+		AddNewContainer("Bank", 14, "BankConsumable", filters.bankConsumable)
+		AddNewContainer("Bank", 12, "BankGoods", filters.bankGoods)
+		AddNewContainer("Bank", 15, "BankQuest", filters.bankQuest)
+		AddNewContainer("Bank", 13, "BankAnima", filters.bankAnima)
 
 		f.bank = MyContainer:New("Bank", { Bags = "bank", BagType = "Bank" })
 		f.bank.__anchor = { "BOTTOMLEFT", 25, 50 }
@@ -1039,9 +1268,22 @@ function Module:OnEnable()
 
 		f.reagent = MyContainer:New("Reagent", { Bags = "bankreagent", BagType = "Bank" })
 		f.reagent:SetFilter(filters.onlyReagent, true)
-		f.reagent.__anchor = { "BOTTOMLEFT", f.bank }
-		f.reagent:SetPoint(unpack(f.reagent.__anchor))
+		f.reagent:SetPoint(unpack(f.bank.__anchor))
 		f.reagent:Hide()
+
+		for i = 1, 5 do
+			AddNewContainer("Account", i, "AccountCustom" .. i, filters["accountCustom" .. i])
+		end
+		AddNewContainer("Account", 8, "AccountAOE", filters.accountAOE)
+		AddNewContainer("Account", 7, "AccountLegacy", filters.accountLegacy)
+		AddNewContainer("Account", 6, "AccountEquipment", filters.accountEquipment)
+		AddNewContainer("Account", 10, "AccountConsumable", filters.accountConsumable)
+		AddNewContainer("Account", 9, "AccountGoods", filters.accountGoods)
+
+		f.accountbank = MyContainer:New("Account", { Bags = "accountbank", BagType = "Account" })
+		f.accountbank:SetFilter(filters.accountbank, true)
+		f.accountbank:SetPoint(unpack(f.bank.__anchor))
+		f.accountbank:Hide()
 
 		for bagType, groups in pairs(Module.ContainerGroups) do
 			for _, container in ipairs(groups) do
@@ -1066,10 +1308,10 @@ function Module:OnEnable()
 
 	function Backpack:OnBankClosed()
 		BankFrame.selectedTab = 1
-		BankFrame:Hide()
+		BankFrame.activeTabIndex = 1
 		self:GetContainer("Bank"):Hide()
 		self:GetContainer("Reagent"):Hide()
-		ReagentBankFrame:Hide()
+		self:GetContainer("Account"):Hide()
 	end
 
 	local MyButton = Backpack:GetItemButtonClass()
@@ -1119,12 +1361,6 @@ function Module:OnEnable()
 		self.bindType = K.CreateFontString(self, 12, "", "OUTLINE", false, "TOPLEFT", 1, -2)
 		self.bindType:SetFontObject(K.UIFontOutline)
 		self.bindType:SetFont(select(1, self.iLvl:GetFont()), 12, select(3, self.iLvl:GetFont()))
-
-		self.usableTexture = self:CreateTexture(nil, "ARTWORK")
-		self.usableTexture:SetTexture(C["Media"].Textures.White8x8Texture)
-		self.usableTexture:SetAllPoints(self)
-		self.usableTexture:SetVertexColor(1, 0, 0)
-		self.usableTexture:SetBlendMode("MOD")
 
 		if showNewItem and not self.glowFrame then
 			self.glowFrame = CreateFrame("Frame", nil, self, "BackdropTemplate")
@@ -1219,36 +1455,77 @@ function Module:OnEnable()
 		end
 	end
 
+	-- Upgrade arrow update (ElvUI-style integration per Pawn guidance)
+	local ITEM_UPGRADE_CHECK_TIME = 0.5
+
+	local function UpgradeCheck_OnUpdate(self, elapsed)
+		self._timeSinceUpgradeCheck = (self._timeSinceUpgradeCheck or 0) + elapsed
+		if self._timeSinceUpgradeCheck >= ITEM_UPGRADE_CHECK_TIME then
+			self._timeSinceUpgradeCheck = 0
+			if self._callUpdateUpgradeIcon then
+				self:_callUpdateUpgradeIcon()
+			end
+		end
+	end
+
 	local function UpdatePawnArrow(self, item)
-		if not hasPawn then
+		if not self or not self.UpgradeIcon then
 			return
 		end
 
-		if not PawnIsContainerItemAnUpgrade then
+		-- Respect user setting; only show for equippable items
+		if not C["Inventory"].UpgradeIcon or not item or not item.link or not IsEquippableItem(item.link) then
+			self.UpgradeIcon:SetShown(false)
+			self:SetScript("OnUpdate", nil)
 			return
 		end
 
-		if self.UpgradeIcon then
-			self.UpgradeIcon:ClearAllPoints()
-			self.UpgradeIcon:SetPoint("TOPRIGHT", 3, 3)
-			self.UpgradeIcon:SetShown(PawnIsContainerItemAnUpgrade(item.bagId, item.slotId) or false)
+		local itemIsUpgrade
+		local containerID, slotID = item.bagId, item.slotId
+
+		-- Prefer Pawn API; fallback to Blizzard API if needed
+		if _G.PawnIsContainerItemAnUpgrade then
+			itemIsUpgrade = _G.PawnIsContainerItemAnUpgrade(containerID, slotID)
+		end
+		if itemIsUpgrade == nil and _G.IsContainerItemAnUpgrade then
+			itemIsUpgrade = _G.IsContainerItemAnUpgrade(containerID, slotID)
+		end
+
+		self.UpgradeIcon:ClearAllPoints()
+		self.UpgradeIcon:SetPoint("TOPRIGHT", 3, 3)
+
+		if itemIsUpgrade == nil then
+			-- Data not ready yet; hide for now and retry on a throttled OnUpdate
+			self.UpgradeIcon:SetShown(false)
+			self._callUpdateUpgradeIcon = function(btn)
+				-- Re-evaluate using the latest item for this button
+				UpdatePawnArrow(btn, item)
+			end
+			self:SetScript("OnUpdate", UpgradeCheck_OnUpdate)
+		else
+			self.UpgradeIcon:SetShown(itemIsUpgrade)
+			self:SetScript("OnUpdate", nil)
 		end
 	end
 
 	function MyButton:OnUpdateButton(item)
 		if self.JunkIcon then
-			if (item.quality == Enum.ItemQuality.Poor or KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[item.id]) and item.hasPrice then
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			local customJunk = charDB and charDB.CustomJunkList or {}
+			if (item.quality == Enum.ItemQuality.Poor or customJunk[item.id]) and item.hasPrice then
 				self.JunkIcon:Show()
 			else
 				self.JunkIcon:Hide()
 			end
 		end
 
-		-- Determine if we can use that item or not?
-		if (Unfit:IsItemUnusable(item.link) or item.minlevel and item.minlevel > K.Level) and not item.locked then
-			self.usableTexture:Show()
-		else
-			self.usableTexture:Hide()
+		-- Determine if we can use that item
+		if C["Inventory"].ColorUnusableItems then
+			if (Unfit:IsItemUnusable(item.link) or item.minLevel and item.minLevel > K.Level) and not item.locked then
+				self.Icon:SetVertexColor(RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b)
+			else
+				self.Icon:SetVertexColor(1, 1, 1)
+			end
 		end
 
 		self.IconOverlay:SetVertexColor(1, 1, 1)
@@ -1273,7 +1550,9 @@ function Module:OnEnable()
 			SetItemCraftingQualityOverlay(self, item.link)
 		end
 
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[item.id] and not C["Inventory"].ItemFilter then
+		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+		local customItems = charDB and charDB.CustomItems or {}
+		if customItems[item.id] and not C["Inventory"].ItemFilter then
 			self.Favourite:Show()
 		else
 			self.Favourite:Hide()
@@ -1296,10 +1575,12 @@ function Module:OnEnable()
 		self.bindType:SetText("")
 		if showBindOnEquip then
 			local BoE, BoU = item.bindType == 2, item.bindType == 3
-			if not item.bound and (BoE or BoU) then
-				local color = K.QualityColors[item.quality]
-				self.bindType:SetText(BoE and L["BoE"] or L["BoU"]) -- Local these asap
-				self.bindType:SetTextColor(color.r, color.g, color.b)
+			if BoE or BoU then
+				if item.quality > 1 and not item.bound then
+					local color = K.QualityColors[item.quality]
+					self.bindType:SetText(BoE and L["BoE"] or L["BoU"]) -- Local these asap
+					self.bindType:SetTextColor(color.r, color.g, color.b)
+				end
 			end
 		end
 
@@ -1361,6 +1642,7 @@ function Module:OnEnable()
 	function Module:UpdateAllAnchors()
 		Module:UpdateBagsAnchor(f.main, Module.ContainerGroups["Bag"])
 		Module:UpdateBankAnchor(f.bank, Module.ContainerGroups["Bank"])
+		Module:UpdateBankAnchor(f.accountbank, Module.ContainerGroups["Account"])
 	end
 
 	function Module:GetContainerColumns(bagType)
@@ -1368,6 +1650,8 @@ function Module:OnEnable()
 			return C["Inventory"].BagsWidth
 		elseif bagType == "Bank" then
 			return C["Inventory"].BankWidth
+		elseif bagType == "Account" then
+			return C["Inventory"].BankWidth -- AccountWidth
 		end
 	end
 
@@ -1429,7 +1713,7 @@ function Module:OnEnable()
 		local label
 		-- Use patterns with '$' to match the end of the string
 		if name:match("AzeriteItem$") then
-			label = "Azerite Armor"
+			label = L["Azerite Armor"]
 		elseif name:match("Equipment$") then
 			label = BAG_FILTER_EQUIPMENT
 		elseif name:match("EquipSet$") then
@@ -1437,13 +1721,19 @@ function Module:OnEnable()
 		elseif name == "Junk" then
 			label = BAG_FILTER_JUNK
 		elseif name == "BagRelic" then
-			label = "Korthian Relics"
+			label = L["Korthian Relics"]
 		elseif name == "BagReagent" then
-			label = "Reagent Bag"
+			label = L["Reagent Bag"]
 		elseif name == "BagStone" then
-			label = GetSpellInfo(404861)
+			label = C_Spell_GetSpellName(404861)
+		elseif name:match("Keystone$") then
+			label = WEEKLY_REWARDS_MYTHIC_KEYSTONE
+		elseif strmatch(name, "AOE") then
+			label = ITEM_ACCOUNTBOUND_UNTIL_EQUIP
 		elseif strmatch(name, "Lower") then
-			label = "Lower item level"
+			label = L["Lower Item Level"]
+		elseif strmatch(name, "Legacy") then
+			label = L["Legacy Items"]
 		else
 			if name:match("Legendary$") then
 				label = LOOT_JOURNAL_LEGENDARIES
@@ -1485,9 +1775,18 @@ function Module:OnEnable()
 			Module.CreateBagBar(self, settings, 7)
 			buttons[3] = Module.CreateBagToggle(self)
 			buttons[4] = Module.CreateReagentButton(self, f)
+			buttons[5] = Module.CreateAccountBankButton(self, f)
 		elseif name == "Reagent" then
 			buttons[3] = Module.CreateDepositButton(self)
 			buttons[4] = Module.CreateBankButton(self, f)
+			buttons[5] = Module.CreateAccountBankButton(self, f)
+		elseif name == "Account" then
+			Module.CreateBagTab(self, settings, 5)
+			buttons[3] = Module.CreateBagToggle(self, true)
+			buttons[4] = Module.CreateAccountBankDeposit(self)
+			buttons[5] = Module.CreateBankButton(self, f)
+			buttons[6] = Module.CreateReagentButton(self, f)
+			buttons[7] = Module.CreateAccountMoney(self)
 		end
 
 		for i = 1, #buttons do
@@ -1516,6 +1815,11 @@ function Module:OnEnable()
 		if button.glowFrame then
 			button.glowFrame:SetSize(iconSize + 8, iconSize + 8)
 		end
+	end
+
+	-- Called from GUI hooks to refresh bag visuals when options change
+	function Module:UpdateBagStatus()
+		Module:UpdateAllBags()
 	end
 
 	function Module:UpdateBagSize()
@@ -1574,11 +1878,13 @@ function Module:OnEnable()
 	end
 
 	-- Sort order
-	C_Container.SetSortBagsRightToLeft(not C["Inventory"].ReverseSort)
-	C_Container.SetInsertItemsLeftToRight(false)
+	C_Container_SetSortBagsRightToLeft(not C["Inventory"].ReverseSort)
+	C_Container_SetInsertItemsLeftToRight(false)
 
 	-- Init
+	C["Inventory"].GatherEmpty = not C["Inventory"].GatherEmpty
 	ToggleAllBags()
+	C["Inventory"].GatherEmpty = not C["Inventory"].GatherEmpty
 	ToggleAllBags()
 	Module.initComplete = true
 
@@ -1589,7 +1895,7 @@ function Module:OnEnable()
 	-- Update DataText slots
 	if _G.KKUI_GoldDataText then
 		Backpack.OnOpen = function()
-			if not KkthnxUIDB.ShowSlots then
+			if not (KkthnxUIDB.Global and KkthnxUIDB.Global.ShowSlots) then
 				return
 			end
 			K.GoldButton_OnEvent()
@@ -1615,10 +1921,29 @@ function Module:OnEnable()
 	SetCVar("professionToolSlotsExampleShown", 1)
 	SetCVar("professionAccessorySlotsExampleShown", 1)
 
+	-- Bank frame paging
+	local bankNameIndex = {
+		["BankSlotsFrame"] = 1,
+		["ReagentBankFrame"] = 2,
+		["AccountBankPanel"] = 3,
+	}
+	hooksecurefunc("BankFrame_ShowPanel", function(sidePanelName)
+		local panelIndex = bankNameIndex[sidePanelName]
+		if panelIndex then
+			BankFrame.selectedTab = panelIndex
+			BankFrame.activeTabIndex = panelIndex
+			f.bank:SetShown(panelIndex == 1)
+			f.reagent:SetShown(panelIndex == 2)
+			f.accountbank:SetShown(panelIndex == 3)
+			if _G["KKUI_BankPurchaseButton"] then
+				_G["KKUI_BankPurchaseButton"]:SetShown(panelIndex == 3 and C_Bank_CanPurchaseBankTab(ACCOUNT_BANK_TYPE))
+			end
+		end
+	end)
+
 	-- Delay updates for data jam
 	local updater = CreateFrame("Frame", nil, f.main)
 	updater:Hide()
-
 	updater:SetScript("OnUpdate", function(self, elapsed)
 		self.delay = self.delay - elapsed
 		if self.delay < 0 then
@@ -1627,9 +1952,10 @@ function Module:OnEnable()
 		end
 	end)
 
-	-- Event listener for GET_ITEM_INFO_RECEIVED
 	K:RegisterEvent("GET_ITEM_INFO_RECEIVED", function()
-		updater.delay = 1.5
-		updater:Show()
+		if Module.Bags and Module.Bags:IsShown() then
+			updater.delay = 1
+			updater:Show()
+		end
 	end)
 end

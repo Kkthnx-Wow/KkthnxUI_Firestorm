@@ -1,23 +1,47 @@
---[=[
-	Shows Debuffs on Unit Frames.
+--[[
+# Element: Debuff Indicator
 
-	Sub-Widgets will be created if not provided.
+	Shows a Debuff icon, duration and debuff type indication for debuffs the player can dispel.
 
-	Member Variables
-	.font			Font details used for timer and stacks
-	.fontheight 	| used if Sub-Widgets aren't provided
-	.fontFlags		| not needed otherwise
+## Widget
 
-	Sub-Widgets
-	.icon			The Icon/Texture of the debuff
-	.cd 			A Cooldown frame
-	.timer			A Text showing the remaining duration
-	.count			A Text showing the number of stacks
-	.Backdrop		Backdrops border is used to indicate the debuff type
---]=]
-local K = KkthnxUI[1]
-local oUF = K.oUF
+	RaidDebuffs    - A 'Frame' used to display the debuff.
 
+## Sub-Widgets
+
+	.icon          - The 'Texture' of the debuff
+	.cd            - A 'Frame' with 'CooldownFrameTemplate'
+	.timer         - A 'FontString' showing the remaining duration
+	.count         - A 'FontString' showing the number of stacks
+	.Backdrop      - Backdrops border is used to indicate the debuff type
+
+## Notes
+
+	Sub-Widgets will be created if not provided. The font options are only used in that case.
+	Font defaults to (NumberFontNormal, 12, nil)
+
+## Options
+
+	.font          - Font used for timer and stacks (Font?)
+	.fontheight    - Font height (number?)
+	.fontFlags     - Font flags (string?)
+
+## Examples
+
+	-- position and size
+	local RaidDebuffs = CreateFrame("Frame", nil, Health)
+	RaidDebuffs:SetHeight(DebuffSize)
+	RaidDebuffs:SetWidth(DebuffSize)
+	RaidDebuffs:SetPoint("CENTER", Health)
+	RaidDebuffs:SetFrameLevel(Health:GetFrameLevel() + 10)
+
+	-- Register it with oUF
+	self.RaidDebuffs = RaidDebuffs
+--]]
+local _, ns = ...
+local oUF = ns.oUF or oUF
+
+-- Localize globals for performance
 local IsPlayerSpell = _G.IsPlayerSpell
 local UnitCanAssist = _G.UnitCanAssist
 local GetTime = _G.GetTime
@@ -25,10 +49,32 @@ local playerClass = _G.UnitClassBase("player")
 local GetAuraDataByAuraInstanceID = _G.C_UnitAuras.GetAuraDataByAuraInstanceID
 local GetAuraDataByIndex = _G.C_UnitAuras.GetAuraDataByIndex
 local ForEachAura = _G.AuraUtil.ForEachAura
-local NewTicker = _G.C_Timer.NewTicker
 local debuffColor = _G.DebuffTypeColor
+local pairs = pairs
+local ipairs = ipairs
+local table_wipe = table.wipe
 
---[[ Holds the dispel priority list. ]]
+-- Timer throttle for text updates (seconds)
+local TIMER_THROTTLE = 0.1
+
+-- Small table pool for cache entries
+local cacheWrite
+local cachePool = {}
+local function acquireCacheEntry()
+	local t = cachePool[#cachePool]
+	if t then
+		cachePool[#cachePool] = nil
+		return t
+	end
+	return {}
+end
+local function releaseCacheEntry(t)
+	t.priority = nil
+	t.AuraData = nil
+	cachePool[#cachePool + 1] = t
+end
+
+-- Holds the dispel priority list.
 local priorityList = {
 	Magic = 4,
 	Curse = 3,
@@ -36,7 +82,7 @@ local priorityList = {
 	Disease = 1,
 }
 
---[[ Holds which dispel types can currently be handled. Initialized to false for all. ]]
+-- Holds which dispel types can currently be handled. Initialized to false for all.
 local dispelList = {
 	Magic = false,
 	Poison = false,
@@ -44,168 +90,64 @@ local dispelList = {
 	Curse = false,
 }
 
---[[ Class functions to update the dispel types which can be handled. ]]
-local canDispel = {
-	DRUID = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(88423) -- Nature's Cure
-			dispelList["Poison"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
-		end,
-		classic = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = IsPlayerSpell(8946) or IsPlayerSpell(2893) -- Cure Poison or Abolish Poison
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(2782) -- Remove Curse
-		end,
-		other = function()
-			dispelList["Magic"] = IsPlayerSpell(88423) -- Nature's Cure
-			dispelList["Poison"] = IsPlayerSpell(2782) -- Remove Corruption
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(2782) -- Remove Corruption
-		end,
-	},
-	MAGE = {
-		retail = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
-		end,
-		classic = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
-		end,
-		other = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
-		end,
-	},
-	MONK = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(115450) -- Detox
-			dispelList["Poison"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
-			dispelList["Disease"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
-			dispelList["Curse"] = false
-		end,
-		classic = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = false
-		end,
-		other = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = false
-		end,
-	},
-	PALADIN = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(4987) -- Cleanse
-			dispelList["Poison"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
-			dispelList["Disease"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
-			dispelList["Curse"] = false
-		end,
-		classic = function()
-			dispelList["Magic"] = IsPlayerSpell(4987) -- Cleanse
-			dispelList["Poison"] = IsPlayerSpell(4987) or IsPlayerSpell(1152) -- Cleanse or Purify
-			dispelList["Disease"] = IsPlayerSpell(4987) or IsPlayerSpell(1152) -- Cleanse or Purify
-			dispelList["Curse"] = false
-		end,
-		other = function()
-			dispelList["Magic"] = IsPlayerSpell(53551) -- Sacred Cleansing
-			dispelList["Poison"] = IsPlayerSpell(4987) -- Cleanse
-			dispelList["Disease"] = IsPlayerSpell(4987) -- Cleanse
-			dispelList["Curse"] = false
-		end,
-	},
-	PRIEST = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(527) or IsPlayerSpell(32375) -- Purify or Mass Dispel
-			dispelList["Poison"] = false
-			dispelList["Disease"] = IsPlayerSpell(390632) or IsPlayerSpell(213634) -- Improved Purify or Purify Disease
-			dispelList["Curse"] = false
-		end,
-		classic = function()
-			dispelList["Magic"] = IsPlayerSpell(988) -- Dispel Magic
-			dispelList["Poison"] = false
-			dispelList["Disease"] = IsPlayerSpell(528) or IsPlayerSpell(552) -- Cure Disease or Abolish Disease
-			dispelList["Curse"] = false
-		end,
-		other = function()
-			dispelList["Magic"] = IsPlayerSpell(527) and IsPlayerSpell(33167) or IsPlayerSpell(32375) -- Dispel Magic and Absolution or Mass Dispel
-			dispelList["Poison"] = false
-			dispelList["Disease"] = IsPlayerSpell(528) -- Cure Disease
-			dispelList["Curse"] = false
-		end,
-	},
-	SHAMAN = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(77130) -- Purify Spirit
-			dispelList["Poison"] = IsPlayerSpell(383013) -- Poison Cleansing Totem
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(383016) or IsPlayerSpell(51886) -- Improved Purify Spirit or Cleanse Spirit
-		end,
-		classic = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = IsPlayerSpell(526) or IsPlayerSpell(8166) -- Cure Poison or Poison Cleansing Totem
-			dispelList["Disease"] = IsPlayerSpell(2870) or IsPlayerSpell(8170) -- Cure Disease or Disease Cleansing Totem
-			dispelList["Curse"] = false
-		end,
-		other = function()
-			dispelList["Magic"] = IsPlayerSpell(77130) -- Improved Cleanse Spirit
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = IsPlayerSpell(51886) -- Cleanse Spirit
-		end,
-	},
-	EVOKER = {
-		retail = function()
-			dispelList["Magic"] = IsPlayerSpell(360823) -- Naturalize
-			dispelList["Poison"] = IsPlayerSpell(360823) or IsPlayerSpell(365585) or IsPlayerSpell(374251) -- Naturalize or Expunge or Cauterizing Flame
-			dispelList["Disease"] = IsPlayerSpell(374251) -- Cauterizing Flame
-			dispelList["Curse"] = IsPlayerSpell(374251) -- Cauterizing Flame
-		end,
-		classic = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = false
-		end,
-		other = function()
-			dispelList["Magic"] = false
-			dispelList["Poison"] = false
-			dispelList["Disease"] = false
-			dispelList["Curse"] = false
-		end,
-	},
+-- Class functions to update the dispel types which can be handled.
+local updateDispelCapabilitiesByClass = {
+	DRUID = function()
+		dispelList["Magic"] = IsPlayerSpell(88423) -- Nature's Cure
+		dispelList["Poison"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
+		dispelList["Disease"] = false
+		dispelList["Curse"] = IsPlayerSpell(392378) or IsPlayerSpell(2782) -- Improved Nature's Cure or Remove Corruption
+	end,
+	MAGE = function()
+		dispelList["Magic"] = false
+		dispelList["Poison"] = false
+		dispelList["Disease"] = false
+		dispelList["Curse"] = IsPlayerSpell(475) -- Remove Curse
+	end,
+	MONK = function()
+		dispelList["Magic"] = IsPlayerSpell(115450) -- Detox
+		dispelList["Poison"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
+		dispelList["Disease"] = IsPlayerSpell(388874) or IsPlayerSpell(218164) -- Improved Detox or Detox
+		dispelList["Curse"] = false
+	end,
+	PALADIN = function()
+		dispelList["Magic"] = IsPlayerSpell(4987) -- Cleanse
+		dispelList["Poison"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
+		dispelList["Disease"] = IsPlayerSpell(393024) or IsPlayerSpell(213644) -- Improved Cleanse or Cleanse Toxins
+		dispelList["Curse"] = false
+	end,
+	PRIEST = function()
+		dispelList["Magic"] = IsPlayerSpell(527) or IsPlayerSpell(32375) -- Purify or Mass Dispel
+		dispelList["Poison"] = false
+		dispelList["Disease"] = IsPlayerSpell(390632) or IsPlayerSpell(213634) -- Improved Purify or Purify Disease
+		dispelList["Curse"] = false
+	end,
+	SHAMAN = function()
+		dispelList["Magic"] = IsPlayerSpell(77130) -- Purify Spirit
+		dispelList["Poison"] = IsPlayerSpell(383013) -- Poison Cleansing Totem
+		dispelList["Disease"] = false
+		dispelList["Curse"] = IsPlayerSpell(383016) or IsPlayerSpell(51886) -- Improved Purify Spirit or Cleanse Spirit
+	end,
+	EVOKER = function()
+		dispelList["Magic"] = IsPlayerSpell(360823) -- Naturalize
+		dispelList["Poison"] = IsPlayerSpell(360823) or IsPlayerSpell(365585) or IsPlayerSpell(374251) -- Naturalize or Expunge or Cauterizing Flame
+		dispelList["Disease"] = IsPlayerSpell(374251) -- Cauterizing Flame
+		dispelList["Curse"] = IsPlayerSpell(374251) -- Cauterizing Flame
+	end,
 }
 
---[[ Event handler for SPELLS_CHANGED.
-
-Only fires for a player frame.
-
-* self - oUF UnitFrame
-* event - SPELLS_CHANGED
-]]
+-- Event handler for SPELLS_CHANGED.
+-- Only fires for a player frame.
 local function UpdateDispelList(self, event)
 	if event == "SPELLS_CHANGED" then
-		local project = (oUF.isRetail and "retail") or (oUF.isClassic and "classic") or "other"
-		canDispel[playerClass][project]()
+		local updater = updateDispelCapabilitiesByClass[playerClass]
+		if updater then
+			updater()
+		end
 	end
 end
 
---[[ Returns a format string for timers.
-
-* time - Time in seconds
-]]
+-- Returns a format string for timers.
 local function timeFormat(time)
 	if time < 3 then
 		return "%.1f"
@@ -216,12 +158,39 @@ local function timeFormat(time)
 	end
 end
 
---[[ Show the debuff element.
+-- Throttled OnUpdate for remaining time text
+local function ElementOnUpdate(self, elapsed)
+	local accum = (self._accum or 0) + elapsed
+	if accum < TIMER_THROTTLE then
+		self._accum = accum
+		return
+	end
+	self._accum = 0
 
-* self - oUF UnitFrame
-* unit - Tracked unit
-* auraInstanceID - auraInstanceID of the debuff to be displayed
-]]
+	local expirationTime = self._expiresAt
+	local duration = self._duration
+	if not expirationTime or not duration or duration <= 0 then
+		self:SetScript("OnUpdate", nil)
+		if self.timer then
+			self.timer:SetText("")
+		end
+		return
+	end
+
+	local remaining = expirationTime - GetTime()
+	if remaining > 0 then
+		self.timer:SetFormattedText(timeFormat(remaining), remaining)
+	else
+		-- Aura expired; ensure cache is updated in absence of an event
+		self:SetScript("OnUpdate", nil)
+		self.timer:SetText("")
+		if cacheWrite and self.__owner and self.__unit and self._auraInstanceID then
+			cacheWrite(self.__owner, self.__unit, self._auraInstanceID, nil, nil)
+		end
+	end
+end
+
+-- Show the debuff element for auraInstanceID.
 local function ShowElement(self, unit, auraInstanceID)
 	local element = self.RaidDebuffs
 	local debuffCache = element.debuffCache
@@ -238,21 +207,11 @@ local function ShowElement(self, unit, auraInstanceID)
 	if duration and duration > 0 then
 		local start = expirationTime - duration
 		element.cd:SetCooldown(start, duration)
-
-		if element.ticker then
-			element.ticker:Cancel()
-		end
-		element.ticker = NewTicker(0.1, function(ticker)
-			local remaining = expirationTime - GetTime()
-			if remaining > 0 then
-				element.timer:SetFormattedText(timeFormat(remaining), remaining)
-			else
-				-- aura expired but we got no event for it
-				ticker:Cancel()
-				debuffCache[auraInstanceID] = nil
-				element.SelectPrioDebuff(self, unit)
-			end
-		end)
+		-- Store state for throttled OnUpdate updates
+		element._expiresAt = expirationTime
+		element._duration = duration
+		element._auraInstanceID = auraInstanceID
+		element:SetScript("OnUpdate", ElementOnUpdate)
 	end
 
 	if count and count > 1 then
@@ -260,18 +219,17 @@ local function ShowElement(self, unit, auraInstanceID)
 	end
 end
 
---[[ Hide the debuff element.
-
-* self - oUF UnitFrame
-* unit - Tracked unit
-]]
+-- Hide the debuff element.
 local function HideElement(self, unit)
 	local element = self.RaidDebuffs
 	local color = debuffColor["none"]
 
-	if element.ticker then
-		element.ticker:Cancel()
-	end
+	-- Stop OnUpdate timer and clear state
+	element:SetScript("OnUpdate", nil)
+	element._accum = 0
+	element._expiresAt = nil
+	element._duration = nil
+	element._auraInstanceID = nil
 
 	element.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
 	element.cd:SetCooldown(0, 0)
@@ -281,11 +239,7 @@ local function HideElement(self, unit)
 	element:Hide()
 end
 
---[[ Select the Debuff with highest priority to display, hide element when none left.
-
-* self - oUF UnitFrame
-* unit - Tracked unit
-]]
+-- Select the Debuff with highest priority to display, hide element when none left.
 local function SelectPrioDebuff(self, unit)
 	local debuffCache = self.RaidDebuffs.debuffCache
 	local auraInstanceID = nil
@@ -306,39 +260,56 @@ local function SelectPrioDebuff(self, unit)
 	end
 end
 
---[[ Filter for dispellable debuffs.
+-- After each write to the cache the display also needs to be updated.
+-- Struncture of the cache is: table<auraInstanceID, aura<priority, AuraData>>
+cacheWrite = function(self, unit, auraInstanceID, priority, AuraData)
+	local debuffCache = self.RaidDebuffs.debuffCache
 
-* self - oUF UnitFrame
-* unit - Tracked unit
-* AuraData - (optional) UNIT_AURA event payload
-]]
-local function FilterAura(self, unit, AuraData)
-	if AuraData and AuraData.isHarmful then
-		local debuffCache = self.RaidDebuffs.debuffCache
-		local dispelName = AuraData.dispelName
-
-		if dispelName and dispelList[dispelName] then
-			debuffCache[AuraData.auraInstanceID] = {
-				priority = priorityList[dispelName],
-				AuraData = AuraData,
-			}
-			SelectPrioDebuff(self, unit)
+	if not priority or not AuraData then
+		local old = debuffCache[auraInstanceID]
+		if old then
+			debuffCache[auraInstanceID] = nil
+			releaseCacheEntry(old)
 		end
+	else
+		local entry = debuffCache[auraInstanceID]
+		if not entry then
+			entry = acquireCacheEntry()
+			debuffCache[auraInstanceID] = entry
+		end
+		entry.priority = priority
+		entry.AuraData = AuraData
 	end
+
+	SelectPrioDebuff(self, unit)
 end
 
---[[ Reset cache and full scan when isFullUpdate.
+-- Filter for dispellable debuffs and update the cache.
+local function FilterAura(self, unit, auraInstanceID, AuraData)
+	local debuffCache = self.RaidDebuffs.debuffCache
 
-* self - oUF UnitFrame
-* unit - Tracked unit
-]]
+	if AuraData then -- added aura or valid update
+		if AuraData.isHarmful then
+			local dispelName = AuraData.dispelName
+
+			if dispelName and dispelList[dispelName] then
+				cacheWrite(self, unit, auraInstanceID, priorityList[dispelName], AuraData)
+			end
+		end
+	elseif debuffCache[auraInstanceID] then -- removed aura or invalid update
+		cacheWrite(self, unit, auraInstanceID, nil, nil)
+	end -- aura we dont care about
+end
+
+-- Reset cache and full scan when isFullUpdate.
 local function FullUpdate(self, unit)
-	table.wipe(self.RaidDebuffs.debuffCache)
+	table_wipe(self.RaidDebuffs.debuffCache)
+	HideElement(self, unit)
 
 	if ForEachAura then
 		-- Mainline iteration-style.
 		ForEachAura(unit, "HARMFUL", nil, function(AuraData)
-			FilterAura(self, unit, AuraData)
+			FilterAura(self, unit, AuraData.auraInstanceID, AuraData)
 		end, true)
 	else
 		-- Classic iteration-style.
@@ -347,20 +318,14 @@ local function FullUpdate(self, unit)
 		repeat
 			AuraData = GetAuraDataByIndex(unit, i, "HARMFUL")
 			if AuraData then
-				FilterAura(self, unit, AuraData)
+				FilterAura(self, unit, AuraData.auraInstanceID, AuraData)
 			end
 			i = i + 1
 		until not AuraData
 	end
 end
 
---[[ Event handler for UNIT_AURA.
-
-* self - oUF UnitFrame
-* event - UNIT_AURA
-* unit - Payload of event: unitTarget
-* updateInfo - Payload of event: UnitAuraUpdateInfo
-]]
+-- Event handler for UNIT_AURA.
 local function Update(self, event, unit, updateInfo)
 	-- Exit when unit doesn't match or target can't be assisted
 	if event ~= "UNIT_AURA" or self.unit ~= unit or not UnitCanAssist("player", unit) then
@@ -373,26 +338,25 @@ local function Update(self, event, unit, updateInfo)
 	end
 
 	if updateInfo.removedAuraInstanceIDs then
-		local debuffCache = self.RaidDebuffs.debuffCache
-		for _, auraInstanceID in pairs(updateInfo.removedAuraInstanceIDs) do
-			if debuffCache[auraInstanceID] then
-				debuffCache[auraInstanceID] = nil
-				SelectPrioDebuff(self, unit)
-			end
+		local list = updateInfo.removedAuraInstanceIDs
+		for i = 1, #list do
+			FilterAura(self, unit, list[i], nil)
 		end
 	end
 
 	if updateInfo.updatedAuraInstanceIDs then
-		for _, auraInstanceID in pairs(updateInfo.updatedAuraInstanceIDs) do
-			if auraInstanceID then
-				FilterAura(self, unit, GetAuraDataByAuraInstanceID(unit, auraInstanceID))
-			end
+		local list = updateInfo.updatedAuraInstanceIDs
+		for i = 1, #list do
+			local auraInstanceID = list[i]
+			FilterAura(self, unit, auraInstanceID, GetAuraDataByAuraInstanceID(unit, auraInstanceID))
 		end
 	end
 
 	if updateInfo.addedAuras then
-		for _, AuraData in pairs(updateInfo.addedAuras) do
-			FilterAura(self, unit, AuraData)
+		local list = updateInfo.addedAuras
+		for i = 1, #list do
+			local AuraData = list[i]
+			FilterAura(self, unit, AuraData.auraInstanceID, AuraData)
 		end
 	end
 end
@@ -400,16 +364,14 @@ end
 local function Enable(self)
 	local element = self.RaidDebuffs
 
-	if element and canDispel[playerClass] then
-		--[[ Cache for active debuffs.
-
-		table<auraInstanceID, aura>
-		aura = {
-			.priority - See priorityList
-			.AuraData - See UNIT_AURA event payload
-		}]]
+	if element and updateDispelCapabilitiesByClass[playerClass] then
 		element.debuffCache = {}
-		element.SelectPrioDebuff = SelectPrioDebuff
+		element.__owner = self
+		element.__unit = self.unit
+
+		element.font = element.font or NumberFontNormal
+		element.fontHeight = element.fontHeight or 12
+		element.fontFlags = element.fontFlags or ""
 
 		-- Create missing Sub-Widgets
 		if not element.icon then
@@ -440,6 +402,7 @@ local function Enable(self)
 		end
 
 		if not element.KKUI_Border then
+			print(element.KKUI_Border)
 			element:CreateBorder()
 		end
 

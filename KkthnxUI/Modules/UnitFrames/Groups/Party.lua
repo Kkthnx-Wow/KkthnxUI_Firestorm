@@ -11,7 +11,7 @@ function Module:CreateParty()
 
 	local partyWidth = C["Party"].HealthWidth
 	local partyHeight = C["Party"].HealthHeight
-	local partyPortraitStyle = C["Unitframe"].PortraitStyle.Value
+	local partyPortraitStyle = C["Unitframe"].PortraitStyle
 
 	local UnitframeTexture = K.GetTexture(C["General"].Texture)
 	local HealPredictionTexture = K.GetTexture(C["General"].Texture)
@@ -39,11 +39,11 @@ function Module:CreateParty()
 		K:SmoothBar(Health)
 	end
 
-	if C["Party"].HealthbarColor.Value == "Value" then
+	if C["Party"].HealthbarColor == 3 then
 		Health.colorSmooth = true
 		Health.colorClass = false
 		Health.colorReaction = false
-	elseif C["Party"].HealthbarColor.Value == "Dark" then
+	elseif C["Party"].HealthbarColor == 2 then
 		Health.colorSmooth = false
 		Health.colorClass = false
 		Health.colorReaction = false
@@ -80,39 +80,37 @@ function Module:CreateParty()
 	Name:SetWidth(partyWidth)
 	Name:SetWordWrap(false)
 	Name:SetFontObject(K.UIFont)
-	if partyPortraitStyle == "NoPortraits" or partyPortraitStyle == "OverlayPortrait" then
-		if C["Unitframe"].HealthbarColor.Value == "Class" then
+	if partyPortraitStyle == 0 or partyPortraitStyle == 4 then
+		if C["Unitframe"].HealthbarColor == 1 then
 			self:Tag(Name, "[lfdrole][name] [nplevel]")
 		else
 			self:Tag(Name, "[lfdrole][color][name] [nplevel]")
 		end
 	else
-		if C["Unitframe"].HealthbarColor.Value == "Class" then
+		if C["Unitframe"].HealthbarColor == 1 then
 			self:Tag(Name, "[lfdrole][name]")
 		else
 			self:Tag(Name, "[lfdrole][color][name]")
 		end
 	end
 
-	if partyPortraitStyle ~= "NoPortraits" then
-		local Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", self)
-		if partyPortraitStyle == "OverlayPortrait" then
+	if partyPortraitStyle ~= 0 then
+		local Portrait
+
+		if partyPortraitStyle == 4 then
+			Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
-
-			self.Portrait = Portrait
-		elseif partyPortraitStyle == "ThreeDPortraits" then
-			local Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", Health)
+		elseif partyPortraitStyle == 5 then
+			Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
 			Portrait:CreateBorder()
-
-			self.Portrait = Portrait
-		elseif partyPortraitStyle ~= "ThreeDPortraits" and partyPortraitStyle ~= "OverlayPortrait" then
-			local Portrait = Health:CreateTexture("KKUI_PartyPortrait", "BACKGROUND", nil, 1)
+		else
+			Portrait = Health:CreateTexture("KKUI_PartyPortrait", "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
@@ -121,16 +119,20 @@ function Module:CreateParty()
 			Portrait.Border:SetAllPoints(Portrait)
 			Portrait.Border:CreateBorder()
 
-			self.Portrait = Portrait
-
-			if partyPortraitStyle == "ClassPortraits" or partyPortraitStyle == "NewClassPortraits" then
+			if partyPortraitStyle == 2 or partyPortraitStyle == 3 then
 				Portrait.PostUpdate = Module.UpdateClassPortraits
 			end
+		end
+
+		self.Portrait = Portrait
+
+		if partyPortraitStyle == 5 then
+			Module:ApplyPortraitAlphaFix(self)
 		end
 	end
 
 	local Level = self:CreateFontString(nil, "OVERLAY")
-	if partyPortraitStyle ~= "NoPortraits" and partyPortraitStyle ~= "OverlayPortrait" then
+	if partyPortraitStyle ~= 0 and partyPortraitStyle ~= 4 then
 		Level:Show()
 		Level:SetPoint("BOTTOMLEFT", self.Portrait, "TOPLEFT", 0, 4)
 		Level:SetPoint("BOTTOMRIGHT", self.Portrait, "TOPRIGHT", 0, 4)
@@ -229,57 +231,77 @@ function Module:CreateParty()
 		frame:SetAllPoints(Health)
 		local frameLevel = frame:GetFrameLevel()
 
+		local normalTexture = K.GetTexture(C["General"].Texture)
+
 		-- Position and size
 		local myBar = CreateFrame("StatusBar", nil, frame)
 		myBar:SetPoint("TOP")
 		myBar:SetPoint("BOTTOM")
 		myBar:SetPoint("LEFT", Health:GetStatusBarTexture(), "RIGHT")
-		myBar:SetStatusBarTexture(HealPredictionTexture)
+		myBar:SetStatusBarTexture(normalTexture)
 		myBar:SetStatusBarColor(0, 1, 0.5, 0.5)
+		myBar:SetFrameLevel(frameLevel)
 		myBar:Hide()
 
 		local otherBar = CreateFrame("StatusBar", nil, frame)
 		otherBar:SetPoint("TOP")
 		otherBar:SetPoint("BOTTOM")
 		otherBar:SetPoint("LEFT", myBar:GetStatusBarTexture(), "RIGHT")
-		otherBar:SetStatusBarTexture(HealPredictionTexture)
+		otherBar:SetStatusBarTexture(normalTexture)
 		otherBar:SetStatusBarColor(0, 1, 0, 0.5)
+		otherBar:SetFrameLevel(frameLevel)
 		otherBar:Hide()
 
 		local absorbBar = CreateFrame("StatusBar", nil, frame)
 		absorbBar:SetPoint("TOP")
 		absorbBar:SetPoint("BOTTOM")
 		absorbBar:SetPoint("LEFT", otherBar:GetStatusBarTexture(), "RIGHT")
-		absorbBar:SetStatusBarTexture(HealPredictionTexture)
-		absorbBar:SetStatusBarColor(0.66, 1, 1, 0.7)
+		absorbBar:SetStatusBarTexture(normalTexture)
+		absorbBar:SetStatusBarColor(0.66, 1, 1)
 		absorbBar:SetFrameLevel(frameLevel)
+		absorbBar:SetAlpha(0.5)
 		absorbBar:Hide()
+		local tex = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(absorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		overAbsorbBar:SetAllPoints()
-		overAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		overAbsorbBar:SetStatusBarColor(0.66, 1, 1, 0.5)
+		overAbsorbBar:SetStatusBarTexture(normalTexture)
+		overAbsorbBar:SetStatusBarColor(0.66, 1, 1)
 		overAbsorbBar:SetFrameLevel(frameLevel)
+		overAbsorbBar:SetAlpha(0.35)
 		overAbsorbBar:Hide()
+		local tex = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		healAbsorbBar:SetPoint("TOP")
 		healAbsorbBar:SetPoint("BOTTOM")
 		healAbsorbBar:SetPoint("RIGHT", Health:GetStatusBarTexture())
 		healAbsorbBar:SetReverseFill(true)
-		healAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		local tex = healAbsorbBar:GetStatusBarTexture()
+		healAbsorbBar:SetStatusBarTexture(normalTexture)
+		healAbsorbBar:SetStatusBarColor(1, 0, 0.5)
+		healAbsorbBar:SetFrameLevel(frameLevel)
+		healAbsorbBar:SetAlpha(0.35)
+		healAbsorbBar:Hide()
+		local tex = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
 		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
 		tex:SetHorizTile(true)
 		tex:SetVertTile(true)
-		healAbsorbBar:Hide()
 
-		local overAbsorb = Health:CreateTexture(nil, "OVERLAY")
-		overAbsorb:SetWidth(15)
+		local overAbsorb = Health:CreateTexture(nil, "OVERLAY", nil, 2)
+		overAbsorb:SetWidth(8)
 		overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
 		overAbsorb:SetBlendMode("ADD")
-		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 2)
-		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -2)
+		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 0)
+		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -0)
 		overAbsorb:Hide()
 
 		local overHealAbsorb = frame:CreateTexture(nil, "OVERLAY")
@@ -316,7 +338,7 @@ function Module:CreateParty()
 		TargetHighlight:SetBackdrop({ edgeFile = C["Media"].Borders.GlowBorder, edgeSize = 12 })
 		TargetHighlight:SetFrameLevel(6)
 
-		local relativeTo = (partyPortraitStyle == "NoPortraits" or partyPortraitStyle == "OverlayPortrait") and Health or self.Portrait
+		local relativeTo = (partyPortraitStyle == 0 or partyPortraitStyle == 4) and Health or self.Portrait
 
 		TargetHighlight:SetPoint("TOPLEFT", relativeTo, -5, 5)
 		TargetHighlight:SetPoint("BOTTOMRIGHT", relativeTo, 5, -5)
@@ -339,7 +361,7 @@ function Module:CreateParty()
 
 	local LeaderIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	LeaderIndicator:SetSize(15, 15)
-	if partyPortraitStyle == "NoPortraits" or partyPortraitStyle == "OverlayPortrait" then
+	if partyPortraitStyle == 0 or partyPortraitStyle == 4 then
 		LeaderIndicator:SetPoint("TOPLEFT", Health, 0, 10)
 	else
 		LeaderIndicator:SetPoint("TOPLEFT", self.Portrait, 0, 10)
@@ -347,7 +369,7 @@ function Module:CreateParty()
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	AssistantIndicator:SetSize(15, 15)
-	if partyPortraitStyle == "NoPortraits" or partyPortraitStyle == "OverlayPortrait" then
+	if partyPortraitStyle == 0 or partyPortraitStyle == 4 then
 		AssistantIndicator:SetPoint("TOPLEFT", Health, 0, 8)
 	else
 		AssistantIndicator:SetPoint("TOPLEFT", self.Portrait, 0, 8)
@@ -368,7 +390,7 @@ function Module:CreateParty()
 	SummonIndicator:SetPoint("LEFT", 2, 0)
 
 	local RaidTargetIndicator = Overlay:CreateTexture(nil, "OVERLAY")
-	if partyPortraitStyle ~= "NoPortraits" and partyPortraitStyle ~= "OverlayPortrait" then
+	if partyPortraitStyle ~= 0 and partyPortraitStyle ~= 4 then
 		RaidTargetIndicator:SetPoint("TOP", self.Portrait, "TOP", 0, 8)
 	else
 		RaidTargetIndicator:SetPoint("TOP", Health, "TOP", 0, 8)
@@ -377,7 +399,7 @@ function Module:CreateParty()
 
 	local ResurrectIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	ResurrectIndicator:SetSize(28, 28)
-	if partyPortraitStyle ~= "NoPortraits" and partyPortraitStyle ~= "OverlayPortrait" then
+	if partyPortraitStyle ~= 0 and partyPortraitStyle ~= 4 then
 		ResurrectIndicator:SetPoint("CENTER", self.Portrait)
 	else
 		ResurrectIndicator:SetPoint("CENTER", Health)
@@ -413,7 +435,12 @@ function Module:CreateParty()
 		Override = Module.UpdateThreat,
 	}
 
-	local Range = Module.CreateRangeIndicator(self)
+	self.RangeFader = {
+		insideAlpha = 1,
+		outsideAlpha = 0.55,
+		MaxAlpha = 1,
+		MinAlpha = 0.3,
+	}
 
 	self.Overlay = Overlay
 	self.Health = Health
@@ -429,5 +456,4 @@ function Module:CreateParty()
 	self.ResurrectIndicator = ResurrectIndicator
 	self.Highlight = Highlight
 	self.ThreatIndicator = ThreatIndicator
-	self.Range = Range
 end

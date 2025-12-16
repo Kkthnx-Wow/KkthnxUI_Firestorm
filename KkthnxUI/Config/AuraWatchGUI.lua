@@ -346,8 +346,14 @@ local function CreatePanel()
 		button1 = YES,
 		button2 = NO,
 		OnAccept = function()
-			KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList = {}
-			KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD = {}
+			if not KkthnxUIDB.Global then
+				KkthnxUIDB.Global = {}
+			end
+			KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+			local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+			charDB.AuraWatchList = {}
+			charDB.InternalCD = {}
+			KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 			ReloadUI()
 		end,
 		whileDead = 1,
@@ -360,8 +366,11 @@ local function CreatePanel()
 	local function SortBars(index)
 		local num, onLeft, onRight = 1, 1, 1
 		for k, bar in pairs(barTable[index]) do
-			local isInternalCD = (index == 10 and KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[k])
-			local isAuraWatch = (index < 10 and KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[index][k])
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			local internalCD = charDB and charDB.InternalCD or {}
+			local auraWatchList = charDB and charDB.AuraWatchList or {}
+			local isInternalCD = (index == 10 and internalCD[k])
+			local isAuraWatch = (index < 10 and auraWatchList[index] and auraWatchList[index][k])
 
 			if isInternalCD or isAuraWatch then
 				local posY = -10 - 35 * ((num > 1 and math_floor(num / 2)) == num / 2 and onRight or onLeft)
@@ -424,7 +433,9 @@ local function CreatePanel()
 
 		close:SetScript("OnClick", function()
 			bar:Hide()
-			KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[index][spellID] = nil
+			if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] and KkthnxUIDB.Global.Characters[K.UserKey].AuraWatchList then
+				KkthnxUIDB.Global.Characters[K.UserKey].AuraWatchList[index][spellID] = nil
+			end
 			barTable[index][spellID] = nil
 			SortBars(index)
 		end)
@@ -471,7 +482,9 @@ local function CreatePanel()
 		K.AddTooltip(icon, "ANCHOR_RIGHT", intID)
 		close:SetScript("OnClick", function()
 			bar:Hide()
-			KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[intID] = nil
+			if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] and KkthnxUIDB.Global.Characters[K.UserKey].InternalCD then
+				KkthnxUIDB.Global.Characters[K.UserKey].InternalCD[intID] = nil
+			end
 			barTable[index][intID] = nil
 			SortBars(index)
 		end)
@@ -512,9 +525,18 @@ local function CreatePanel()
 		ch:SetDesaturated(true)
 		ch:SetVertexColor(1, 1, 0)
 
-		bu:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.Switcher[index])
+		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+		local switcher = charDB and charDB.AuraWatchList and charDB.AuraWatchList.Switcher or {}
+		bu:SetChecked(switcher[index])
 		bu:SetScript("OnClick", function()
-			KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.Switcher[index] = bu:GetChecked()
+			if not KkthnxUIDB.Global then
+				KkthnxUIDB.Global = {}
+			end
+			KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+			local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+			db.AuraWatchList = db.AuraWatchList or { Switcher = {}, IgnoreSpells = {} }
+			db.AuraWatchList.Switcher[index] = bu:GetChecked()
+			KkthnxUIDB.Global.Characters[K.UserKey] = db
 		end)
 		K.CreateFontString(bu, 15, "|cffff0000" .. L["AuraWatch Switcher"], "", false, "RIGHT", -30, 0)
 	end
@@ -575,9 +597,14 @@ local function CreatePanel()
 	end
 
 	for i, group in pairs(groups) do
-		if not KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i] = {}
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
 		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		db.AuraWatchList = db.AuraWatchList or { Switcher = {}, IgnoreSpells = {} }
+		db.AuraWatchList[i] = db.AuraWatchList[i] or {}
+		KkthnxUIDB.Global.Characters[K.UserKey] = db
 		barTable[i] = {}
 
 		tabs[i] = CreateFrame("Button", "$parentTab" .. i, f, "BackdropTemplate")
@@ -585,15 +612,17 @@ local function CreatePanel()
 		tabs[i]:SetSize(130, 28)
 		tabs[i]:CreateBorder()
 		local label = K.CreateFontString(tabs[i], 15, group, "", "system", "LEFT", 10, 0)
-		if i == 10 then
+		if i == 8 then
 			label:SetTextColor(0, 0.8, 0.3)
 		end
 		tabs[i].Page = createPage(group)
 		tabs[i].List = AW_CreateScroll(tabs[i].Page, 575, 200, L["AuraWatch List"])
 
 		local Option = {}
-		if i < 10 then
-			for _, v in pairs(KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i]) do
+		if i < 8 then
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			local auraWatchList = charDB and charDB.AuraWatchList and charDB.AuraWatchList[i]
+			for _, v in pairs(auraWatchList or {}) do
 				AddAura(tabs[i].List.child, i, v)
 			end
 			Option[1] = AW_CreateDropdown(tabs[i].Page, L["Type*"], 20, -30, { "AuraID", "SpellID", "SlotID", "TotemID" }, L["Type Intro"])
@@ -638,8 +667,10 @@ local function CreatePanel()
 					end
 				end)
 			end
-		elseif i == 10 then
-			for _, v in pairs(KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD) do
+		elseif i == 8 then
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			local internalCD = charDB and charDB.InternalCD or {}
+			for _, v in pairs(internalCD) do
 				AddInternal(tabs[i].List.child, i, v)
 			end
 			Option[13] = AW_CreateEditbox(tabs[i].Page, L["IntID*"], 20, -30, L["IntID Intro"])
@@ -655,7 +686,7 @@ local function CreatePanel()
 		clear.text = K.CreateFontString(clear, 12, KEY_NUMLOCK_MAC, "", true)
 		clear:SetPoint("TOPRIGHT", -100, -90)
 		clear:SetScript("OnClick", function()
-			if i < 10 then
+			if i < 8 then
 				for j = 2, 12 do
 					AW_ClearEdit(Option[j])
 				end
@@ -673,7 +704,7 @@ local function CreatePanel()
 		add.text = K.CreateFontString(add, 12, ADD, "", true)
 		add:SetPoint("TOPRIGHT", -30, -90)
 		add:SetScript("OnClick", function()
-			if i < 10 then
+			if i < 8 then
 				local typeID, spellID, unitID, slotID, totemID = Option[1].Text:GetText(), tonumber(Option[2]:GetText()), Option[3].Text:GetText()
 				for i = 1, #Option[11].options do
 					if Option[11].options[i].selected then
@@ -705,18 +736,28 @@ local function CreatePanel()
 				end
 
 				local realID = spellID or slotID or totemID
-				if KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i][realID] then
+				local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+				local auraWatchList = charDB and charDB.AuraWatchList and charDB.AuraWatchList[i]
+				if auraWatchList and auraWatchList[realID] then
 					UIErrorsFrame:AddMessage(K.InfoColor .. L["Existing ID"])
 					return
 				end
 
 				-- stylua: ignore
-				KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i][realID] = {typeID, realID, unitID, Option[4].Text:GetText(), tonumber(Option[5]:GetText()) or false, Option[6]:GetChecked(), Option[7]:GetChecked(), Option[8]:GetChecked(), Option[9]:GetText(), Option[10]:GetChecked()}
-				AddAura(tabs[i].List.child, i, KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i][realID])
+				if not KkthnxUIDB.Global then
+					KkthnxUIDB.Global = {}
+				end
+				KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+				local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+				db.AuraWatchList = db.AuraWatchList or { Switcher = {}, IgnoreSpells = {} }
+				db.AuraWatchList[i] = db.AuraWatchList[i] or {}
+				db.AuraWatchList[i][realID] = { typeID, realID, unitID, Option[4].Text:GetText(), tonumber(Option[5]:GetText()) or false, Option[6]:GetChecked(), Option[7]:GetChecked(), Option[8]:GetChecked(), Option[9]:GetText(), Option[10]:GetChecked() }
+				KkthnxUIDB.Global.Characters[K.UserKey] = db
+				AddAura(tabs[i].List.child, i, db.AuraWatchList[i][realID])
 				for i = 2, 12 do
 					AW_ClearEdit(Option[i])
 				end
-			elseif i == 10 then
+			elseif i == 8 then
 				local intID, duration, trigger, unit, itemID = tonumber(Option[13]:GetText()), tonumber(Option[14]:GetText()), Option[15].Text:GetText(), Option[16].Text:GetText(), tonumber(Option[17]:GetText())
 				if not intID or not duration or not trigger or not unit then
 					UIErrorsFrame:AddMessage(K.InfoColor .. L["Incomplete Input"])
@@ -728,13 +769,22 @@ local function CreatePanel()
 					return
 				end
 
-				if KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[intID] then
+				local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+				local internalCD = charDB and charDB.InternalCD or {}
+				if internalCD[intID] then
 					UIErrorsFrame:AddMessage(K.InfoColor .. L["Existing ID"])
 					return
 				end
 
-				KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[intID] = { intID, duration, trigger, unit, itemID }
-				AddInternal(tabs[i].List.child, i, KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD[intID])
+				if not KkthnxUIDB.Global then
+					KkthnxUIDB.Global = {}
+				end
+				KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+				local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+				db.InternalCD = db.InternalCD or {}
+				db.InternalCD[intID] = { intID, duration, trigger, unit, itemID }
+				KkthnxUIDB.Global.Characters[K.UserKey] = db
+				AddInternal(tabs[i].List.child, i, db.InternalCD[intID])
 				for i = 13, 17 do
 					AW_ClearEdit(Option[i])
 				end

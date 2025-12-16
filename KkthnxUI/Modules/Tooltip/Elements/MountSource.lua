@@ -1,14 +1,20 @@
 local K = KkthnxUI[1]
 local Module = K:GetModule("Tooltip")
 
+local select = select
+local UnitIsPlayer = UnitIsPlayer
+local UnitName = UnitName
+local IsShiftKeyDown = IsShiftKeyDown
+local hooksecurefunc = hooksecurefunc
+
 local MountTable = {}
 
+-- Function to check if a mount is collected
 local function IsCollected(spell)
 	local mountInfo = MountTable[spell]
 	if mountInfo then
 		return select(11, C_MountJournal.GetMountInfoByID(mountInfo.index))
 	end
-
 	return false
 end
 
@@ -23,20 +29,17 @@ local function GetMountInfoBySpell(spell)
 			end
 		end
 	end
-
 	return MountTable[spell]
 end
 
 local function AddLine(self, source, isCollectedText, type, noadd)
 	for i = 1, self:NumLines() do
 		local line = _G[self:GetName() .. "TextLeft" .. i]
-		if not line then
-			break
-		end
-
-		local text = line:GetText()
-		if text and text == type then
-			return
+		if line then
+			local text = line:GetText()
+			if text == type then
+				return
+			end
 		end
 	end
 
@@ -50,11 +53,7 @@ local function AddLine(self, source, isCollectedText, type, noadd)
 end
 
 local function HandleAura(self, id)
-	if IsShiftKeyDown() and UnitIsPlayer("target") then
-		if UnitName("target") == K.Name then
-			return
-		end -- Skip if target is the player
-
+	if IsShiftKeyDown() and UnitIsPlayer("target") and UnitName("target") ~= K.Name then
 		local mountInfo = id and GetMountInfoBySpell(id)
 		if mountInfo then
 			AddLine(self, mountInfo.source, IsCollected(id) and COLLECTED or NOT_COLLECTED, SOURCE)
@@ -68,12 +67,21 @@ function Module:CreateMountSource()
 	end
 
 	hooksecurefunc(GameTooltip, "SetUnitAura", function(self, ...)
-		HandleAura(self, select(10, UnitAura(...)))
+		local spellID = select(10, AuraUtil.UnpackAuraData(C_UnitAuras.GetAuraDataByIndex(...)))
+		local table = spellID and GetMountInfoBySpell(spellID)
+		if table then
+			HandleAura(self, spellID)
+		end
 	end)
 
 	hooksecurefunc(GameTooltip, "SetUnitBuffByAuraInstanceID", function(self, unit, auraInstanceID)
 		local data = C_UnitAuras.GetAuraDataByAuraInstanceID(unit, auraInstanceID)
-		if data then
+		if not data then
+			return
+		end
+
+		local table = data.spellId and GetMountInfoBySpell(data.spellId)
+		if table then
 			HandleAura(self, data.spellId)
 		end
 	end)

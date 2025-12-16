@@ -52,9 +52,13 @@ local list = {
 		{ AuraID = 392956, UnitID = "player" }, -- 巨熊之韧
 		{ AuraID = 407405, UnitID = "player" }, -- 弦之韵律
 		{ AuraID = 359844, UnitID = "player" }, -- 荒野的召唤
+		{ AuraID = 360952, UnitID = "player" }, -- 协同进攻
+		{ AuraID = 459859, UnitID = "player" }, -- 投弹手
 		{ AuraID = 388045, UnitID = "player", Flash = true }, -- 警戒
 		{ AuraID = 378770, UnitID = "player", Flash = true }, -- 夺命打击
 		{ AuraID = 378747, UnitID = "player", Flash = true }, -- 凶暴兽群
+		{ AuraID = 459759, UnitID = "player", Flash = true, Stack = 4 }, -- 黑鸦
+		{ AuraID = 459689, UnitID = "player", Flash = true, Stack = 5 }, -- 毒蛇钉刺
 
 		{ AuraID = 394366, UnitID = "player" }, -- 密迹寻踪，射击2T
 		{ AuraID = 394384, UnitID = "player", Flash = true }, -- 集中瞄准，射击4T
@@ -71,10 +75,12 @@ local list = {
 		{ AuraID = 199803, UnitID = "focus", Caster = "player" }, -- 精确瞄准
 	},
 	["Spell Cooldown"] = { -- 冷却计时组
+		{ AuraID = 471877, UnitID = "player" }, -- 猎群领袖之嚎
 		{ SlotID = 13 }, -- 饰品1
 		{ SlotID = 14 }, -- 饰品2
 		{ SpellID = 186265 }, -- 灵龟守护
 		{ SpellID = 147362 }, -- 反制射击
+		{ SpellID = 288613 }, -- 百发百中
 	},
 }
 

@@ -9,7 +9,7 @@ local string_format = string.format
 local string_gsub = string.gsub
 local string_lower = string.lower
 local string_match = string.match
-local table_wipe = table.wipe
+local strsplit = strsplit
 local tonumber = tonumber
 local type = type
 local unpack = unpack
@@ -36,7 +36,7 @@ do
 	end
 
 	function K.ShortValue(n)
-		local prefixStyle = C["General"].NumberPrefixStyle.Value
+		local prefixStyle = C["General"].NumberPrefixStyle
 		local abs_n = abs(n)
 		local suffix, div = "", 1
 
@@ -61,13 +61,17 @@ do
 	end
 
 	function K.Round(number, idp)
-		-- Set the default number of decimal places to 0 if none is specified
+		if type(number) ~= "number" then
+			return
+		end
+
+		if idp ~= nil and type(idp) ~= "number" then
+			return
+		end
+
 		idp = idp or 0
 		local mult = 10 ^ idp
-		-- Round the number to the specified number of decimal places
-		-- by first multiplying it by 10 to the power of idp,
-		-- then rounding it to the nearest whole number using math.floor,
-		-- and finally dividing it by 10 to the power of idp
+
 		return math.floor(number * mult + 0.5) / mult
 	end
 end
@@ -151,37 +155,37 @@ end
 
 -- Table-related Functions
 do
-	function K.CopyTable(source, target)
-		-- Loop through all key-value pairs in the source table
+	function K.CopyTable(source, target, seen)
+		target = target or {}
+		seen = seen or {}
+
+		if seen[source] then
+			return seen[source]
+		end
+
+		seen[source] = target
+
 		for key, value in pairs(source) do
-			-- If the value is a table, copy its contents recursively
 			if type(value) == "table" then
-				-- If there's no key in the target table, create it
-				if not target[key] then
-					target[key] = {}
-				end
-				-- Copy the contents of the sub-table
-				for k in pairs(value) do
-					target[key][k] = value[k]
-				end
+				target[key] = K.CopyTable(value, target[key] or {}, seen)
 			else
-				-- If the value is not a table, simply copy it
 				target[key] = value
 			end
 		end
+
+		return target
 	end
 
 	function K.SplitList(list, variable, cleanup)
-		-- Wipe the table if cleanup is true
+		variable = variable or ""
+
 		if cleanup then
-			table_wipe(list)
+			table.wipe(list)
 		end
 
-		for word in string.gmatch(variable, "%S+") do
-			-- Convert word to number if it is numeric
-			word = tonumber(word) or word
-			-- Add word to the list
-			table.insert(list, word)
+		for word in gmatch(variable, "%S+") do
+			local converted = tonumber(word) or word -- Convert to number if possible
+			list[converted] = true
 		end
 	end
 end
@@ -191,17 +195,20 @@ do
 	-- Gradient Frame
 	local gradientFrom, gradientTo = CreateColor(0, 0, 0, 0.5), CreateColor(0.3, 0.3, 0.3, 0.3)
 	function K.CreateGF(self, w, h, o, r, g, b, a1, a2)
-		-- set the size of the frame
 		self:SetSize(w, h)
-		-- set the frame strata
 		self:SetFrameStrata("BACKGROUND")
-		-- create the gradient texture
 		local gradientFrame = self:CreateTexture(nil, "BACKGROUND")
-		-- set the texture to cover the entire frame
 		gradientFrame:SetAllPoints()
-		-- set the texture to the white 8x8 texture
 		gradientFrame:SetTexture(C["Media"].Textures.White8x8Texture)
-		-- set the gradient type and colors
+		gradientFrame:SetGradient("Vertical", gradientFrom, gradientTo)
+	end
+
+	local gradientFrom, gradientTo = CreateColor(0, 0, 0, 0.5), CreateColor(0.3, 0.3, 0.3, 0.3)
+	function K.CreateGradientFrame(frame)
+		local gradientFrame = frame:CreateTexture(nil, "BACKGROUND")
+		gradientFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -2)
+		gradientFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -0, 2)
+		gradientFrame:SetTexture(C["Media"].Textures.White8x8Texture)
 		gradientFrame:SetGradient("Vertical", gradientFrom, gradientTo)
 	end
 
@@ -259,7 +266,7 @@ do
 	function K.UnitColor(unit)
 		local r, g, b = 1, 1, 1
 
-		if UnitIsPlayer(unit) then
+		if UnitIsPlayer(unit) or UnitInPartyIsAI(unit) then
 			local class = select(2, UnitClass(unit))
 			if class then
 				r, g, b = K.ColorClass(class)
@@ -281,27 +288,43 @@ end
 -- Other Utility Functions
 do
 	function K.TogglePanel(frame)
-		-- check if the frame is currently shown
 		if frame:IsShown() then
-			-- if the frame is shown, hide it
 			frame:Hide()
 		else
-			-- if the frame is not shown, show it
 			frame:Show()
 		end
 	end
 
 	function K.GetNPCID(guid)
-		local id = tonumber(string_match((guid or ""), "%-(%d-)%-%x-$"))
-		return id
+		if not guid then
+			return
+		end
+
+		-- Use C-side strsplit instead of pattern matching for better performance
+		local _, _, _, _, _, npcID = strsplit("-", guid)
+		if npcID then
+			return tonumber(npcID)
+		end
 	end
 
 	function K.CheckAddOnState(addon)
+		if type(addon) ~= "string" then
+			return false
+		end
+
 		return K.AddOns[string_lower(addon)] or false
 	end
 
 	function K.GetAddOnVersion(addon)
 		return K.AddOnVersion[string_lower(addon)] or nil
+	end
+
+	function K.GetAddOnEnableState(addon, character)
+		return C_AddOns.GetAddOnEnableState(addon, character)
+	end
+
+	function K.IsAddOnEnabled(addon)
+		return K.GetAddOnEnableState(addon, K.Name) == 2
 	end
 
 	local function CreateClosure(func, data)
@@ -322,6 +345,7 @@ do
 	end
 
 	local FADEFRAMES, FADEMANAGER = {}, CreateFrame("FRAME")
+	setmetatable(FADEFRAMES, { __mode = "k" }) -- allow frames to be GC'd
 	FADEMANAGER.delay = 0.05
 
 	function K.UIFrameFade_OnUpdate(_, elapsed)
@@ -490,8 +514,8 @@ do
 				return
 			end
 
-			table_wipe(slotData.gems)
-			table_wipe(slotData.gemsColor)
+			table.wipe(slotData.gems)
+			table.wipe(slotData.gemsColor)
 			slotData.iLvl = nil
 			slotData.enchantText = nil
 
@@ -558,6 +582,70 @@ do
 			end
 			return iLvlDB[link]
 		end
+		-- Periodically clear cached item levels to avoid unbounded growth during long sessions
+		local function ClearItemLevelCache()
+			table.wipe(iLvlDB)
+		end
+		K:RegisterEvent("PLAYER_ENTERING_WORLD", ClearItemLevelCache)
+		K:RegisterEvent("PLAYER_LEAVING_WORLD", ClearItemLevelCache)
+	end
+
+	local pendingNPCs, nameCache, callbacks = {}, {}, {}
+	local loadingStr = "..."
+	local pendingFrame = CreateFrame("Frame")
+	pendingFrame:Hide()
+	pendingFrame:SetScript("OnUpdate", function(self, elapsed)
+		self.elapsed = (self.elapsed or 0) + elapsed
+		if self.elapsed > 1 then
+			if next(pendingNPCs) then
+				for npcID, count in pairs(pendingNPCs) do
+					if count > 2 then
+						nameCache[npcID] = UNKNOWN
+						if callbacks[npcID] then
+							callbacks[npcID](UNKNOWN)
+						end
+						pendingNPCs[npcID] = nil
+					else
+						local name = K.GetNPCName(npcID, callbacks[npcID])
+						if name and name ~= loadingStr then
+							pendingNPCs[npcID] = nil
+						else
+							pendingNPCs[npcID] = pendingNPCs[npcID] + 1
+						end
+					end
+				end
+			else
+				self:Hide()
+			end
+
+			self.elapsed = 0
+		end
+	end)
+
+	function K.GetNPCName(npcID, callback)
+		local name = nameCache[npcID]
+		if not name then
+			name = loadingStr
+			local data = C_TooltipInfo.GetHyperlink(format("unit:Creature-0-0-0-0-%d", npcID))
+			local lineData = data and data.lines
+			if lineData then
+				name = lineData[1] and lineData[1].leftText
+			end
+			if name == loadingStr then
+				if not pendingNPCs[npcID] then
+					pendingNPCs[npcID] = 1
+					pendingFrame:Show()
+				end
+			else
+				nameCache[npcID] = name
+			end
+		end
+		if callback then
+			callback(name)
+			callbacks[npcID] = callback
+		end
+
+		return name
 	end
 
 	function K.IsUnknownTransmog(bagID, slotID)
@@ -607,10 +695,10 @@ do
 
 	-- Role Icons
 	local GroupRoleTex = {
-		TANK = "roleicon-tiny-tank",
-		HEALER = "roleicon-tiny-healer",
-		DAMAGER = "roleicon-tiny-dps",
-		DPS = "roleicon-tiny-dps",
+		TANK = "groupfinder-icon-role-micro-tank",
+		HEALER = "groupfinder-icon-role-micro-heal",
+		DAMAGER = "groupfinder-icon-role-micro-dps",
+		DPS = "groupfinder-icon-role-micro-dps",
 	}
 
 	function K.ReskinSmallRole(self, role)
@@ -695,6 +783,205 @@ do
 	end
 end
 
+-- Perks Theme Overlay Helpers
+do
+	local OverlayManager = { overlays = {} }
+	local managerFrame = CreateFrame("Frame")
+	local overlayCount = 0 -- active overlays; enables lazy event registration
+
+	local function getThemePrefix()
+		local prefix
+		if C_PerksActivities and C_PerksActivities.GetPerksUIThemePrefix then
+			prefix = C_PerksActivities.GetPerksUIThemePrefix()
+		end
+		if not prefix or prefix == "" then
+			if C_PerksActivities and C_PerksActivities.GetPerksActivitiesInfo then
+				local info = C_PerksActivities.GetPerksActivitiesInfo()
+				prefix = info and info.uiTextureKit or prefix
+			end
+		end
+		-- Do not hardcode a seasonal fallback; only use Blizzard's active theme.
+		return prefix
+	end
+
+	local function atlasExists(name)
+		return name and C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(name)
+	end
+
+	local function pickAtlas(variant, suffix)
+		local prefix = getThemePrefix()
+		local trySuffixes = {}
+		if suffix and suffix ~= "" then
+			table.insert(trySuffixes, suffix)
+		end
+		if variant == "tp" then
+			-- Common Trading Post suffixes
+			table.insert(trySuffixes, "topbig")
+			table.insert(trySuffixes, "topsmall")
+			table.insert(trySuffixes, "top")
+		else
+			-- Traveler's Log common pieces
+			table.insert(trySuffixes, "top")
+			table.insert(trySuffixes, "box")
+		end
+		for _, s in ipairs(trySuffixes) do
+			local atlas = ("perks-theme-%s-%s-%s"):format(prefix, variant, s)
+			if atlasExists(atlas) then
+				return atlas
+			end
+		end
+		-- cross-variant fallback using the same active prefix only
+		if variant == "tp" then
+			local altList = { "top", "box" }
+			for _, s in ipairs(altList) do
+				local alt = ("perks-theme-%s-tl-%s"):format(prefix, s)
+				if atlasExists(alt) then
+					return alt
+				end
+			end
+		else
+			local altList = { "topbig", "topsmall", "top" }
+			for _, s in ipairs(altList) do
+				local alt = ("perks-theme-%s-tp-%s"):format(prefix, s)
+				if atlasExists(alt) then
+					return alt
+				end
+			end
+		end
+		return nil
+	end
+
+	local function updateOverlay(entry)
+		if not entry or not entry.tex or not entry.holder or not entry.parent then
+			return
+		end
+		local opts = entry.opts or {}
+		local variant = opts.variant or "tp" -- "tp" (trading post) or "tl" (traveler's log)
+		local suffix = opts.suffix or (variant == "tp" and "topbig" or "top")
+		local atlas = pickAtlas(variant, suffix)
+		if atlas then
+			entry.tex:SetAtlas(atlas, true)
+			entry.holder:SetSize(entry.tex:GetWidth(), entry.tex:GetHeight())
+			entry.tex:Show()
+			entry.holder:Show()
+		else
+			entry.tex:Hide()
+			entry.holder:Hide()
+		end
+	end
+
+	local function register(entry)
+		OverlayManager.overlays[entry] = true
+		overlayCount = overlayCount + 1
+		if overlayCount == 1 then
+			managerFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+			managerFrame:RegisterEvent("CALENDAR_UPDATE_EVENT_LIST")
+			managerFrame:RegisterEvent("PERKS_ACTIVITIES_UPDATED")
+			managerFrame:RegisterEvent("CVAR_UPDATE")
+			managerFrame:SetScript("OnEvent", function()
+				K.RefreshPerksThemeOverlays()
+			end)
+		end
+	end
+
+	local function unregister(entry)
+		if OverlayManager.overlays[entry] then
+			OverlayManager.overlays[entry] = nil
+			overlayCount = overlayCount - 1
+			if overlayCount <= 0 then
+				overlayCount = 0
+				managerFrame:UnregisterEvent("PLAYER_ENTERING_WORLD")
+				managerFrame:UnregisterEvent("CALENDAR_UPDATE_EVENT_LIST")
+				managerFrame:UnregisterEvent("PERKS_ACTIVITIES_UPDATED")
+				managerFrame:UnregisterEvent("CVAR_UPDATE")
+				managerFrame:SetScript("OnEvent", nil)
+			end
+		end
+	end
+
+	function K.RefreshPerksThemeOverlays()
+		for entry in pairs(OverlayManager.overlays) do
+			updateOverlay(entry)
+		end
+	end
+
+	-- events are registered lazily in register()/unregister()
+
+	-- Public API: attach a themed overlay to any frame
+	--- Creates a themed Trading Post/Traveler's Log overlay anchored to a frame.
+	-- @param parent Frame: parent holder frame (required)
+	-- @param opts table|nil: variant("tp"|"tl"), suffix, point, relPoint, x, y, strata, level, anchorTo
+	-- @return table overlay handle with :Refresh() and :SetShown(bool)
+	function K.CreatePerksThemeOverlay(parent, opts)
+		if not parent then
+			return
+		end
+		opts = opts or {}
+		local holder = CreateFrame("Frame", nil, parent)
+		holder:SetFrameStrata(opts.strata or "TOOLTIP")
+		holder:SetFrameLevel(opts.level or (parent:GetFrameLevel() + 10))
+		holder:Hide()
+
+		local tex = holder:CreateTexture(nil, "ARTWORK", nil, 7)
+		tex:SetDrawLayer("ARTWORK", 7)
+		tex:Hide()
+		tex:ClearAllPoints()
+		-- default anchor above the frame; allow overrides
+		local point = opts.point or "TOP"
+		local relPoint = opts.relPoint or "TOP"
+		local x = opts.x or 0
+		local y = opts.y or 0
+		holder:ClearAllPoints()
+		local anchorTarget = opts.anchorTo or parent
+		holder:SetPoint(point, anchorTarget, relPoint, x, y)
+		tex:SetPoint("TOP", holder, "TOP", 0, 0)
+
+		local entry = { parent = parent, holder = holder, tex = tex, opts = opts }
+		register(entry)
+		updateOverlay(entry)
+
+		-- convenience methods
+		function entry:Refresh()
+			updateOverlay(self)
+		end
+		function entry:SetShown(shown)
+			if shown then
+				self.holder:Show()
+				self.tex:Show()
+			else
+				self.holder:Hide()
+				self.tex:Hide()
+			end
+		end
+
+		return entry
+	end
+
+	--- Destroys a previously created overlay and unregisters updates.
+	-- @param entry table overlay handle returned by K.CreatePerksThemeOverlay
+	function K.DestroyPerksThemeOverlay(entry)
+		if not entry then
+			return
+		end
+		unregister(entry)
+		if entry.tex then
+			entry.tex:Hide()
+			entry.tex:SetTexture(nil)
+		end
+		if entry.holder then
+			entry.holder:Hide()
+			entry.holder:SetParent(nil)
+		end
+		entry.parent = nil
+		entry.opts = nil
+	end
+
+	-- Sugar alias
+	function K.AttachPerksTheme(frame, opts)
+		return K.CreatePerksThemeOverlay(frame, opts)
+	end
+end
+
 -- Overlay Glow Functions
 do
 	function K.CreateGlowFrame(self, size)
@@ -710,9 +997,17 @@ end
 do
 	function K.CreateMoverFrame(self, parent, saved)
 		local frame = parent or self
+		if not (frame and type(frame) == "table" and frame.SetMovable) then
+			return -- Exit if `frame` is invalid
+		end
+
 		frame:SetMovable(true)
 		frame:SetUserPlaced(true)
 		frame:SetClampedToScreen(true)
+
+		if not (self and type(self) == "table" and self.EnableMouse) then
+			return -- Exit if `self` is invalid
+		end
 
 		self:EnableMouse(true)
 		self:RegisterForDrag("LeftButton")
@@ -726,17 +1021,56 @@ do
 				return
 			end
 
+			local name = frame:GetName()
+			if not name then
+				return
+			end
+
 			local orig, _, tar, x, y = frame:GetPoint()
-			KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][frame:GetName()] = { orig, "UIParent", tar, x, y }
+			if not orig or not tar then
+				return
+			end
+
+			-- Normalize to UIParent and round coordinates for stability
+			x = K.Round and K.Round(x) or x
+			y = K.Round and K.Round(y) or y
+
+			frame:ClearAllPoints()
+			frame:SetPoint(orig, UIParent, tar, x, y)
+
+			-- Store per-profile temporary anchor
+			C.TempAnchor = C.TempAnchor or {}
+			C.TempAnchor[name] = { orig, "UIParent", tar, x, y }
+
+			-- Persist into the active profile when the profile system is available
+			if K.Database and K.Database.SetConfigPath then
+				K.Database:SetConfigPath("TempAnchor." .. name, C.TempAnchor[name])
+			end
 		end)
 	end
 
 	function K.RestoreMoverFrame(self)
-		local name = self:GetName()
-		if name and KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][name] then
-			self:ClearAllPoints()
-			self:SetPoint(unpack(KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][name]))
+		if not (self and type(self) == "table" and self.GetName) then
+			return -- Exit if `self` is invalid
 		end
+
+		local name = self:GetName()
+		if not name then
+			return
+		end
+
+		local points = C.TempAnchor and C.TempAnchor[name]
+		if not points or type(points) ~= "table" then
+			return
+		end
+
+		local orig, _, tar, x, y = unpack(points)
+		if not orig or not tar then
+			return
+		end
+
+		self:ClearAllPoints()
+		self:SetPoint(orig, UIParent, tar, x, y)
 	end
 
 	function K.ShortenString(string, numChars, dots)
@@ -775,6 +1109,10 @@ end
 -- Interface Option Functions
 do
 	function K.HideInterfaceOption(self)
+		if not self then
+			return
+		end
+
 		self:SetAlpha(0)
 		self:SetScale(0.0001)
 	end
@@ -831,11 +1169,10 @@ end
 
 -- Map Position and Money Formatting Functions
 do
-	-- Maps rectangles for storing positional information
 	local mapRects = {}
-
-	-- Temporary 2D vector for calculations
 	local tempVec2D = CreateVector2D(0, 0)
+	local vecZero = CreateVector2D(0, 0)
+	local vecOne = CreateVector2D(1, 1)
 	function K.GetPlayerMapPos(mapID)
 		if not mapID then
 			return
@@ -848,23 +1185,26 @@ do
 
 		local mapRect = mapRects[mapID]
 		if not mapRect then
-			local pos1 = select(2, C_Map_GetWorldPosFromMapPos(mapID, CreateVector2D(0, 0)))
-			local pos2 = select(2, C_Map_GetWorldPosFromMapPos(mapID, CreateVector2D(1, 1)))
+			local pos1 = select(2, C_Map_GetWorldPosFromMapPos(mapID, vecZero))
+			local pos2 = select(2, C_Map_GetWorldPosFromMapPos(mapID, vecOne))
 			if not pos1 or not pos2 then
 				return
 			end
 
 			mapRect = { pos1, pos2 }
 			mapRect[2]:Subtract(mapRect[1])
-
 			mapRects[mapID] = mapRect
 		end
-		tempVec2D:Subtract(mapRect[1])
 
+		tempVec2D:Subtract(mapRect[1])
 		return tempVec2D.y / mapRect[2].y, tempVec2D.x / mapRect[2].x
 	end
 
 	function K.FormatMoney(amount)
+		if type(amount) ~= "number" then
+			return "Invalid amount" -- Handle non-numeric input gracefully
+		end
+
 		local coppername = "|cffeda55fc|r"
 		local goldname = "|cffffd700g|r"
 		local silvername = "|cffc7c7cfs|r"
@@ -875,8 +1215,8 @@ do
 		local copper = math_floor(mod(value, 100))
 
 		if gold > 0 then
-		-- stylua: ignore
-		return string_format("%s%s %02d%s %02d%s", BreakUpLargeNumbers(gold), goldname, silver, silvername, copper, coppername)
+			-- stylua: ignore
+			return string_format("%s%s %02d%s %02d%s", BreakUpLargeNumbers(gold), goldname, silver, silvername, copper, coppername)
 		elseif silver > 0 then
 			return string_format("%d%s %02d%s", silver, silvername, copper, coppername)
 		else

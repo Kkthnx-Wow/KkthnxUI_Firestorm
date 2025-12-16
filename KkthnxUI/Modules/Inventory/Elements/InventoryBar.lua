@@ -15,11 +15,11 @@ local bagBar
 local bagPosition
 
 function Module:BagBar_OnEnter()
-	return C["Inventory"].BagBarMouseover and UIFrameFadeIn(bagBar, 0.2, bagBar:GetAlpha(), 1)
+	return C["Inventory"].BagBarMouseover and K.UIFrameFadeIn(bagBar, 0.2, bagBar:GetAlpha(), 1)
 end
 
 function Module:BagBar_OnLeave()
-	return C["Inventory"].BagBarMouseover and UIFrameFadeOut(bagBar, 0.2, bagBar:GetAlpha(), 0)
+	return C["Inventory"].BagBarMouseover and K.UIFrameFadeOut(bagBar, 0.2, bagBar:GetAlpha(), 0)
 end
 
 function Module:BagBar_OnEvent(event)
@@ -53,8 +53,8 @@ function Module:SetSizeAndPositionBagBar()
 
 	local bagBarSize = C["Inventory"].BagBarSize
 	local buttonSpacing = 6
-	local growthDirection = C["Inventory"].GrowthDirection.Value
-	local sortDirection = C["Inventory"].SortDirection.Value
+	local growthDirection = C["Inventory"].GrowthDirection
+	local sortDirection = C["Inventory"].SortDirection
 	local justBackpack = C["Inventory"].JustBackpack
 
 	if InCombatLockdown() then
@@ -71,19 +71,19 @@ function Module:SetSizeAndPositionBagBar()
 		button:SetShown(not justBackpack or i == 1)
 
 		local prevButton = buttonList[i - 1]
-		if growthDirection == "HORIZONTAL" and sortDirection == "ASCENDING" then
+		if growthDirection == 1 and sortDirection == 1 then
 			if i == 1 then
 				button:SetPoint("LEFT", bagBar, "LEFT", 0, 0)
 			elseif prevButton then
 				button:SetPoint("LEFT", prevButton, "RIGHT", buttonSpacing, 0)
 			end
-		elseif growthDirection == "VERTICAL" and sortDirection == "ASCENDING" then
+		elseif growthDirection == 2 and sortDirection == 1 then
 			if i == 1 then
 				button:SetPoint("TOP", bagBar, "TOP", 0, -0)
 			elseif prevButton then
 				button:SetPoint("TOP", prevButton, "BOTTOM", 0, -buttonSpacing)
 			end
-		elseif growthDirection == "HORIZONTAL" and sortDirection == "DESCENDING" then
+		elseif growthDirection == 1 and sortDirection == 2 then
 			if i == 1 then
 				button:SetPoint("RIGHT", bagBar, "RIGHT", -0, 0)
 			elseif prevButton then
@@ -101,7 +101,7 @@ function Module:SetSizeAndPositionBagBar()
 	local btnSize = bagBarSize * (NUM_BAG_FRAMES + 1)
 	local btnSpace = buttonSpacing * NUM_BAG_FRAMES
 
-	if growthDirection == "HORIZONTAL" then
+	if growthDirection == 1 then
 		bagBar:SetSize(btnSize + btnSpace, bagBarSize)
 	else
 		bagBar:SetSize(bagBarSize, btnSize + btnSpace)
@@ -147,7 +147,7 @@ function Module:CreateInventoryBar()
 	if C["ActionBar"].MicroMenu then
 		bagPosition = { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 40 }
 	else
-		bagPosition = { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 4 }
+		bagPosition = { "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -4, 50 }
 	end
 	bagBar:SetScript("OnEnter", Module.BagBar_OnEnter)
 	bagBar:SetScript("OnLeave", Module.BagBar_OnLeave)

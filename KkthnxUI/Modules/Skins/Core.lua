@@ -1,9 +1,8 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:NewModule("Skins")
 
-local table_wipe = table.wipe
-
 local C_AddOns_IsAddOnLoaded = C_AddOns.IsAddOnLoaded
+local table_wipe = table.wipe
 
 -- Tables to store default themes, registered themes and other skins
 C.defaultThemes = {}
@@ -17,17 +16,16 @@ end
 
 -- Function to load skins from a given list
 function Module:LoadSkins(skinList)
-	-- Check if the list is empty
-	if not next(skinList) then
+	if type(skinList) ~= "table" or not next(skinList) then
 		return
 	end
 
-	-- Iterate through the list of skins
 	for addonName, skinFunction in pairs(skinList) do
 		local isLoaded, isFinished = C_AddOns_IsAddOnLoaded(addonName)
 		if isLoaded and isFinished then
-			-- Call the skin function if the addon is loaded
-			skinFunction()
+			if type(skinFunction) == "function" then
+				skinFunction()
+			end
 			skinList[addonName] = nil
 		end
 	end
@@ -35,46 +33,38 @@ end
 
 -- Function to load default skins
 function Module:LoadDefaultSkins()
-	-- Return if either Aurora or AuroraClassic is loaded
 	if C_AddOns_IsAddOnLoaded("AuroraClassic") or C_AddOns_IsAddOnLoaded("Aurora") then
 		return
 	end
 
-	-- Load default themes
 	for _, defaultSkinFunction in pairs(C.defaultThemes) do
-		defaultSkinFunction()
+		xpcall(defaultSkinFunction, geterrorhandler())
 	end
 	table_wipe(C.defaultThemes)
 
-	-- Don't load Blizzard frame skins if the option is disabled
 	if not C["Skins"].BlizzardFrames then
 		table_wipe(C.themes)
 	end
 
-	-- Load skins for Blizzard frames and other addons
 	Module:LoadSkins(C.themes)
 	Module:LoadSkins(C.otherSkins)
 
-	-- Register an event to load skins when addons are loaded
 	K:RegisterEvent("ADDON_LOADED", function(_, addonName)
-		-- Load skin for a Blizzard frame
 		local blizzardSkinFunction = C.themes[addonName]
 		if blizzardSkinFunction then
-			blizzardSkinFunction()
+			xpcall(blizzardSkinFunction, geterrorhandler())
 			C.themes[addonName] = nil
 		end
 
-		-- Load skin for an external addon
 		local otherSkinFunction = C.otherSkins[addonName]
 		if otherSkinFunction then
-			otherSkinFunction()
+			xpcall(otherSkinFunction, geterrorhandler())
 			C.otherSkins[addonName] = nil
 		end
 	end)
 end
 
 function Module:OnEnable()
-	-- Add Skins
 	local loadSkinModules = {
 		"LoadDefaultSkins",
 

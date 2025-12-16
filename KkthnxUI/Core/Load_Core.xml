@@ -3,6 +3,7 @@
    <!-- Load_Core -->
    <Script file="API.lua"/>
    <Script file="Functions.lua"/>
+   <Script file="Database.lua"/>
    <Script file="Border.lua"/>
    <Script file="StaticPopups.lua"/>
    <Script file="Commands.lua"/>
@@ -12,6 +13,9 @@
    <Script file="Movers.lua"/>
    <Script file="Loading.lua"/>
    <Script file="GUI.lua"/>
-   <Script file="Profiles.lua"/>
+   <Script file="ExtraGUI.lua"/>
+   <Script file="ProfileGUI.lua"/>
+   <Script file="Changelog.lua"/>
+   <Script file="VersionCheck.lua"/>
    <Script file="AddOns.lua"/>
 </Ui>

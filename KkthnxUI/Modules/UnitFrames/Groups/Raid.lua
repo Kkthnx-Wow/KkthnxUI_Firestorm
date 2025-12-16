@@ -41,7 +41,7 @@ local function UpdateRaidPower(self, _, unit)
 				self.Health:SetPoint("TOPRIGHT", self)
 				self.Power:Show()
 			end
-		elseif not C["Raid"].ManabarShow then
+		elseif powerToken ~= "MANA" and not C["Raid"].ManabarShow then
 			if not self.Power:IsVisible() then
 				self.Health:ClearAllPoints()
 				self.Health:SetPoint("BOTTOMLEFT", self, 0, 6)
@@ -86,11 +86,11 @@ function Module:CreateRaid()
 	Health.colorDisconnected = true
 	Health.frequentUpdates = true
 
-	if C["Raid"].HealthbarColor.Value == "Value" then
+	if C["Raid"].HealthbarColor == 3 then
 		Health.colorSmooth = true
 		Health.colorClass = false
 		Health.colorReaction = false
-	elseif C["Raid"].HealthbarColor.Value == "Dark" then
+	elseif C["Raid"].HealthbarColor == 2 then
 		Health.colorSmooth = false
 		Health.colorClass = false
 		Health.colorReaction = false
@@ -131,57 +131,77 @@ function Module:CreateRaid()
 		frame:SetAllPoints(Health)
 		local frameLevel = frame:GetFrameLevel()
 
+		local normalTexture = K.GetTexture(C["General"].Texture)
+
 		-- Position and size
 		local myBar = CreateFrame("StatusBar", nil, frame)
 		myBar:SetPoint("TOP")
 		myBar:SetPoint("BOTTOM")
 		myBar:SetPoint("LEFT", Health:GetStatusBarTexture(), "RIGHT")
-		myBar:SetStatusBarTexture(HealPredictionTexture)
+		myBar:SetStatusBarTexture(normalTexture)
 		myBar:SetStatusBarColor(0, 1, 0.5, 0.5)
+		myBar:SetFrameLevel(frameLevel)
 		myBar:Hide()
 
 		local otherBar = CreateFrame("StatusBar", nil, frame)
 		otherBar:SetPoint("TOP")
 		otherBar:SetPoint("BOTTOM")
 		otherBar:SetPoint("LEFT", myBar:GetStatusBarTexture(), "RIGHT")
-		otherBar:SetStatusBarTexture(HealPredictionTexture)
+		otherBar:SetStatusBarTexture(normalTexture)
 		otherBar:SetStatusBarColor(0, 1, 0, 0.5)
+		otherBar:SetFrameLevel(frameLevel)
 		otherBar:Hide()
 
 		local absorbBar = CreateFrame("StatusBar", nil, frame)
 		absorbBar:SetPoint("TOP")
 		absorbBar:SetPoint("BOTTOM")
 		absorbBar:SetPoint("LEFT", otherBar:GetStatusBarTexture(), "RIGHT")
-		absorbBar:SetStatusBarTexture(HealPredictionTexture)
-		absorbBar:SetStatusBarColor(0.66, 1, 1, 0.7)
+		absorbBar:SetStatusBarTexture(normalTexture)
+		absorbBar:SetStatusBarColor(0.66, 1, 1)
 		absorbBar:SetFrameLevel(frameLevel)
+		absorbBar:SetAlpha(0.5)
 		absorbBar:Hide()
+		local tex = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(absorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		overAbsorbBar:SetAllPoints()
-		overAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		overAbsorbBar:SetStatusBarColor(0.66, 1, 1, 0.5)
+		overAbsorbBar:SetStatusBarTexture(normalTexture)
+		overAbsorbBar:SetStatusBarColor(0.66, 1, 1)
 		overAbsorbBar:SetFrameLevel(frameLevel)
+		overAbsorbBar:SetAlpha(0.35)
 		overAbsorbBar:Hide()
+		local tex = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		healAbsorbBar:SetPoint("TOP")
 		healAbsorbBar:SetPoint("BOTTOM")
 		healAbsorbBar:SetPoint("RIGHT", Health:GetStatusBarTexture())
 		healAbsorbBar:SetReverseFill(true)
-		healAbsorbBar:SetStatusBarTexture(HealPredictionTexture)
-		local tex = healAbsorbBar:GetStatusBarTexture()
+		healAbsorbBar:SetStatusBarTexture(normalTexture)
+		healAbsorbBar:SetStatusBarColor(1, 0, 0.5)
+		healAbsorbBar:SetFrameLevel(frameLevel)
+		healAbsorbBar:SetAlpha(0.35)
+		healAbsorbBar:Hide()
+		local tex = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
 		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
 		tex:SetHorizTile(true)
 		tex:SetVertTile(true)
-		healAbsorbBar:Hide()
 
-		local overAbsorb = Health:CreateTexture(nil, "OVERLAY")
-		overAbsorb:SetWidth(15)
+		local overAbsorb = Health:CreateTexture(nil, "OVERLAY", nil, 2)
+		overAbsorb:SetWidth(8)
 		overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
 		overAbsorb:SetBlendMode("ADD")
-		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 2)
-		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -2)
+		overAbsorb:SetPoint("TOPLEFT", Health, "TOPRIGHT", -5, 0)
+		overAbsorb:SetPoint("BOTTOMLEFT", Health, "BOTTOMRIGHT", -5, -0)
 		overAbsorb:Hide()
 
 		local overHealAbsorb = frame:CreateTexture(nil, "OVERLAY")
@@ -262,7 +282,7 @@ function Module:CreateRaid()
 	-- 	self.StatusIndicator = StatusIndicator
 	-- end
 
-	if C["Raid"].RaidBuffsStyle.Value == "Aura Track" then
+	if C["Raid"].RaidBuffsStyle == 2 then
 		local AuraTrack = CreateFrame("Frame", nil, Health)
 		AuraTrack.Texture = RaidframeTexture
 		AuraTrack.Icons = C["Raid"].AuraTrackIcons
@@ -280,11 +300,11 @@ function Module:CreateRaid()
 		end
 
 		self.AuraTrack = AuraTrack
-	elseif C["Raid"].RaidBuffsStyle.Value == "Standard" then
-		local filter = C["Raid"].RaidBuffs.Value == "All" and "HELPFUL" or "HELPFUL|RAID"
-		local onlyShowPlayer = C["Raid"].RaidBuffs.Value == "Self"
+	elseif C["Raid"].RaidBuffsStyle == 1 then
+		local filter = C["Raid"].RaidBuffs == 3 and "HELPFUL" or "HELPFUL|RAID"
+		local onlyShowPlayer = C["Raid"].RaidBuffs == 2
 
-		local Buffs = CreateFrame("Frame", self:GetName() .. "Buffs", Health)
+		local Buffs = CreateFrame("Frame", string.format("%sBuffs", self:GetName()), Health)
 		Buffs:SetPoint("TOPLEFT", Health, "TOPLEFT", 2, -2)
 		Buffs:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -2, 2)
 		Buffs:SetHeight(16)
@@ -306,7 +326,7 @@ function Module:CreateRaid()
 	end
 
 	if C["Raid"].DebuffWatch then
-		local Height = Health:GetHeight()
+		local Height = C["Raid"].Height
 		local DebuffSize = Height >= 32 and Height - 20 or Height
 
 		local RaidDebuffs = CreateFrame("Frame", nil, Health)
@@ -329,7 +349,7 @@ function Module:CreateRaid()
 		RaidDebuffs.cd:SetHideCountdownNumbers(true)
 		RaidDebuffs.cd:SetAlpha(0.7)
 
-		local parentFrame = CreateFrame("Frame", nil, Health)
+		local parentFrame = CreateFrame("Frame", nil, RaidDebuffs)
 		parentFrame:SetAllPoints()
 		parentFrame:SetFrameLevel(RaidDebuffs:GetFrameLevel() + 6)
 
@@ -390,12 +410,17 @@ function Module:CreateRaid()
 		Override = UpdateRaidThreat,
 	}
 
-	self.Range = Module.CreateRangeIndicator(self)
+	self.RangeFader = {
+		insideAlpha = 1,
+		outsideAlpha = 0.55,
+		MaxAlpha = 1,
+		MinAlpha = 0.3,
+	}
 
 	self.Health = Health
 	self.Name = Name
 	self.Overlay = Overlay
-	self.ReadyCheckIndicator = ReadyCheckIndicator
+	-- self.ReadyCheckIndicator = ReadyCheckIndicator
 	self.PhaseIndicator = PhaseIndicator
 	self.SummonIndicator = SummonIndicator
 	self.RaidTargetIndicator = RaidTargetIndicator

@@ -1,10 +1,10 @@
 local _, ns = ...
 local oUF = ns.oUF
 
--- sourced from FrameXML/TargetFrame.lua
+-- sourced from Blizzard_UnitFrame/TargetFrame.lua
 local MAX_BOSS_FRAMES = _G.MAX_BOSS_FRAMES or 5
 
--- sourced from FrameXML/RaidFrame.lua
+-- sourced from Blizzard_FrameXMLBase/Shared/Constants.lua
 local MEMBERS_PER_RAID_GROUP = _G.MEMBERS_PER_RAID_GROUP or 5
 
 local hookedFrames = {}
@@ -153,6 +153,12 @@ function oUF:DisableBlizzard(unit)
 
 			for _, frame in next, CompactArenaFrame.memberUnitFrames do
 				handleFrame(frame, true)
+			end
+
+			-- NDui: handle sub frames
+			for i = 1, 5 do
+				handleFrame(_G['ArenaEnemyMatchFrame'..i], true)
+				handleFrame(_G['ArenaEnemyPrepFrame'..i], true)
 			end
 		end
 	end

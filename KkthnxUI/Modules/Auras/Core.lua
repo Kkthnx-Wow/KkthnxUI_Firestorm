@@ -1,24 +1,12 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:NewModule("Auras")
 
--- Sourced: NDui (Siweia)
-
-local math_floor = math.floor
-local select = select
-local string_format = string.format
-
-local CreateFrame = CreateFrame
-local DebuffTypeColor = DebuffTypeColor
-local GameTooltip = GameTooltip
-local GetInventoryItemQuality = GetInventoryItemQuality
-local GetInventoryItemTexture = GetInventoryItemTexture
-local GetTime = GetTime
-local GetWeaponEnchantInfo = GetWeaponEnchantInfo
-local RegisterAttributeDriver = RegisterAttributeDriver
-local RegisterStateDriver = RegisterStateDriver
-local SecureHandlerSetFrameRef = SecureHandlerSetFrameRef
-local UIParent = UIParent
-local UnitAura = UnitAura
+-- Cache Lua and WoW API functions
+local math_floor, string_format, select, tonumber, unpack = math.floor, string.format, select, tonumber, unpack
+local CreateFrame, DebuffTypeColor, GameTooltip, GetInventoryItemQuality, GetInventoryItemTexture = CreateFrame, DebuffTypeColor, GameTooltip, GetInventoryItemQuality, GetInventoryItemTexture
+local GetTime, GetWeaponEnchantInfo, RegisterAttributeDriver, RegisterStateDriver, SecureHandlerSetFrameRef = GetTime, GetWeaponEnchantInfo, RegisterAttributeDriver, RegisterStateDriver, SecureHandlerSetFrameRef
+local UIParent, IsAltKeyDown, IsControlKeyDown = UIParent, IsAltKeyDown, IsControlKeyDown
+local C_UnitAuras_GetAuraDataByIndex = C_UnitAuras and C_UnitAuras.GetAuraDataByIndex
 
 local day, hour, minute = 86400, 3600, 60
 
@@ -98,13 +86,15 @@ function Module:FormatAuraTime(s)
 	elseif s >= 10 * minute then
 		return string_format("%d" .. K.MyClassColor .. "m", s / minute), s % minute
 	elseif s >= minute then
-		return string_format("%d:%.2d", s / minute, s % minute), s - math_floor(s)
+		local m = math_floor(s / minute)
+		local sec = math_floor(s - m * minute)
+		return string_format("%d:%02d", m, sec), s - math_floor(s)
 	elseif s > 10 then
 		return string_format("%d" .. K.MyClassColor .. "s", s), s - math_floor(s)
 	elseif s > 5 then
-		return string_format("|cffffff00%.1f|r", s), s - string_format("%.1f", s)
+		return string_format("|cffffff00%.1f|r", s), s - (math_floor(s * 10) / 10)
 	else
-		return string_format("|cffff0000%.1f|r", s), s - string_format("%.1f", s)
+		return string_format("|cffff0000%.1f|r", s), s - (math_floor(s * 10) / 10)
 	end
 end
 
@@ -115,6 +105,14 @@ function Module:UpdateTimer(elapsed)
 		self:SetScript("OnUpdate", nil)
 		return
 	end
+
+	-- Throttle updates to reduce CPU churn in large aura sets
+	self._throttle = (self._throttle or 0) + elapsed
+	if self._throttle < 0.1 then
+		return
+	end
+	elapsed = self._throttle
+	self._throttle = 0
 
 	if self.timeLeft then
 		self.timeLeft = self.timeLeft - elapsed
@@ -146,13 +144,13 @@ end
 
 function Module:UpdateAuras(button, index)
 	local unit, filter = button.header:GetAttribute("unit"), button.filter
-	local name, texture, count, debuffType, duration, expirationTime, _, _, _, spellID, _, _, _, _, _, arg16, arg17, arg18 = UnitAura(unit, index, filter)
-	if not name then
+	local auraData = C_UnitAuras_GetAuraDataByIndex(unit, index, filter)
+	if not auraData then
 		return
 	end
 
-	if duration > 0 and expirationTime then
-		local timeLeft = expirationTime - GetTime()
+	if auraData.duration > 0 and auraData.expirationTime then
+		local timeLeft = auraData.expirationTime - GetTime()
 		if not button.timeLeft then
 			button.nextUpdate = -1
 			button.timeLeft = timeLeft
@@ -167,6 +165,7 @@ function Module:UpdateAuras(button, index)
 		button.timer:SetText("")
 	end
 
+	local count = auraData.applications
 	if count and count > 1 then
 		button.count:SetText(count)
 	else
@@ -174,20 +173,20 @@ function Module:UpdateAuras(button, index)
 	end
 
 	if filter == "HARMFUL" then
-		local color = DebuffTypeColor[debuffType or "none"]
+		local color = DebuffTypeColor[auraData.dispelName or "none"]
 		button.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
 	else
 		K.SetBorderColor(button.KKUI_Border)
 	end
 
 	-- Show spell stat for 'Soleahs Secret Technique'
-	if spellID == 368512 then
-		button.count:SetText(Module:GetSpellStat(arg16, arg17, arg18))
+	if auraData.spellId == 368512 then
+		button.count:SetText(Module:GetSpellStat(unpack(auraData.points)))
 	end
 
-	button.spellID = spellID
-	button.icon:SetTexture(texture)
-	button.offset = nil
+	button.spellID = auraData.spellId
+	button.icon:SetTexture(auraData.icon)
+	button.expiration = nil
 end
 
 function Module:UpdateTempEnchant(button, index)
@@ -207,6 +206,8 @@ function Module:UpdateTempEnchant(button, index)
 		button.expiration = nil
 		button.timeLeft = nil
 		button.timer:SetText("")
+		-- Ensure OnUpdate script is removed when no enchantment
+		button:SetScript("OnUpdate", nil)
 	end
 end
 
@@ -251,10 +252,12 @@ function Module:UpdateHeader(header)
 		end
 
 		child.count:SetFontObject(K.UIFontOutline)
-		child.count:SetFont(select(1, child.count:GetFont()), fontSize, select(3, child.count:GetFont()))
+		local countFont, _, countFlags = child.count:GetFont()
+		child.count:SetFont(countFont, fontSize, countFlags)
 
 		child.timer:SetFontObject(K.UIFontOutline)
-		child.timer:SetFont(select(1, child.timer:GetFont()), fontSize, select(3, child.timer:GetFont()))
+		local timerFont, _, timerFlags = child.timer:GetFont()
+		child.timer:SetFont(timerFont, fontSize, timerFlags)
 
 		-- Blizzard bug fix, icons arent being hidden when you reduce the amount of maximum buttons
 		if index > (cfg.maxWraps * cfg.wrapAfter) and child:IsShown() then
@@ -292,7 +295,7 @@ function Module:CreateAuraHeader(filter)
 		local hide, shown = newstate == 0, header:IsShown()
 		if hide and shown then header:Hide() elseif not hide and not shown then header:Show() end
 	]]
-	) -- use custom script that will only call hide when it needs to, this prevents spam to `SecureAuraHeader_Update`
+	)
 
 	if filter == "HELPFUL" then
 		header:SetAttribute("consolidateDuration", -1)
@@ -306,9 +309,15 @@ function Module:CreateAuraHeader(filter)
 end
 
 function Module:RemoveSpellFromIgnoreList()
-	if IsAltKeyDown() and IsControlKeyDown() and self.spellID and KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[self.spellID] then
-		KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[self.spellID] = nil
-		K.Print(string.format(L["RemoveFromIgnoreList"], "", self.spellID))
+	if IsAltKeyDown() and IsControlKeyDown() and self.spellID then
+		if not KkthnxUIDB.Global or not KkthnxUIDB.Global.Characters or not KkthnxUIDB.Global.Characters[K.UserKey] then
+			return
+		end
+		local charDB = KkthnxUIDB.Global.Characters[K.UserKey]
+		if charDB.AuraWatchList and charDB.AuraWatchList.IgnoreSpells and charDB.AuraWatchList.IgnoreSpells[self.spellID] then
+			charDB.AuraWatchList.IgnoreSpells[self.spellID] = nil
+			K.Print(string_format(L["RemoveFromIgnoreList"], "", self.spellID))
+		end
 	end
 end
 
@@ -322,7 +331,6 @@ end
 
 function Module:Button_OnEnter()
 	GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT", -5, -5)
-	-- Update tooltip
 	self.nextUpdate = -1
 	self:SetScript("OnUpdate", Module.UpdateTimer)
 end
@@ -358,7 +366,7 @@ function Module:CreateAuraIcon(button)
 	button:StyleButton()
 	button:CreateBorder()
 
-	button:RegisterForClicks("RightButtonUp", "RightButtonDown")
+	-- button:RegisterForClicks("RightButtonUp", "RightButtonDown")
 	button:SetScript("OnAttributeChanged", Module.OnAttributeChanged)
 	button:HookScript("OnMouseDown", Module.RemoveSpellFromIgnoreList)
 	button:SetScript("OnEnter", Module.Button_OnEnter)

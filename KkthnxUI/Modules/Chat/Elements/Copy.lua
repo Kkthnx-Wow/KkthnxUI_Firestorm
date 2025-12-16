@@ -7,7 +7,6 @@ local string_gsub = string.gsub
 local table_concat = table.concat
 local tostring = tostring
 
-local AUCTION_CATEGORY_QUEST_ITEMS = AUCTION_CATEGORY_QUEST_ITEMS
 local BINDING_NAME_TOGGLECOMBATLOG = BINDING_NAME_TOGGLECOMBATLOG
 local CLOSE = CLOSE
 local COMBATLOGDISABLED = COMBATLOGDISABLED
@@ -15,19 +14,15 @@ local COMBATLOGENABLED = COMBATLOGENABLED
 local CreateFrame = CreateFrame
 local FCF_SetChatWindowFontSize = FCF_SetChatWindowFontSize
 local GameTooltip = GameTooltip
-local HEIRLOOMS = HEIRLOOMS
 local InCombatLockdown = InCombatLockdown
 local C_AddOns_IsAddOnLoaded = C_AddOns.IsAddOnLoaded
 local OPTIONS_MENU = OPTIONS_MENU
 local PlaySound = PlaySound
-local QUESTS_LABEL = QUESTS_LABEL
 local RELOADUI = RELOADUI
 local ReloadUI = ReloadUI
-local STATUS = STATUS
 local ScrollFrameTemplate_OnMouseWheel = ScrollFrameTemplate_OnMouseWheel
 local SlashCmdList = SlashCmdList
 local StaticPopup_Show = StaticPopup_Show
-local TASKS_COLON = TASKS_COLON
 local UIErrorsFrame = UIErrorsFrame
 local UIParent = UIParent
 
@@ -42,14 +37,6 @@ local rightButtonString = "|TInterface\\TutorialFrame\\UI-TUTORIAL-FRAME:16:12:0
 local menuList = {
 	{ text = K.SystemColor .. OPTIONS_MENU .. "|r", isTitle = true, notCheckable = true },
 	{ text = "", notClickable = true, notCheckable = true },
-	{
-		text = STATUS,
-		notCheckable = true,
-		func = function()
-			K:ShowStatusReport()
-		end,
-	},
-
 	{
 		text = L["Install"],
 		notCheckable = true,
@@ -67,6 +54,22 @@ local menuList = {
 	},
 
 	{
+		text = "Changelog",
+		notCheckable = true,
+		func = function()
+			SlashCmdList["KKUI_CHANGELOG"]()
+		end,
+	},
+
+	{
+		text = "Commands List",
+		notCheckable = true,
+		func = function()
+			SlashCmdList["KKUI_COMMANDS"]("help")
+		end,
+	},
+
+	{
 		text = RELOADUI,
 		notCheckable = true,
 		func = function()
@@ -77,6 +80,8 @@ local menuList = {
 			ReloadUI()
 		end,
 	},
+
+	{ text = "", notClickable = true, notCheckable = true },
 
 	{
 		text = BINDING_NAME_TOGGLECOMBATLOG,
@@ -92,102 +97,12 @@ local menuList = {
 		end,
 	},
 
-	{
-		text = L["Discord"],
-		notCheckable = true,
-		func = function()
-			StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, L["Discord URL"])
-		end,
-	},
 	{ text = "", notClickable = true, notCheckable = true },
+}
 
-	{
-		text = TASKS_COLON,
-		hasArrow = true,
-		notCheckable = true,
-		menuList = {
-			{
-				text = "Delete " .. QUESTS_LABEL .. " From Tracker",
-				notCheckable = true,
-				func = function()
-					if InCombatLockdown() then
-						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
-						return
-					end
-					SlashCmdList["KKUI_ABANDONQUESTS"]()
-				end,
-			},
-
-			{
-				text = "Delete |ccf00ccff" .. HEIRLOOMS .. "|r From Bags",
-				notCheckable = true,
-				func = function()
-					if InCombatLockdown() then
-						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
-						return
-					end
-					SlashCmdList["KKUI_DELETEHEIRLOOMS"]()
-				end,
-			},
-
-			{
-				text = "Delete |cffffd200" .. AUCTION_CATEGORY_QUEST_ITEMS .. "|r From Bags",
-				notCheckable = true,
-				func = function()
-					if InCombatLockdown() then
-						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
-						return
-					end
-					SlashCmdList["KKUI_DELETEQUESTITEMS"]()
-				end,
-			},
-		},
-	},
-
-	{
-		text = "Details",
-		hasArrow = true,
-		notCheckable = true,
-		menuList = {
-			{
-				text = "Reset Details",
-				notCheckable = true,
-				func = function()
-					if InCombatLockdown() then
-						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
-						return
-					end
-
-					if C_AddOns_IsAddOnLoaded("Details") then
-						_G.KkthnxUIDB.Variables["ResetDetails"] = true
-						StaticPopup_Show("KKUI_CHANGES_RELOAD")
-					else
-						K.Print("Details is not loaded!")
-					end
-				end,
-			},
-
-			{
-				text = "Toggle Details",
-				notCheckable = true,
-				func = function()
-					if InCombatLockdown() then
-						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
-						return
-					end
-
-					if C_AddOns_IsAddOnLoaded("Details") then
-						PlaySound(21968)
-						_G._detalhes:ToggleWindows()
-					else
-						K.Print("Details is not loaded!")
-					end
-				end,
-			},
-		},
-	},
-
-	{
+-- Only add the Skada menu if Skada is loaded
+if C_AddOns_IsAddOnLoaded("Skada") then
+	table.insert(menuList, {
 		text = "Skada",
 		hasArrow = true,
 		notCheckable = true,
@@ -201,20 +116,60 @@ local menuList = {
 						return
 					end
 
-					if C_AddOns_IsAddOnLoaded("Skada") then
-						PlaySound(21968)
-						_G.Skada:ToggleWindow()
-					else
-						K.Print("Skada is not loaded!")
-					end
+					PlaySound(21968)
+					_G.Skada:ToggleWindow()
 				end,
 			},
 		},
-	},
+	})
 
-	{ text = "", notClickable = true, notCheckable = true },
-	{ text = "|CFFFF3333" .. CLOSE .. "|r", notCheckable = true, func = function() end },
-}
+	table.insert(menuList, { text = "", notClickable = true, notCheckable = true })
+end
+
+if C_AddOns_IsAddOnLoaded("Details") then
+	table.insert(menuList, {
+		text = "Details",
+		hasArrow = true,
+		notCheckable = true,
+		menuList = {
+			{
+				text = "Reset Details",
+				notCheckable = true,
+				func = function()
+					if InCombatLockdown() then
+						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
+						return
+					end
+
+					if not _G.KkthnxUIDB.Global then
+						_G.KkthnxUIDB.Global = {}
+					end
+					_G.KkthnxUIDB.Global.ResetDetails = true
+					StaticPopup_Show("KKUI_CHANGES_RELOAD")
+				end,
+			},
+
+			{
+				text = "Toggle Details",
+				notCheckable = true,
+				func = function()
+					if InCombatLockdown() then
+						UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
+						return
+					end
+
+					PlaySound(21968)
+					_G._detalhes:ToggleWindows()
+				end,
+			},
+		},
+	})
+
+	table.insert(menuList, { text = "", notClickable = true, notCheckable = true })
+end
+
+-- Adding the close option at the end
+table.insert(menuList, { text = "|CFFFF3333" .. CLOSE .. "|r", notCheckable = true, func = function() end })
 
 local function canChangeMessage(arg1, id)
 	if id and arg1 == "" then
@@ -292,14 +247,6 @@ function Module:ChatCopy_CreateMenu()
 	_G.ChatFrameChannelButton:SetPoint("TOP", _G.ChatFrameMenuButton, "BOTTOM", 0, -6)
 	_G.ChatFrameChannelButton:SetParent(menu)
 
-	_G.ChatFrameToggleVoiceDeafenButton:ClearAllPoints()
-	_G.ChatFrameToggleVoiceDeafenButton:SetPoint("TOP", _G.ChatFrameChannelButton, "BOTTOM", 0, -6)
-	_G.ChatFrameToggleVoiceDeafenButton:SetParent(menu)
-
-	_G.ChatFrameToggleVoiceMuteButton:ClearAllPoints()
-	_G.ChatFrameToggleVoiceMuteButton:SetPoint("TOP", _G.ChatFrameToggleVoiceDeafenButton, "BOTTOM", 0, -6)
-	_G.ChatFrameToggleVoiceMuteButton:SetParent(menu)
-
 	if _G.QuickJoinToastButton then
 		_G.QuickJoinToastButton:SetParent(menu)
 	end
@@ -357,41 +304,42 @@ function Module:ChatCopy_Create()
 		editBox:SetHitRectInsets(0, 0, offset, (editBox:GetHeight() - offset - self:GetHeight()))
 	end)
 
-	local copy = CreateFrame("Button", "KKUI_ChatCopyButton", UIParent)
-	copy:SetPoint("BOTTOM", menu)
-	copy:CreateBorder()
-	copy:SetSize(16, 16)
-	copy:SetAlpha(0.25)
+	local kkuicopy = CreateFrame("Button", "KKUI_ChatCopyButton", UIParent)
+	kkuicopy:SetPoint("BOTTOM", menu)
+	kkuicopy:CreateBorder()
+	kkuicopy:SetSize(16, 16)
+	kkuicopy:SetAlpha(0.25)
 
-	copy.Texture = copy:CreateTexture(nil, "ARTWORK")
-	copy.Texture:SetAllPoints()
-	copy.Texture:SetTexture("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
-	copy:RegisterForClicks("AnyUp")
-	copy:SetScript("OnClick", self.ChatCopy_OnClick)
+	kkuicopy.Texture = kkuicopy:CreateTexture(nil, "ARTWORK")
+	kkuicopy.Texture:SetAllPoints()
+	kkuicopy.Texture:SetTexture("Interface\\Buttons\\UI-GuildButton-PublicNote-Up")
+	kkuicopy:RegisterForClicks("AnyUp")
+	kkuicopy:SetScript("OnClick", self.ChatCopy_OnClick)
 
-	copy:SetScript("OnEnter", function(self)
-		UIFrameFadeIn(self, 0.25, self:GetAlpha(), 1)
+	kkuicopy:SetScript("OnEnter", function(self)
+		K.UIFrameFadeIn(self, 0.25, self:GetAlpha(), 1)
 
 		local anchor, _, xoff, yoff = "ANCHOR_RIGHT", self:GetParent(), 10, 5
 		GameTooltip:SetOwner(self, anchor, xoff, yoff)
 		GameTooltip:ClearLines()
+		GameTooltip:AddLine(CALENDAR_COPY_EVENT .. " " .. CHAT)
+		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(leftButtonString .. L["Left Click"], "Copy Chat", 1, 1, 1)
 		GameTooltip:AddDoubleLine(rightButtonString .. L["Right Click"], "Chat Menu", 1, 1, 1)
 
 		GameTooltip:Show()
 	end)
 
-	copy:SetScript("OnLeave", function(self)
-		UIFrameFadeOut(self, 1, self:GetAlpha(), 0.25)
+	kkuicopy:SetScript("OnLeave", function(self)
+		K.UIFrameFadeOut(self, 1, self:GetAlpha(), 0.25)
 
 		if not GameTooltip:IsForbidden() then
 			GameTooltip:Hide()
 		end
 	end)
 
-	-- Create Configbutton
-	local kkuiconfig = CreateFrame("Button", "kkuiconfig", UIParent)
-	kkuiconfig:SetPoint("BOTTOM", copy, "TOP", 0, 6)
+	-- Create Config button
+	local kkuiconfig = CreateFrame("Button", "KKUI_ChatConfigButton", UIParent)
 	kkuiconfig:SkinButton()
 	kkuiconfig:SetSize(16, 16)
 	kkuiconfig:SetAlpha(0.25)
@@ -403,30 +351,123 @@ function Module:ChatCopy_Create()
 	kkuiconfig:SetScript("OnClick", function(_, btn)
 		if btn == "LeftButton" then
 			PlaySound(111)
-			_G.EasyMenu(menuList, K.EasyMenu, kkuiconfig, 24, 290, "MENU", 2)
+			K.LibEasyMenu.Create(menuList, K.EasyMenu, kkuiconfig, 24, 290, "MENU", 2)
 		elseif btn == "RightButton" then
-			K.GUI:Toggle()
+			K.NewGUI:Toggle()
 		end
 	end)
 
 	kkuiconfig:SetScript("OnEnter", function(self)
-		UIFrameFadeIn(self, 0.25, self:GetAlpha(), 1)
+		K.UIFrameFadeIn(self, 0.25, self:GetAlpha(), 1)
 
 		local anchor, _, xoff, yoff = "ANCHOR_RIGHT", self:GetParent(), 10, 5
 		GameTooltip:SetOwner(self, anchor, xoff, yoff)
 		GameTooltip:ClearLines()
+		GameTooltip:AddLine(OPTIONS_MENU)
+		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(leftButtonString .. L["Left Click"], L["Toggle Quick Menu"], 1, 1, 1)
 		GameTooltip:AddDoubleLine(rightButtonString .. L["Right Click"], L["Toggle KkthnxUI Config"], 1, 1, 1)
 		GameTooltip:Show()
 	end)
 
 	kkuiconfig:SetScript("OnLeave", function(self)
-		UIFrameFadeOut(self, 1, self:GetAlpha(), 0.25)
+		K.UIFrameFadeOut(self, 1, self:GetAlpha(), 0.25)
 
 		if not GameTooltip:IsForbidden() then
 			GameTooltip:Hide()
 		end
 	end)
+
+	-- Create Roll button
+	local lastClickTime = 0
+	local cooldown = 2 -- Cooldown time in seconds
+
+	local kkuiroll = CreateFrame("Button", "KKUI_ChatRollButton", UIParent)
+	kkuiroll:SkinButton()
+	kkuiroll:SetSize(16, 16)
+	kkuiroll:SetAlpha(0.25)
+
+	kkuiroll.Texture = kkuiroll:CreateTexture(nil, "ARTWORK")
+	kkuiroll.Texture:SetAllPoints()
+	kkuiroll.Texture:SetAtlas("charactercreate-icon-dice")
+	kkuiroll:RegisterForClicks("AnyUp")
+	kkuiroll:SetScript("OnClick", function(_, btn)
+		local currentTime = GetTime()
+		if currentTime - lastClickTime < cooldown then
+			K.Print("Please wait before rolling again.")
+			return
+		end
+
+		lastClickTime = currentTime
+
+		if btn == "LeftButton" then
+			RandomRoll(1, 100) -- Simulates the /roll command (default 1-100 range)
+		elseif btn == "RightButton" then
+			-- Perform an emote for a humorous roll
+			local roll = -math.random(1, 100)
+			SendChatMessage("rolls " .. roll .. " (1-100)", "EMOTE")
+		end
+	end)
+
+	kkuiroll:SetScript("OnEnter", function(self)
+		K.UIFrameFadeIn(self, 0.25, self:GetAlpha(), 1)
+
+		local anchor, _, xoff, yoff = "ANCHOR_RIGHT", self:GetParent(), 10, 5
+		GameTooltip:SetOwner(self, anchor, xoff, yoff)
+		GameTooltip:ClearLines()
+		GameTooltip:AddLine(FAST .. " " .. ROLL)
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine(leftButtonString .. L["Left Click"], "Roll a random number between 1 and 100", 1, 1, 1)
+		GameTooltip:AddDoubleLine(rightButtonString .. L["Right Click"], "Guaranteed to roll a perfect 100!", 1, 1, 1)
+
+		GameTooltip:Show()
+	end)
+
+	kkuiroll:SetScript("OnLeave", function(self)
+		K.UIFrameFadeOut(self, 1, self:GetAlpha(), 0.25)
+
+		if not GameTooltip:IsForbidden() then
+			GameTooltip:Hide()
+		end
+	end)
+
+	-- Function to update button positions based on enabled settings
+	local function UpdateButtonPositions()
+		local buttons = {}
+
+		if C["Chat"].CopyButton then
+			table.insert(buttons, kkuicopy)
+		else
+			kkuicopy:Hide()
+		end
+		if C["Chat"].ConfigButton then
+			table.insert(buttons, kkuiconfig)
+		else
+			kkuiconfig:Hide()
+		end
+		if C["Chat"].RollButton then
+			table.insert(buttons, kkuiroll)
+		else
+			kkuiroll:Hide()
+		end
+
+		for i, button in ipairs(buttons) do
+			if i == 1 then
+				button:SetPoint("BOTTOM", menu)
+			else
+				button:SetPoint("BOTTOM", buttons[i - 1], "TOP", 0, 6)
+			end
+			button:Show()
+		end
+	end
+
+	-- Initial update of button positions
+	UpdateButtonPositions()
+
+	-- Function to live update button positions
+	function Module:UpdateChatButtons()
+		UpdateButtonPositions()
+	end
 end
 
 function Module:CreateCopyChat()

@@ -3,26 +3,106 @@ local Module = K:GetModule("Miscellaneous")
 local TT = K:GetModule("Tooltip")
 
 -- Basic Lua functions
+local _G = _G
 local pairs = pairs
+local ipairs = ipairs
 local select = select
 local next = next
 local type = type
+local tonumber = tonumber
+local tostring = tostring
+
+-- Math functions
+local mod = mod
+local ceil = ceil
+local floor = floor
+
+-- String functions
+local strsub = strsub
+local strmatch = strmatch
+local gsub = gsub
+local format = format
+
+-- Table functions
+local tinsert = table.insert
+local tremove = table.remove
+local tconcat = table.concat
+local wipe = wipe
 
 -- Unit and item information functions
 local UnitGUID = UnitGUID
-local GetItemInfo = GetItemInfo
-local GetSpellInfo = GetSpellInfo
+local UnitExists = UnitExists
+local UnitClass = UnitClass
+local UnitFactionGroup = UnitFactionGroup
+local GetItemInfo = C_Item.GetItemInfo
+local GetInventoryItemID = GetInventoryItemID
 local GetContainerItemLink = C_Container.GetContainerItemLink
 local GetInventoryItemLink = GetInventoryItemLink
 local GetTradePlayerItemLink = GetTradePlayerItemLink
 local GetTradeTargetItemLink = GetTradeTargetItemLink
+local GetLootSlotInfo = GetLootSlotInfo
+local GetLootSlotLink = GetLootSlotLink
+local GetCurrentGuildBankTab = GetCurrentGuildBankTab
+local GetGuildBankItemLink = GetGuildBankItemLink
+local IsSpellKnown = IsSpellKnown
+local GetInspectSpecialization = GetInspectSpecialization
 
 -- Equipment management functions
 local EquipmentManager_UnpackLocation = EquipmentManager_UnpackLocation
 local EquipmentManager_GetItemInfoByLocation = EquipmentManager_GetItemInfoByLocation
 
+-- Item location constants
+local INVSLOT_FIRST_EQUIPPED = INVSLOT_FIRST_EQUIPPED
+local INVSLOT_LAST_EQUIPPED = INVSLOT_LAST_EQUIPPED
+local INVSLOT_BODY = INVSLOT_BODY
+local INVSLOT_TABARD = INVSLOT_TABARD
+local INVSLOT_MAINHAND = INVSLOT_MAINHAND
+local INVSLOT_OFFHAND = INVSLOT_OFFHAND
+local EQUIPMENTFLYOUT_FIRST_SPECIAL_LOCATION = EQUIPMENTFLYOUT_FIRST_SPECIAL_LOCATION
+
 -- Azerite power functions
 local C_AzeriteEmpoweredItem_IsPowerSelected = C_AzeriteEmpoweredItem.IsPowerSelected
+
+-- Other WoW API
+local C_Item = C_Item
+local C_Spell = C_Spell
+local C_Container = C_Container
+local C_Timer = C_Timer
+local C_TooltipInfo = C_TooltipInfo
+local C_AddOns = C_AddOns
+local Item = Item
+local ItemLocation = ItemLocation
+
+-- Spell info compatibility helper
+local GetSpellInfo
+do
+	local Classic_GetSpellInfo = _G.GetSpellInfo
+	local C_Spell_GetSpellInfo = C_Spell and C_Spell.GetSpellInfo
+
+	if C_Spell_GetSpellInfo then
+		-- Modern retail: adapt C_Spell.GetSpellInfo struct to classic multi-return signature
+		GetSpellInfo = function(spell)
+			if not spell then
+				return
+			end
+
+			local info = C_Spell_GetSpellInfo(spell)
+			if not info then
+				return
+			end
+
+			return info.name, info.rank, info.iconID, info.castTime, info.minRange, info.maxRange, info.spellID, info.originalIconID
+		end
+	else
+		-- Classic / fallback
+		GetSpellInfo = Classic_GetSpellInfo
+	end
+end
+
+-- Global strings
+local ITEM_LEVEL = ITEM_LEVEL
+local NO = NO
+local ENSCRIBE = ENSCRIBE
 
 local inspectSlots = {
 	"Head",
@@ -124,7 +204,17 @@ local azeriteSlots = {
 	[5] = true,
 }
 
+-- Cache management
 local locationCache = {}
+local itemCache = {}
+local ITEM_CACHE_MAX_SIZE = 500
+
+-- Clear caches on logout to prevent memory leaks
+local function ClearCaches()
+	wipe(locationCache)
+	wipe(itemCache)
+end
+
 local function GetSlotItemLocation(id)
 	if not azeriteSlots[id] then
 		return
@@ -174,33 +264,45 @@ function Module:ItemLevel_UpdateTraits(button, id, link)
 	end
 end
 
--- Define slots where enchantments are typically applied
-local enchantableSlots = {
-	[5] = true, -- Chest
-	[11] = true, -- Cloak
-	[12] = true, -- Weapon
-	[15] = true, -- Rings
-	[16] = true, -- Trinkets
-	[8] = true, -- Gloves
-	[9] = true, -- Wrist
-	[7] = true, -- Legs
-	[6] = true, -- Feet
+-- Define enchantable item types
+local IsEnchantableSlots = {
+	INVTYPE_CHEST = true,
+	INVTYPE_ROBE = true,
+	INVTYPE_LEGS = true,
+	INVTYPE_FEET = true,
+	INVTYPE_WRIST = true,
+	INVTYPE_FINGER = true,
+	INVTYPE_CLOAK = true,
+	INVTYPE_WEAPON = true,
+	INVTYPE_2HWEAPON = true,
+	INVTYPE_WEAPONMAINHAND = true,
+	INVTYPE_RANGED = true,
+	INVTYPE_RANGEDRIGHT = true,
+	INVTYPE_WEAPONOFFHAND = true,
 }
 
+-- Helper to handle offhand enchantability logic
+local function IsOffhandEnchantable(unit, slot)
+	local offHandItemLink = GetInventoryItemLink(unit, slot)
+	if offHandItemLink then
+		local itemEquipLoc = select(4, C_Item.GetItemInfoInstant(offHandItemLink))
+		return itemEquipLoc ~= "INVTYPE_HOLDABLE" and itemEquipLoc ~= "INVTYPE_SHIELD"
+	end
+	return false
+end
+
+-- Main function to check if a slot can be enchanted
 function Module:CanEnchantSlot(unit, slot)
-	-- Check if the slot is in the list of enchantable slots
-	if enchantableSlots[slot] then
-		return true
+	-- Handle offhand logic explicitly
+	if slot == INVSLOT_OFFHAND then
+		return IsOffhandEnchantable(unit, slot)
 	end
 
-	-- Special case for off-hand slot
-	if slot == 17 then
-		local offHandItemLink = GetInventoryItemLink(unit, slot)
-		if offHandItemLink then
-			local itemEquipLoc = select(4, GetItemInfoInstant(offHandItemLink))
-			-- Off-hand items that are not holdable or shields can typically be enchanted
-			return itemEquipLoc ~= "INVTYPE_HOLDABLE" and itemEquipLoc ~= "INVTYPE_SHIELD"
-		end
+	-- Check general enchantable slots
+	local itemLink = GetInventoryItemLink(unit, slot)
+	if itemLink then
+		local itemEquipLoc = select(4, C_Item.GetItemInfoInstant(itemLink))
+		return IsEnchantableSlots[itemEquipLoc] or false
 	end
 
 	return false
@@ -269,7 +371,8 @@ function Module:ItemLevel_UpdateInfo(slotFrame, info, quality)
 end
 
 function Module:ItemLevel_RefreshInfo(link, unit, index, slotFrame)
-	K.Delay(0.1, function()
+	-- Use C_Timer.After for better performance than K.Delay
+	C_Timer.After(0.1, function()
 		local quality = select(3, GetItemInfo(link))
 		local info = K.GetItemLevel(link, unit, index, C["Misc"].GemEnchantInfo)
 		if info == "tooSoon" then
@@ -319,14 +422,18 @@ function Module:ItemLevel_UpdatePlayer()
 	Module:ItemLevel_SetupLevel(CharacterFrame, "Character", "player")
 end
 
+-- Reusable table for items to reduce GC pressure
+local itemsTable = {}
+
 local function CalculateAverageItemLevel(unit, fontstring)
 	if not fontstring then
 		return
 	end
 
 	fontstring:Hide()
-	-- Create a table to store item objects
-	local items = {}
+
+	-- Clear and reuse the items table to reduce allocations
+	wipe(itemsTable)
 
 	-- Initialize variables for equipment locations
 	local mainhandEquipLoc, offhandEquipLoc
@@ -345,10 +452,10 @@ local function CalculateAverageItemLevel(unit, fontstring)
 				local item = itemLink and Item:CreateFromItemLink(itemLink) or Item:CreateFromItemID(itemID)
 
 				-- Add item to the table
-				table.insert(items, item)
+				tinsert(itemsTable, item)
 
 				-- Update mainhand and offhand equipment locations
-				local equipLoc = select(4, GetItemInfoInstant(itemLink or itemID))
+				local equipLoc = select(4, C_Item.GetItemInfoInstant(itemLink or itemID))
 				if slot == INVSLOT_MAINHAND then
 					mainhandEquipLoc = equipLoc
 				elseif slot == INVSLOT_OFFHAND then
@@ -362,12 +469,13 @@ local function CalculateAverageItemLevel(unit, fontstring)
 	local numSlots = mainhandEquipLoc and offhandEquipLoc and 16 or 15
 
 	-- Adjust number of slots for Fury Warriors
-	if select(2, UnitClass(unit)) == "WARRIOR" then
+	local _, className = UnitClass(unit)
+	if className == "WARRIOR" then
 		local isFuryWarrior
 		if unit == "player" then
 			isFuryWarrior = IsSpellKnown(46917) -- Titan's Grip
 		else
-			isFuryWarrior = _G.GetInspectSpecialization and GetInspectSpecialization(unit) == 72 -- Fury specialization ID
+			isFuryWarrior = GetInspectSpecialization and GetInspectSpecialization(unit) == 72 -- Fury specialization ID
 		end
 
 		-- Adjust number of slots if the unit is a Fury Warrior
@@ -378,7 +486,8 @@ local function CalculateAverageItemLevel(unit, fontstring)
 
 	-- Calculate total item level
 	local totalLevel = 0
-	for _, item in ipairs(items) do
+	for i = 1, #itemsTable do
+		local item = itemsTable[i]
 		-- Check if the item has a valid item level
 		local itemLevel = item:GetCurrentItemLevel()
 		if itemLevel then
@@ -467,29 +576,51 @@ function Module:ItemLevel_FlyoutSetup()
 	end
 end
 
-function Module:ItemLevel_ScrappingUpdate()
-	if not self.iLvl then
-		self.iLvl = K.CreateFontString(self, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
+function Module.ItemLevel_ScrappingUpdate(button)
+	if not button.iLvl then
+		button.iLvl = K.CreateFontString(button, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
 	end
-	if not self.itemLink then
-		self.iLvl:SetText("")
+
+	if not button.itemLink then
+		button.iLvl:SetText("")
 		return
 	end
 
 	local quality = 1
-	if self.itemLocation and not self.item:IsItemEmpty() and self.item:GetItemName() then
-		quality = self.item:GetItemQuality()
+	if button.itemLocation and button.item and not button.item:IsItemEmpty() and button.item:GetItemName() then
+		quality = button.item:GetItemQuality()
 	end
-	local level = K.GetItemLevel(self.itemLink)
-	local color = K.QualityColors[quality]
-	self.iLvl:SetText(level)
-	self.iLvl:SetTextColor(color.r, color.g, color.b)
+
+	local level = K.GetItemLevel(button.itemLink)
+	if level then
+		local color = K.QualityColors[quality]
+		button.iLvl:SetText(level)
+		button.iLvl:SetTextColor(color.r, color.g, color.b)
+	else
+		button.iLvl:SetText("")
+	end
+end
+
+function Module.ItemLevel_ScrappingSetup(frame)
+	-- frame is ScrappingMachineFrame when called via hook
+	if not frame or not frame.ItemSlots then
+		return
+	end
+
+	for button in frame.ItemSlots.scrapButtons:EnumerateActive() do
+		if button and not button.iLvlHooked then
+			hooksecurefunc(button, "RefreshIcon", Module.ItemLevel_ScrappingUpdate)
+			button.iLvlHooked = true
+		end
+	end
 end
 
 function Module.ItemLevel_ScrappingShow(event, addon)
 	if addon == "Blizzard_ScrappingMachineUI" then
-		for button in pairs(ScrappingMachineFrame.ItemSlots.scrapButtons.activeObjects) do
-			hooksecurefunc(button, "RefreshIcon", Module.ItemLevel_ScrappingUpdate)
+		if ScrappingMachineFrame then
+			hooksecurefunc(ScrappingMachineFrame, "SetupScrapButtonPool", Module.ItemLevel_ScrappingSetup)
+			-- Also setup existing buttons immediately
+			Module.ItemLevel_ScrappingSetup(ScrappingMachineFrame)
 		end
 
 		K:UnregisterEvent(event, Module.ItemLevel_ScrappingShow)
@@ -523,8 +654,20 @@ function Module.ItemLevel_UpdateTradeTarget(index)
 	Module.ItemLevel_UpdateMerchant(button, link)
 end
 
-local itemCache = {}
 local chatModule = K:GetModule("Chat")
+local itemCacheSize = 0
+
+-- Manage item cache size to prevent memory leaks
+local function AddToItemCache(link, modLink)
+	if itemCacheSize >= ITEM_CACHE_MAX_SIZE then
+		-- Clear cache when it gets too large
+		wipe(itemCache)
+		itemCacheSize = 0
+	end
+
+	itemCache[link] = modLink
+	itemCacheSize = itemCacheSize + 1
+end
 
 function Module.ItemLevel_ReplaceItemLink(link, name)
 	if not chatModule then
@@ -540,7 +683,7 @@ function Module.ItemLevel_ReplaceItemLink(link, name)
 		local itemLevel = K.GetItemLevel(link)
 		if itemLevel then
 			modLink = gsub(link, "|h%[(.-)%]|h", "|h(" .. itemLevel .. chatModule.IsItemHasGem(link) .. ")" .. name .. "|h")
-			itemCache[link] = modLink
+			AddToItemCache(link, modLink)
 		end
 	end
 	return modLink
@@ -553,9 +696,25 @@ function Module:ItemLevel_ReplaceGuildNews()
 	end
 end
 
+-- Reusable table for loot children to reduce allocations
+local lootChildrenTable = {}
+
+-- Cache GetNumChildren result to avoid repeated calls
 function Module:ItemLevel_UpdateLoot()
-	for i = 1, self.ScrollTarget:GetNumChildren() do
-		local button = select(i, self.ScrollTarget:GetChildren())
+	local numChildren = self.ScrollTarget:GetNumChildren()
+	if numChildren == 0 then
+		return
+	end
+
+	-- Reuse table to avoid allocation
+	wipe(lootChildrenTable)
+	local tempTable = { self.ScrollTarget:GetChildren() }
+	for i = 1, numChildren do
+		lootChildrenTable[i] = tempTable[i]
+	end
+
+	for i = 1, numChildren do
+		local button = lootChildrenTable[i]
 		if button and button.Item and button.GetElementData then
 			if not button.iLvl then
 				button.iLvl = K.CreateFontString(button.Item, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
@@ -580,54 +739,58 @@ local PET_CAGE = 82800
 function Module.ItemLevel_GuildBankShow(event, addon)
 	if addon == "Blizzard_GuildBankUI" then
 		hooksecurefunc(_G.GuildBankFrame, "Update", function(self)
-			if self.mode == "bank" then
-				local tab = GetCurrentGuildBankTab()
-				local button, index, column
-				for i = 1, #self.Columns * NUM_SLOTS_PER_GUILDBANK_GROUP do
-					index = mod(i, NUM_SLOTS_PER_GUILDBANK_GROUP)
-					if index == 0 then
-						index = NUM_SLOTS_PER_GUILDBANK_GROUP
-					end
-					column = ceil((i - 0.5) / NUM_SLOTS_PER_GUILDBANK_GROUP)
-					button = self.Columns[column].Buttons[index]
+			if self.mode ~= "bank" then
+				return
+			end
 
-					if button and button:IsShown() then
-						local link = GetGuildBankItemLink(tab, i)
-						if link then
-							if not button.iLvl then
-								button.iLvl = K.CreateFontString(button, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
-							end
+			local tab = GetCurrentGuildBankTab()
+			local numColumns = #self.Columns
+			local totalSlots = numColumns * NUM_SLOTS_PER_GUILDBANK_GROUP
 
-							local level, quality
-							local itemID = tonumber(strmatch(link, "Hitem:(%d+):"))
+			-- Pre-calculate to avoid repeated operations
+			for i = 1, totalSlots do
+				-- Optimized index calculation
+				local index = ((i - 1) % NUM_SLOTS_PER_GUILDBANK_GROUP) + 1
+				local column = floor((i - 1) / NUM_SLOTS_PER_GUILDBANK_GROUP) + 1
+				local button = self.Columns[column].Buttons[index]
 
-							if itemID == PET_CAGE then
-								local data = C_TooltipInfo.GetGuildBankItem(tab, i)
-								if data then
-									local speciesID, petLevel, breedQuality = data.battlePetSpeciesID, data.battlePetLevel, data.battlePetBreedQuality
-									if speciesID and speciesID > 0 then
-										level, quality = petLevel, breedQuality
-									end
-								end
-							else
-								level = K.GetItemLevel(link)
-								quality = select(3, GetItemInfo(link))
-							end
-
-							if level and quality then
-								local color = K.QualityColors[quality]
-								button.iLvl:SetText(level)
-								button.iLvl:SetTextColor(color.r, color.g, color.b)
-
-								if button.KKUI_Border and itemID == PET_CAGE then
-									button.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
-								end
-							else
-								button.iLvl:SetText("")
-							end
-						elseif button.iLvl then
-							button.iLvl:SetText("") -- Clear the FontString if the slot is empty
+				if button and button:IsShown() then
+					local link = GetGuildBankItemLink(tab, i)
+					if link then
+						if not button.iLvl then
+							button.iLvl = K.CreateFontString(button, 12, "", "OUTLINE", false, "BOTTOMLEFT", 2, 2)
 						end
+
+						local level, quality
+						local itemID = tonumber(strmatch(link, "Hitem:(%d+):"))
+
+						if itemID == PET_CAGE then
+							local data = C_TooltipInfo.GetGuildBankItem(tab, i)
+							if data then
+								local speciesID = data.battlePetSpeciesID
+								if speciesID and speciesID > 0 then
+									level = data.battlePetLevel
+									quality = data.battlePetBreedQuality
+								end
+							end
+						else
+							level = K.GetItemLevel(link)
+							quality = select(3, GetItemInfo(link))
+						end
+
+						if level and quality then
+							local color = K.QualityColors[quality]
+							button.iLvl:SetText(level)
+							button.iLvl:SetTextColor(color.r, color.g, color.b)
+
+							if button.KKUI_Border and itemID == PET_CAGE then
+								button.KKUI_Border:SetVertexColor(color.r, color.g, color.b)
+							end
+						else
+							button.iLvl:SetText("")
+						end
+					elseif button.iLvl then
+						button.iLvl:SetText("") -- Clear the FontString if the slot is empty
 					end
 				end
 			end
@@ -639,6 +802,10 @@ end
 
 function Module:CreateSlotItemLevel()
 	if not C["Misc"].ItemLevel then
+		return
+	end
+
+	if C_AddOns.IsAddOnLoaded("SimpleItemLevel") then
 		return
 	end
 
@@ -676,6 +843,9 @@ function Module:CreateSlotItemLevel()
 
 	-- iLvl on GuildBankFrame
 	K:RegisterEvent("ADDON_LOADED", Module.ItemLevel_GuildBankShow)
+
+	-- Clear caches on logout to prevent memory leaks
+	K:RegisterEvent("PLAYER_LOGOUT", ClearCaches)
 end
 
 Module:RegisterMisc("GearInfo", Module.CreateSlotItemLevel)

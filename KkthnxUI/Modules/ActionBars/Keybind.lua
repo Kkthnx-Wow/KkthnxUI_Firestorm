@@ -1,16 +1,33 @@
 local K, L = KkthnxUI[1], KkthnxUI[3]
 local Module = K:GetModule("ActionBar")
 
--- WoW API bindings for easy reference
-local GetBindingKey, GetBindingName, SetBinding, SaveBindings, LoadBindings = GetBindingKey, GetBindingName, SetBinding, SaveBindings, LoadBindings
-local GetSpellBookItemName, GetMacroInfo, SpellBook_GetSpellBookSlot = GetSpellBookItemName, GetMacroInfo, SpellBook_GetSpellBookSlot
-local InCombatLockdown, IsAltKeyDown, IsControlKeyDown, IsShiftKeyDown = InCombatLockdown, IsAltKeyDown, IsControlKeyDown, IsShiftKeyDown
-local tonumber, strfind, strupper = tonumber, strfind, strupper
-
--- Constants and Global Variables
-local MAX_ACCOUNT_MACROS = MAX_ACCOUNT_MACROS
-local NOT_BOUND, PRESS_KEY_TO_BIND = NOT_BOUND, PRESS_KEY_TO_BIND
-local UIErrorsFrame = UIErrorsFrame
+-- Cache global functions and constants
+local _G = _G
+local C_SpellBook_GetSpellBookItemName = _G.C_SpellBook.GetSpellBookItemName
+local CreateFrame = _G.CreateFrame
+local GameTooltip = _G.GameTooltip
+local GetBindingKey = _G.GetBindingKey
+local GetBindingName = _G.GetBindingName
+local GetMacroInfo = _G.GetMacroInfo
+local InCombatLockdown = _G.InCombatLockdown
+local IsAltKeyDown = _G.IsAltKeyDown
+local IsControlKeyDown = _G.IsControlKeyDown
+local IsShiftKeyDown = _G.IsShiftKeyDown
+local LoadBindings = _G.LoadBindings
+local MAX_ACCOUNT_MACROS = _G.MAX_ACCOUNT_MACROS
+local NOT_BOUND = _G.NOT_BOUND
+local PRESS_KEY_TO_BIND = _G.PRESS_KEY_TO_BIND
+local SaveBindings = _G.SaveBindings
+local SetBinding = _G.SetBinding
+local SpellBook_GetSpellBookSlot = _G.SpellBook_GetSpellBookSlot
+local UIErrorsFrame = _G.UIErrorsFrame
+local format = _G.format
+local hooksecurefunc = _G.hooksecurefunc
+local strfind = _G.strfind
+local strupper = _G.strupper
+local tonumber = _G.tonumber
+local Enum = _G.Enum
+local C_AddOns = _G.C_AddOns
 
 -- Button types
 local function hookActionButton(self)
@@ -18,9 +35,11 @@ local function hookActionButton(self)
 	local stance = self.commandName and strfind(self.commandName, "^SHAPESHIFT") and "STANCE"
 	Module:Bind_Update(self, pet or stance or nil)
 end
+
 local function hookMacroButton(self)
 	Module:Bind_Update(self, "MACRO")
 end
+
 local function hookSpellButton(self)
 	Module:Bind_Update(self, "SPELL")
 end
@@ -33,7 +52,7 @@ end
 
 local macroInit
 function Module:Bind_RegisterMacro()
-	if self ~= "Blizzard_MacroUI" then -- Is this needed?
+	if self ~= "Blizzard_MacroUI" then
 		return
 	end
 
@@ -80,7 +99,7 @@ function Module:Bind_Create()
 			for i = 1, #frame.bindings do
 				GameTooltip:AddDoubleLine(i, frame.bindings[i], 1, 1, 1, 0, 1, 0)
 			end
-			GameTooltip:AddLine("Press the escape key or right click to unbind this action.", 1, 0.8, 0, 1)
+			GameTooltip:AddLine(L["Press the escape key or right click to unbind this action."] or "Press the escape key or right click to unbind this action.", 1, 0.8, 0, 1)
 		end
 		GameTooltip:Show()
 	end)
@@ -105,11 +124,13 @@ function Module:Bind_Create()
 
 	for i = 1, 12 do
 		local button = _G["SpellButton" .. i]
-		button:HookScript("OnEnter", hookSpellButton)
+		if button then
+			button:HookScript("OnEnter", hookSpellButton)
+		end
 	end
 
 	if not C_AddOns.IsAddOnLoaded("Blizzard_MacroUI") then
-		hooksecurefunc("LoadAddOn", Module.Bind_RegisterMacro)
+		hooksecurefunc(C_AddOns, "LoadAddOn", Module.Bind_RegisterMacro)
 	else
 		Module.Bind_RegisterMacro("Blizzard_MacroUI")
 	end
@@ -131,7 +152,7 @@ function Module:Bind_Update(button, spellmacro)
 
 	if spellmacro == "SPELL" then
 		frame.id = SpellBook_GetSpellBookSlot(button)
-		frame.name = GetSpellBookItemName(frame.id, SpellBookFrame.bookType)
+		frame.name = C_SpellBook_GetSpellBookItemName(frame.id, Enum.SpellBookSpellBank.Player)
 		frame.bindings = { GetBindingKey(spellmacro .. " " .. frame.name) }
 	elseif spellmacro == "MACRO" then
 		frame.id = button.selectionIndex or button:GetID()
@@ -235,13 +256,14 @@ function Module:Bind_Listener(key)
 	local alt = IsAltKeyDown() and "ALT-" or ""
 	local ctrl = IsControlKeyDown() and "CTRL-" or ""
 	local shift = IsShiftKeyDown() and "SHIFT-" or ""
+	local meta = IsMetaKeyDown() and "META-" or ""
 
 	if not frame.spellmacro or frame.spellmacro == "PET" or frame.spellmacro == "STANCE" then
-		SetBinding(alt .. ctrl .. shift .. key, frame.bindstring)
+		SetBinding(alt .. ctrl .. shift .. meta .. key, frame.bindstring)
 	else
-		SetBinding(alt .. ctrl .. shift .. key, frame.spellmacro .. " " .. frame.name)
+		SetBinding(alt .. ctrl .. shift .. meta .. key, frame.spellmacro .. " " .. frame.name)
 	end
-	K.Print((frame.tipName or frame.name) .. " |cff00ff00" .. L["Key Bound To"] .. "|r " .. alt .. ctrl .. shift .. key)
+	K.Print((frame.tipName or frame.name) .. " |cff00ff00" .. L["Key Bound To"] .. "|r " .. alt .. ctrl .. shift .. meta .. key)
 
 	Module:Bind_Update(frame.button, frame.spellmacro)
 end
@@ -262,10 +284,14 @@ end
 
 function Module:Bind_Deactivate(save)
 	if save == true then
-		SaveBindings(KkthnxUIDB.Variables[K.Realm][K.Name].BindType)
+		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+		local bindType = charDB and charDB.BindType or 1
+		SaveBindings(bindType)
 		K.Print(" |cff00ff00" .. L["Save KeyBinds"] .. "|r")
 	else
-		LoadBindings(KkthnxUIDB.Variables[K.Realm][K.Name].BindType)
+		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+		local bindType = charDB and charDB.BindType or 1
+		LoadBindings(bindType)
 		K.Print(" |cffffff00" .. L["Discard KeyBinds"] .. "|r")
 	end
 
@@ -322,8 +348,6 @@ function Module:Bind_CreateDialog()
 	button1.text:SetPoint("CENTER", button1)
 	button1.text:SetText(APPLY)
 
-	--- @class MyButton : Button
-	--- @field public text FontString
 	local button2 = CreateFrame("Button", nil, frame)
 	button2:SetSize(118, 20)
 	button2:SkinButton()
@@ -342,15 +366,22 @@ function Module:Bind_CreateDialog()
 	local checkBox = CreateFrame("CheckButton", nil, frame, "InterfaceOptionsBaseCheckButtonTemplate")
 	checkBox:SetSize(20, 20)
 	checkBox:SkinCheckBox()
-	checkBox:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].BindType == 2)
+	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	local bindType = charDB and charDB.BindType or 1
+	checkBox:SetChecked(bindType == 2)
 	checkBox:SetPoint("RIGHT", frame.bottom, "LEFT", -6, 0)
 	checkBox:SetScript("OnClick", function(self)
-		KkthnxUIDB.Variables[K.Realm][K.Name].BindType = self:GetChecked() and 2 or 1
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		db.BindType = self:GetChecked() and 2 or 1
+		KkthnxUIDB.Global.Characters[K.UserKey] = db
 	end)
 
 	checkBox.text = frame.bottom:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	checkBox.text:SetPoint("CENTER", 0, 0)
-	-- stylua: ignore
 	checkBox.text:SetText(checkBox:GetChecked() and K.SystemColor .. CHARACTER_SPECIFIC_KEYBINDINGS .. "|r" or K.GreyColor .. CHARACTER_SPECIFIC_KEYBINDINGS .. "|r")
 	checkBox:SetHitRectInsets(0, 0 - checkBox.text:GetWidth(), 0, 0)
 

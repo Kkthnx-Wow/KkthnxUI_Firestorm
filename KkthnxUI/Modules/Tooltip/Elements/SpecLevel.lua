@@ -6,6 +6,7 @@ local select, max, strfind, format, strsplit = select, math.max, string.find, st
 local GetTime, CanInspect, NotifyInspect, ClearInspectPlayer, IsShiftKeyDown = GetTime, CanInspect, NotifyInspect, ClearInspectPlayer, IsShiftKeyDown
 local UnitGUID, UnitClass, UnitIsUnit, UnitIsPlayer, UnitIsVisible, UnitIsDeadOrGhost, UnitOnTaxi = UnitGUID, UnitClass, UnitIsUnit, UnitIsPlayer, UnitIsVisible, UnitIsDeadOrGhost, UnitOnTaxi
 local GetInventoryItemTexture, GetInventoryItemLink, GetItemInfo, GetItemGem, GetAverageItemLevel = GetInventoryItemTexture, GetInventoryItemLink, GetItemInfo, GetItemGem, GetAverageItemLevel
+local C_Item_GetItemInfoInstant = C_Item and C_Item.GetItemInfoInstant
 local HEIRLOOMS = HEIRLOOMS
 
 local levelPrefix = STAT_AVERAGE_ITEM_LEVEL .. ": " .. K.InfoColor
@@ -15,83 +16,83 @@ local cache, weapon, currentUNIT, currentGUID = {}, {}
 
 local Tooltip_TierSets = {
 	-- WARRIOR
-	[217220] = true,
-	[217219] = true,
-	[217218] = true,
-	[217217] = true,
-	[217216] = true,
+	[237608] = true,
+	[237609] = true,
+	[237610] = true,
+	[237611] = true,
+	[237613] = true,
 	-- PALADIN
-	[217200] = true,
-	[217199] = true,
-	[217198] = true,
-	[217197] = true,
-	[217196] = true,
+	[237617] = true,
+	[237618] = true,
+	[237619] = true,
+	[237620] = true,
+	[237622] = true,
 	-- HUNTER
-	[217185] = true,
-	[217184] = true,
-	[217183] = true,
-	[217182] = true,
-	[217181] = true,
+	[237644] = true,
+	[237645] = true,
+	[237646] = true,
+	[237647] = true,
+	[237649] = true,
 	-- ROGUE
-	[217210] = true,
-	[217209] = true,
-	[217208] = true,
-	[217207] = true,
-	[217206] = true,
+	[237662] = true,
+	[237663] = true,
+	[237664] = true,
+	[237665] = true,
+	[237667] = true,
 	-- PRIEST
-	[217204] = true,
-	[217205] = true,
-	[217203] = true,
-	[217202] = true,
-	[217201] = true,
+	[237707] = true,
+	[237712] = true,
+	[237708] = true,
+	[237709] = true,
+	[237710] = true,
 	-- DEATHKNIGHT
-	[217225] = true,
-	[217224] = true,
-	[217223] = true,
-	[217222] = true,
-	[217221] = true,
+	[237626] = true,
+	[237627] = true,
+	[237628] = true,
+	[237629] = true,
+	[237631] = true,
 	-- SHAMAN
-	[217240] = true,
-	[217239] = true,
-	[217238] = true,
-	[217237] = true,
-	[217236] = true,
+	[237635] = true,
+	[237636] = true,
+	[237637] = true,
+	[237638] = true,
+	[237640] = true,
 	-- MAGE
-	[217234] = true,
-	[217233] = true,
-	[217232] = true,
-	[217231] = true,
-	[217235] = true,
+	[237718] = true,
+	[237716] = true,
+	[237721] = true,
+	[237719] = true,
+	[237717] = true,
 	-- WARLOCK
-	[217214] = true,
-	[217215] = true,
-	[217213] = true,
-	[217212] = true,
-	[217211] = true,
+	[237698] = true,
+	[237703] = true,
+	[237699] = true,
+	[237700] = true,
+	[237701] = true,
 	-- MONK
-	[217190] = true,
-	[217189] = true,
-	[217188] = true,
-	[217187] = true,
-	[217186] = true,
+	[237671] = true,
+	[237672] = true,
+	[237673] = true,
+	[237674] = true,
+	[237676] = true,
 	-- DRUID
-	[217195] = true,
-	[217194] = true,
-	[217193] = true,
-	[217192] = true,
-	[217191] = true,
+	[237682] = true,
+	[237680] = true,
+	[237685] = true,
+	[237683] = true,
+	[237681] = true,
 	-- DEMONHUNTER
-	[217230] = true,
-	[217229] = true,
-	[217228] = true,
-	[217227] = true,
-	[217226] = true,
+	[237689] = true,
+	[237690] = true,
+	[237691] = true,
+	[237692] = true,
+	[237694] = true,
 	-- EVOKER
-	[217180] = true,
-	[217179] = true,
-	[217178] = true,
-	[217177] = true,
-	[217176] = true,
+	[237653] = true,
+	[237654] = true,
+	[237655] = true,
+	[237656] = true,
+	[237658] = true,
 }
 
 local formatSets = {
@@ -106,6 +107,12 @@ function Module:InspectOnUpdate(elapsed)
 	self.elapsed = (self.elapsed or frequency) + elapsed
 	if self.elapsed > frequency then
 		self.elapsed = 0
+		self.retries = (self.retries or 0) + 1
+		if self.retries > 10 then -- safety: stop after ~5s (10 * 0.5)
+			self:Hide()
+			self.retries = 0
+			return
+		end
 		self:Hide()
 		ClearInspectPlayer()
 
@@ -200,7 +207,7 @@ function Module:GetUnitItemLevel(unit)
 							boa = boa + 1
 						end
 
-						local itemID = GetItemInfoFromHyperlink(itemLink)
+						local itemID = C_Item_GetItemInfoInstant and C_Item_GetItemInfoInstant(itemLink)
 						if Tooltip_TierSets[itemID] then
 							sets = sets + 1
 						end
@@ -210,13 +217,16 @@ function Module:GetUnitItemLevel(unit)
 							if i < 16 then
 								total = total + level
 							elseif i > 15 and quality == Enum.ItemQuality.Artifact then
-								local relics = { select(4, strsplit(":", itemLink)) }
-								for i = 1, 3 do
-									local relicID = relics[i] ~= "" and relics[i]
-									local relicLink = select(2, GetItemGem(itemLink, i))
-									if relicID and not relicLink then
-										delay = true
-										break
+								-- Legacy artifact relic scan; skip if API removed
+								if GetItemGem then
+									local relics = { select(4, strsplit(":", itemLink)) }
+									for i = 1, 3 do
+										local relicID = relics[i] ~= "" and relics[i]
+										local relicLink = select(2, GetItemGem(itemLink, i))
+										if relicID and not relicLink then
+											delay = true
+											break
+										end
 									end
 								end
 							end
@@ -317,6 +327,7 @@ function Module:InspectUnit(unit, forced)
 		end
 
 		self:SetupItemLevel()
+		updater.retries = 0
 		updater:Show()
 	end
 end

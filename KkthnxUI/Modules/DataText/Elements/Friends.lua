@@ -3,21 +3,23 @@ local Module = K:GetModule("DataText")
 
 local string_find = string.find
 local string_format = string.format
+local math_min = math.min
+local math_max = math.max
 local table_insert = table.insert
 local table_sort = table.sort
 local table_wipe = table.wipe
 local unpack = unpack
 
 local BNGetNumFriends = BNGetNumFriends
-local BNet_GetValidatedCharacterName = BNet_GetValidatedCharacterName
 local C_BattleNet_GetFriendAccountInfo = C_BattleNet.GetFriendAccountInfo
 local C_BattleNet_GetFriendGameAccountInfo = C_BattleNet.GetFriendGameAccountInfo
 local C_BattleNet_GetFriendNumGameAccounts = C_BattleNet.GetFriendNumGameAccounts
 local C_FriendList_GetFriendInfoByIndex = C_FriendList.GetFriendInfoByIndex
 local C_FriendList_GetNumFriends = C_FriendList.GetNumFriends
 local C_FriendList_GetNumOnlineFriends = C_FriendList.GetNumOnlineFriends
+local FriendsFrame_GetFormattedCharacterName = FriendsFrame_GetFormattedCharacterName
 local EXPANSION_NAME0 = EXPANSION_NAME0
-local EXPANSION_NAME2 = EXPANSION_NAME2
+local EXPANSION_NAME3 = EXPANSION_NAME3
 local GameTooltip = GameTooltip
 local GetDisplayedInviteType = GetDisplayedInviteType
 local GetQuestDifficultyColor = GetQuestDifficultyColor
@@ -28,6 +30,7 @@ local InviteToGroup = C_PartyInfo.InviteUnit
 local IsAltKeyDown = IsAltKeyDown
 local IsShiftKeyDown = IsShiftKeyDown
 local MouseIsOver = MouseIsOver
+local WOW_PROJECT_CATA = WOW_PROJECT_CATACLYSM_CLASSIC or 14
 
 local BNET_CLIENT_WOW = BNET_CLIENT_WOW
 local FRIENDS_TEXTURE_AFK = FRIENDS_TEXTURE_AFK
@@ -40,13 +43,16 @@ local UNKNOWN = UNKNOWN
 
 local WOW_PROJECT_60 = WOW_PROJECT_CLASSIC or 2
 local WOW_PROJECT_ID = WOW_PROJECT_ID or 1
-local WOW_PROJECT_WRATH = 11
 local CLIENT_WOW_DIFF = "WoV" -- for sorting
 
 local r, g, b = K.r, K.g, K.b
 local infoFrame
 local updateRequest
 local prevTime
+local updateQueued
+local BUTTON_HEIGHT = 22
+local MAX_VISIBLE_ROWS = 20
+local BASE_EXTRA_HEIGHT = 95 -- header + footer padding based on current layout (495 - 400)
 local friendTable = {}
 local bnetTable = {}
 local activeZone = "|cff4cff4c"
@@ -56,6 +62,13 @@ local broadcastString = "|TInterface\\FriendsFrame\\BroadcastIcon:12|t %s (%s)"
 local onlineString = gsub(ERR_FRIEND_ONLINE_SS, ".+h", "")
 local offlineString = gsub(ERR_FRIEND_OFFLINE_S, "%%s", "")
 local FriendsDataText
+
+-- BNet_GetClientEmbeddedAtlas return incorrect texture for some clients
+local function GetClientLogo(client, size)
+	size = size or 0
+	local atlas = BNet_GetClientAtlas("Battlenet-ClientIcon-", client)
+	return CreateAtlasMarkup(atlas, size, size, 0, 0)
+end
 
 local menuList = {
 	[1] = {
@@ -139,19 +152,20 @@ local function buildBNetTable(num)
 			local rafLinkType = accountInfo.rafLinkType
 
 			if isOnline and gameID then
-				local factionName = gameAccountInfo.factionName or UNKNOWN
 				local charName = gameAccountInfo.characterName
 				local class = gameAccountInfo.className or UNKNOWN
 				local client = gameAccountInfo.clientProgram
+				local factionName = gameAccountInfo.factionName or UNKNOWN
 				local gameText = gameAccountInfo.richPresence or ""
 				local isGameAFK = gameAccountInfo.isGameAFK
 				local isGameBusy = gameAccountInfo.isGameBusy
 				local isMobile = gameAccountInfo.isWowMobile
 				local level = gameAccountInfo.characterLevel
+				local timerunningSeasonID = gameAccountInfo.timerunningSeasonID
 				local wowProjectID = gameAccountInfo.wowProjectID
 				local zoneName = gameAccountInfo.areaName or UNKNOWN
 
-				charName = BNet_GetValidatedCharacterName(charName, battleTag, client)
+				charName = FriendsFrame_GetFormattedCharacterName(charName, battleTag, client, timerunningSeasonID)
 				class = K.ClassList[class]
 
 				local status = FRIENDS_TEXTURE_ONLINE
@@ -163,13 +177,13 @@ local function buildBNetTable(num)
 
 				if wowProjectID == WOW_PROJECT_60 then
 					gameText = EXPANSION_NAME0
-				elseif wowProjectID == WOW_PROJECT_WRATH then
-					gameText = EXPANSION_NAME2
+				elseif wowProjectID == WOW_PROJECT_CATA then
+					gameText = EXPANSION_NAME3
 				end
 
 				local infoText = GetOnlineInfoText(client, isMobile, rafLinkType, gameText)
 				if client == BNET_CLIENT_WOW and wowProjectID == WOW_PROJECT_ID then
-					infoText = GetOnlineInfoText(client, isMobile, rafLinkType, zoneName)
+					infoText = GetOnlineInfoText(client, isMobile, rafLinkType, zoneName or gameText)
 				end
 
 				if client == BNET_CLIENT_WOW and wowProjectID ~= WOW_PROJECT_ID then
@@ -186,14 +200,62 @@ end
 
 local function isPanelCanHide(self, elapsed)
 	self.timer = (self.timer or 0) + elapsed
-	if self.timer > 0.1 then
-		if not infoFrame:IsMouseOver() then
-			self:Hide()
+	if self.timer > 0.2 then
+		local over = false
+		if FriendsDataText and MouseIsOver(FriendsDataText) then
+			over = true
+		elseif infoFrame and MouseIsOver(infoFrame) then
+			over = true
+		elseif infoFrame and infoFrame.scrollFrame and infoFrame.scrollFrame.buttons then
+			for i = 1, #infoFrame.scrollFrame.buttons do
+				local btn = infoFrame.scrollFrame.buttons[i]
+				if btn and btn:IsShown() and MouseIsOver(btn) then
+					over = true
+					break
+				end
+			end
+		end
+
+		if not over then
+			GameTooltip:Hide()
+			if infoFrame then
+				infoFrame:Hide()
+				infoFrame:SetScript("OnUpdate", nil)
+			end
+			if FriendsDataText then
+				FriendsDataText:SetScript("OnUpdate", nil)
+			end
 			self:SetScript("OnUpdate", nil)
 		end
 
 		self.timer = 0
 	end
+end
+
+local function FriendsPanel_Resize(rowCount)
+	if not infoFrame or not infoFrame.scrollFrame then
+		return
+	end
+
+	rowCount = rowCount or 0
+	local visibleRows = math_min(rowCount, MAX_VISIBLE_ROWS)
+	local scrollHeight = math_max(visibleRows * BUTTON_HEIGHT, BUTTON_HEIGHT)
+
+	infoFrame.scrollFrame:SetHeight(scrollHeight)
+	infoFrame:SetHeight(BASE_EXTRA_HEIGHT + scrollHeight)
+
+	local scrollBar = infoFrame.scrollFrame.scrollBar
+	if rowCount > MAX_VISIBLE_ROWS then
+		scrollBar:Show()
+	else
+		scrollBar:Hide()
+		scrollBar:SetValue(0)
+	end
+
+	local numButtons = MAX_VISIBLE_ROWS + 1
+	infoFrame.scrollFrame.scrollChild:SetSize(infoFrame.scrollFrame:GetWidth(), numButtons * BUTTON_HEIGHT)
+	infoFrame.scrollFrame.scrollBar:SetMinMaxValues(0, numButtons * BUTTON_HEIGHT)
+	infoFrame.scrollFrame:UpdateScrollChildRect()
 end
 
 local function FriendsPanel_UpdateButton(button)
@@ -203,14 +265,13 @@ local function FriendsPanel_UpdateButton(button)
 	if index <= onlineFriends then
 		local name, level, class, area, status = unpack(friendTable[index])
 		button.status:SetTexture(status)
-		local zoneColor = GetRealZoneText() == area and activeZone or inactiveZone
+		local zoneColor = GetAreaText() == area and activeZone or inactiveZone
 		local levelColor = K.RGBToHex(GetQuestDifficultyColor(level))
 		local classColor = K.ClassColors[class] or levelColor
 		button.name:SetText(string_format("%s%s|r %s%s", levelColor, level, K.RGBToHex(classColor), name))
 		button.zone:SetText(string_format("%s%s", zoneColor, area))
-		-- button.gameIcon:SetTexture(BNet_GetBattlenetClientAtlas(BNET_CLIENT_WOW))
-		-- C_Texture.SetTitleIconTexture(button.gameIcon, BNET_CLIENT_WOW, Enum.TitleIconVersion.Medium)
-		button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(BNET_CLIENT_WOW))
+		C_Texture.SetTitleIconTexture(button.gameIcon, BNET_CLIENT_WOW, Enum.TitleIconVersion.Medium)
+		-- button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(BNET_CLIENT_WOW))
 
 		button.isBNet = nil
 		button.data = friendTable[index]
@@ -224,18 +285,18 @@ local function FriendsPanel_UpdateButton(button)
 		if client == BNET_CLIENT_WOW then
 			local color = K.ClassColors[class] or GetQuestDifficultyColor(1)
 			name = K.RGBToHex(color) .. charName
-			zoneColor = GetRealZoneText() == infoText and activeZone or inactiveZone
+			zoneColor = GetAreaText() == infoText and activeZone or inactiveZone
 		end
 		button.name:SetText(string_format("%s%s|r (%s|r)", K.InfoColor, accountName, name))
 		button.zone:SetText(string_format("%s%s", zoneColor, infoText))
 		if client == CLIENT_WOW_DIFF then
-			button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(BNET_CLIENT_WOW))
-			-- C_Texture.SetTitleIconTexture(button.gameIcon, BNET_CLIENT_WOW, Enum.TitleIconVersion.Medium)
+			C_Texture.SetTitleIconTexture(button.gameIcon, BNET_CLIENT_WOW, Enum.TitleIconVersion.Medium)
+			-- button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(BNET_CLIENT_WOW))
 		elseif client == BNET_CLIENT_WOW then
 			button.gameIcon:SetTexture("Interface\\FriendsFrame\\PlusManz-" .. factionName)
 		else
-			button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(client))
-			-- C_Texture.SetTitleIconTexture(button.gameIcon, client, Enum.TitleIconVersion.Medium)
+			C_Texture.SetTitleIconTexture(button.gameIcon, client, Enum.TitleIconVersion.Medium)
+			-- button.gameIcon:SetAtlas(BNet_GetBattlenetClientAtlas(client))
 		end
 
 		button.isBNet = true
@@ -347,7 +408,7 @@ local function buttonOnClick(self, button)
 					return
 				end
 
-				EasyMenu(menuList, K.EasyMenu, self, 0, 0, "MENU", 1)
+				K.LibEasyMenu.Create(menuList, K.EasyMenu, self, 0, 0, "MENU", 1)
 			else
 				InviteToGroup(self.data[1])
 			end
@@ -396,18 +457,22 @@ local function buttonOnEnter(self)
 			local realmName = gameAccountInfo.realmName or ""
 			local faction = gameAccountInfo.factionName
 			local class = gameAccountInfo.className or UNKNOWN
-			local zoneName = gameAccountInfo.areaName or UNKNOWN
+			local zoneName = gameAccountInfo.areaName
 			local level = gameAccountInfo.characterLevel
 			local gameText = gameAccountInfo.richPresence or ""
 			local wowProjectID = gameAccountInfo.wowProjectID
-			local clientString = BNet_GetClientEmbeddedAtlas(client, 16) or BNet_GetClientEmbeddedTexture(client, 16)
+			local clientString = ""
+			local timerunningSeasonID = gameAccountInfo.timerunningSeasonID
 
 			if client == BNET_CLIENT_WOW then
 				if charName ~= "" then -- fix for weird account
+					if timerunningSeasonID then
+						charName = TimerunningUtil.AddSmallIcon(charName) -- add timerunning tag on name
+					end
 					realmName = (K.Realm == realmName or realmName == "") and "" or "-" .. realmName
 
 					-- Get TBC realm name from richPresence
-					if wowProjectID == WOW_PROJECT_WRATH then
+					if wowProjectID == WOW_PROJECT_CATA then
 						local realm, count = gsub(gameText, "^.-%-%s", "")
 						if count > 0 then
 							realmName = "-" .. realm
@@ -429,6 +494,13 @@ local function buttonOnEnter(self)
 					GameTooltip:AddLine(string_format("%s%s", inactiveZone, zoneName))
 				end
 			else
+				if C_Texture.IsTitleIconTextureReady(client, Enum.TitleIconVersion.Small) then
+					C_Texture.GetTitleIconTexture(client, Enum.TitleIconVersion.Small, function(success, texture)
+						if success then
+							clientString = BNet_GetClientEmbeddedTexture(texture, 32, 32, 0)
+						end
+					end)
+				end
 				GameTooltip:AddLine(string_format("|cffffffff%s%s", clientString, accountName))
 				if gameText ~= "" then
 					GameTooltip:AddLine(string_format("%s%s", inactiveZone, gameText))
@@ -486,7 +558,7 @@ local function FriendsPanel_CreateButton(parent, index)
 	button.gameIcon = button:CreateTexture(nil, "ARTWORK")
 	button.gameIcon:SetPoint("RIGHT", button, -8, 0)
 	button.gameIcon:SetSize(16, 16)
-	button.gameIcon:SetTexCoord(0.17, 0.83, 0.17, 0.83)
+	-- button.gameIcon:SetTexCoord(0.17, 0.83, 0.17, 0.83)
 
 	button.gameIcon.border = CreateFrame("Frame", nil, button)
 	button.gameIcon.border:SetFrameLevel(button:GetFrameLevel())
@@ -517,24 +589,34 @@ local function FriendsPanel_Init()
 	infoFrame:SetScript("OnLeave", function(self)
 		self:SetScript("OnUpdate", isPanelCanHide)
 	end)
+	infoFrame:SetScript("OnShow", function(self)
+		self:SetScript("OnUpdate", isPanelCanHide)
+	end)
+	infoFrame:SetScript("OnHide", function(self)
+		GameTooltip:Hide()
+		self:SetScript("OnUpdate", nil)
+		if FriendsDataText then
+			FriendsDataText:SetScript("OnUpdate", nil)
+		end
+	end)
 
 	K.CreateFontString(infoFrame, 14, "|cff0099ff" .. FRIENDS_LIST, "", nil, "TOPLEFT", 15, -10)
 	infoFrame.friendCountText = K.CreateFontString(infoFrame, 13, "-/-", "", nil, "TOPRIGHT", -15, -12)
 	infoFrame.friendCountText:SetTextColor(0, 0.6, 1)
 
 	local scrollFrame = CreateFrame("ScrollFrame", "KKUI_FriendsDataTextScrollFrame", infoFrame, "HybridScrollFrameTemplate")
-	scrollFrame:SetSize(370, 400)
+	scrollFrame:SetSize(370, MAX_VISIBLE_ROWS * BUTTON_HEIGHT)
 	scrollFrame:SetPoint("TOPLEFT", 7, -35)
 	infoFrame.scrollFrame = scrollFrame
 
 	local scrollBar = CreateFrame("Slider", "$parentScrollBar", scrollFrame, "HybridScrollBarTemplate")
-	scrollBar.doNotHide = true
+	scrollBar.doNotHide = false
 	scrollBar:SkinScrollBar()
 	scrollFrame.scrollBar = scrollBar
 
 	local scrollChild = scrollFrame.scrollChild
-	local numButtons = 20 + 1
-	local buttonHeight = 22
+	local numButtons = MAX_VISIBLE_ROWS + 1
+	local buttonHeight = BUTTON_HEIGHT
 	local buttons = {}
 	for i = 1, numButtons do
 		buttons[i] = FriendsPanel_CreateButton(scrollChild, i)
@@ -555,6 +637,8 @@ local function FriendsPanel_Init()
 	K.CreateFontString(infoFrame, 12, whspInfo, "", false, "BOTTOMRIGHT", -15, 26)
 	local invtInfo = K.InfoColor .. "ALT +" .. K.LeftButton .. L["Invite"]
 	K.CreateFontString(infoFrame, 12, invtInfo, "", false, "BOTTOMRIGHT", -15, 10)
+
+	FriendsPanel_Resize(0)
 end
 
 local function FriendsPanel_Refresh()
@@ -570,6 +654,10 @@ local function FriendsPanel_Refresh()
 	Module.onlineBNet = onlineBNet
 	Module.totalOnline = totalOnline
 	Module.totalFriends = totalFriends
+
+	if infoFrame and infoFrame.scrollFrame then
+		FriendsPanel_Resize(totalOnline)
+	end
 end
 
 local function OnEnter()
@@ -586,7 +674,7 @@ local function OnEnter()
 
 	if totalOnline == 0 then
 		GameTooltip:SetOwner(FriendsDataText, "ANCHOR_NONE")
-		GameTooltip:SetPoint(K.GetAnchors(FriendsDataText.Text))
+		GameTooltip:SetPoint(K.GetAnchors(FriendsDataText))
 		GameTooltip:ClearLines()
 		GameTooltip:AddDoubleLine(FRIENDS_LIST, string_format("%s: %s/%s", GUILD_ONLINE_LABEL, totalOnline, totalFriends), 0.4, 0.6, 1, 0.4, 0.6, 1)
 		GameTooltip:AddLine(" ")
@@ -635,9 +723,43 @@ local function OnEvent(event, arg1)
 		FriendsDataText.Text:SetText(string_format("%s: " .. K.MyClassColor .. "%d", FRIENDS, Module.totalOnline))
 	end
 
+	-- Keep frame and mover size in sync with icon + text
+	local textW = FriendsDataText.Text:GetStringWidth() or 0
+	local iconW = (FriendsDataText.Texture and FriendsDataText.Texture:GetWidth()) or 0
+	local totalW = textW + iconW
+	local textH = FriendsDataText.Text:GetLineHeight() or 12
+	local iconH = (FriendsDataText.Texture and FriendsDataText.Texture:GetHeight()) or 12
+	local totalH = math_max(textH, iconH)
+	FriendsDataText:SetSize(math_max(totalW, 56), totalH)
+	if FriendsDataText.mover then
+		FriendsDataText.mover:SetWidth(math_max(totalW, 56))
+		FriendsDataText.mover:SetHeight(totalH)
+	end
+
+	-- Keep frame and mover size in sync with icon + text
+	local textW = FriendsDataText.Text:GetStringWidth() or 0
+	local iconW = (FriendsDataText.Texture and FriendsDataText.Texture:GetWidth()) or 0
+	local totalW = textW + iconW
+	local textH = FriendsDataText.Text:GetLineHeight() or 12
+	local iconH = (FriendsDataText.Texture and FriendsDataText.Texture:GetHeight()) or 12
+	local totalH = math_max(textH, iconH)
+	FriendsDataText:SetSize(math_max(totalW, 56), totalH)
+	if FriendsDataText.mover then
+		FriendsDataText.mover:SetWidth(math_max(totalW, 56))
+		FriendsDataText.mover:SetHeight(totalH)
+	end
+
 	updateRequest = false
 	if infoFrame and infoFrame:IsShown() then
-		OnEnter()
+		if not updateQueued then
+			updateQueued = true
+			K.Delay(0.05, function()
+				if infoFrame and infoFrame:IsShown() then
+					OnEnter()
+				end
+				updateQueued = false
+			end)
+		end
 	end
 end
 
@@ -648,20 +770,10 @@ local function OnLeave()
 		return
 	end
 
-	-- Check if mouse is over the infoFrame or any of its buttons
-	local mouseOverFrame = MouseIsOver(infoFrame)
-	if not mouseOverFrame then
-		for i, button in ipairs(infoFrame.scrollFrame.buttons) do
-			if MouseIsOver(button) then
-				mouseOverFrame = true
-				break
-			end
-		end
+	if FriendsDataText then
+		FriendsDataText:SetScript("OnUpdate", isPanelCanHide)
 	end
-
-	if not mouseOverFrame then
-		infoFrame:Hide()
-	end
+	infoFrame:SetScript("OnUpdate", isPanelCanHide)
 end
 
 local function OnMouseUp(_, btn)
@@ -682,19 +794,16 @@ function Module:CreateSocialDataText()
 	end
 
 	FriendsDataText = CreateFrame("Frame", nil, UIParent)
-	FriendsDataText:SetHitRectInsets(-16, 0, -10, -10)
 
 	FriendsDataText.Text = K.CreateFontString(FriendsDataText, 12)
 	FriendsDataText.Text:ClearAllPoints()
-	FriendsDataText.Text:SetPoint("LEFT", UIParent, "LEFT", 24, -270)
+	FriendsDataText.Text:SetPoint("LEFT", FriendsDataText, "LEFT", 24, 0)
 
 	FriendsDataText.Texture = FriendsDataText:CreateTexture(nil, "ARTWORK")
-	FriendsDataText.Texture:SetPoint("RIGHT", FriendsDataText.Text, "LEFT", 0, 2)
+	FriendsDataText.Texture:SetPoint("LEFT", FriendsDataText, "LEFT", 0, 2)
 	FriendsDataText.Texture:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\DataText\\player.blp")
 	FriendsDataText.Texture:SetSize(24, 24)
 	FriendsDataText.Texture:SetVertexColor(unpack(C["DataText"].IconColor))
-
-	FriendsDataText:SetAllPoints(FriendsDataText.Text)
 
 	local function _OnEvent(...)
 		OnEvent(...)
@@ -709,5 +818,6 @@ function Module:CreateSocialDataText()
 	FriendsDataText:SetScript("OnLeave", OnLeave)
 	FriendsDataText:SetScript("OnMouseUp", OnMouseUp)
 
-	K.Mover(FriendsDataText.Text, "FriendsDT", "FriendsDT", { "LEFT", UIParent, "LEFT", 24, -270 }, 56, 12)
+	-- Make the whole block (icon + text) movable
+	FriendsDataText.mover = K.Mover(FriendsDataText, "FriendsDT", "FriendsDT", { "LEFT", UIParent, "LEFT", 0, -270 }, 56, 12)
 end

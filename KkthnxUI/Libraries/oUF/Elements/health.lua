@@ -122,18 +122,26 @@ local function UpdateColor(self, event, unit)
 	end
 	local element = self.Health
 
+	-- cache expensive queries used multiple times in the branches below
+	local isPlayerOrAI = UnitIsPlayer(unit) or UnitInPartyIsAI(unit)
+	local selection = element.colorSelection and unitSelectionType(unit, element.considerSelectionInCombatHostile)
+	local threatIndex
+	if element.colorThreat and not UnitPlayerControlled(unit) then
+		threatIndex = UnitThreatSituation("player", unit)
+	end
+
 	local r, g, b, color
 	if element.colorDisconnected and not UnitIsConnected(unit) then
 		color = self.colors.disconnected
 	elseif element.colorTapping and not UnitPlayerControlled(unit) and UnitIsTapDenied(unit) then
 		color = self.colors.tapped
-	elseif element.colorThreat and not UnitPlayerControlled(unit) and UnitThreatSituation("player", unit) then
-		color = self.colors.threat[UnitThreatSituation("player", unit)]
-	elseif (element.colorClass and (UnitIsPlayer(unit) or UnitInPartyIsAI(unit))) or (element.colorClassNPC and not (UnitIsPlayer(unit) or UnitInPartyIsAI(unit))) or (element.colorClassPet and UnitPlayerControlled(unit) and not UnitIsPlayer(unit)) then
+	elseif threatIndex then
+		color = self.colors.threat[threatIndex]
+	elseif (element.colorClass and isPlayerOrAI) or (element.colorClassNPC and not isPlayerOrAI) or (element.colorClassPet and UnitPlayerControlled(unit) and not UnitIsPlayer(unit)) then
 		local _, class = UnitClass(unit)
 		color = self.colors.class[class]
-	elseif element.colorSelection and unitSelectionType(unit, element.considerSelectionInCombatHostile) then
-		color = self.colors.selection[unitSelectionType(unit, element.considerSelectionInCombatHostile)]
+	elseif selection then
+		color = self.colors.selection[selection]
 	elseif element.colorReaction and UnitReaction(unit, "player") then
 		color = self.colors.reaction[UnitReaction(unit, "player")]
 	elseif element.colorSmooth then
@@ -353,7 +361,7 @@ local function Enable(self)
 
 		self:RegisterEvent("UNIT_HEALTH", Path)
 		self:RegisterEvent("UNIT_MAXHEALTH", Path)
-		-- self:RegisterEvent("UNIT_MAX_HEALTH_MODIFIERS_CHANGED", Path)
+		self:RegisterEvent("UNIT_MAX_HEALTH_MODIFIERS_CHANGED", Path)
 
 		if element:IsObjectType("StatusBar") and not element:GetStatusBarTexture() then
 			element:SetStatusBarTexture([[Interface\TargetingFrame\UI-StatusBar]])
@@ -391,7 +399,7 @@ local function Disable(self)
 		self:UnregisterEvent("PARTY_MEMBER_ENABLE", ColorPath)
 		self:UnregisterEvent("PARTY_MEMBER_DISABLE", ColorPath)
 		self:UnregisterEvent("UNIT_THREAT_LIST_UPDATE", ColorPath)
-		-- self:UnregisterEvent("UNIT_MAX_HEALTH_MODIFIERS_CHANGED", Path)
+		self:UnregisterEvent("UNIT_MAX_HEALTH_MODIFIERS_CHANGED", Path)
 
 		if element.TempLoss then
 			element.TempLoss:Hide()

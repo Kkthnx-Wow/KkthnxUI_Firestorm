@@ -9,203 +9,215 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
     the API provides a powerful set of tools to help you achieve your goals.
 ]]
 
-local getmetatable, select = getmetatable, select
+local getmetatable, select, unpack = getmetatable, select, unpack
+local math_min, math_max, math_pi = math.min, math.max, math.pi
 local CreateFrame, EnumerateFrames = CreateFrame, EnumerateFrames
 local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
 local RegisterStateDriver, UIParent = RegisterStateDriver, UIParent
 
-local CustomCloseButton = "Interface\\AddOns\\KkthnxUI\\Media\\Textures\\CloseButton_32"
+local Media = C.Media
+local CustomCloseButton = Media.Textures.CloseButton32
 
 -- Utility Functions
 local function rad(degrees)
-	return degrees * math.pi / 180
+	return degrees * math_pi / 180
 end
 
 -- Frame Hiders
 do
 	BINDING_HEADER_KKTHNXUI = C_AddOns_GetAddOnMetadata(..., "Title")
 
-	K.UIFrameHider = CreateFrame("Frame")
+	K.UIFrameHider = CreateFrame("Frame", nil, UIParent)
+	K.UIFrameHider:SetPoint("BOTTOM")
+	K.UIFrameHider:SetSize(1, 1)
 	K.UIFrameHider:Hide()
 
 	K.PetBattleFrameHider = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
-	K.PetBattleFrameHider:SetAllPoints()
 	K.PetBattleFrameHider:SetFrameStrata("LOW")
 	RegisterStateDriver(K.PetBattleFrameHider, "visibility", "[petbattle] hide; show")
 end
 
--- Set Border Color
-do
-	function K.SetBorderColor(self)
-		-- Prevent issues related to invalid inputs or configurations
-		if not self or type(self) ~= "table" or not self.SetVertexColor then
-			return
-		end
+-- Helper to apply background texture
+local function AddBackground(frame, texture, subLevel, layer, point, color)
+	if frame.KKUI_Background then
+		return
+	end
 
-		local colorTextures = C["General"].ColorTextures
-		local texturesColor = C["General"].TexturesColor
+	local Media = C.Media
+	local bgTexture = texture or Media.Textures.White8x8Texture
+	local bgSubLevel = subLevel or "BACKGROUND"
+	local bgLayer = layer or -2
+	local bgPoint = point or 0
+	local bgColor = color or Media.Backdrops.ColorBackdrop
 
-		if colorTextures and texturesColor and #texturesColor == 3 then
-			-- Ensure each color component is within the valid range
-			local r = math.min(math.max(texturesColor[1], 0), 1)
-			local g = math.min(math.max(texturesColor[2], 0), 1)
-			local b = math.min(math.max(texturesColor[3], 0), 1)
+	local bg = frame:CreateTexture(nil, bgSubLevel, nil, bgLayer)
+	bg:SetTexture(bgTexture, true, true)
 
-			self:SetVertexColor(r, g, b)
-		else
-			self:SetVertexColor(1, 1, 1) -- Default color
-		end
+	-- Safe check for global TexCoords
+	if K.TexCoords then
+		bg:SetTexCoord(unpack(K.TexCoords))
+	end
+
+	bg:SetPoint("TOPLEFT", frame, "TOPLEFT", bgPoint, -bgPoint)
+	bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -bgPoint, bgPoint)
+
+	if type(bgColor) == "table" then
+		bg:SetVertexColor(unpack(bgColor))
+	end
+
+	frame.KKUI_Background = bg
+end
+
+-- 1. K.SetBorderColor
+function K.SetBorderColor(self)
+	if not self or type(self) ~= "table" or not self.SetVertexColor then
+		return
+	end
+
+	local colorTextures = C["General"].ColorTextures
+	local texturesColor = C["General"].TexturesColor
+
+	if colorTextures and texturesColor and #texturesColor == 3 then
+		local r = math_min(math_max(texturesColor[1], 0), 1)
+		local g = math_min(math_max(texturesColor[2], 0), 1)
+		local b = math_min(math_max(texturesColor[3], 0), 1)
+		self:SetVertexColor(r, g, b)
+	else
+		self:SetVertexColor(1, 1, 1)
 	end
 end
 
--- Create Border
+-- 2. CreateBorder (Wrapper)
 local function CreateBorder(bFrame, ...)
 	if not bFrame or type(bFrame) ~= "table" then
-		return nil, "Invalid frame provided"
+		return nil, "Invalid frame"
+	end
+	if bFrame.KKUI_Border then
+		return bFrame
 	end
 
+	-- Explicit unpacking avoids the "spaghetti args" issue
 	local bSubLevel, bLayer, bSize, bTexture, bOffset, bColor, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor = ...
-	local General = C.General
-	local Media = C.Media
-	local BorderValue = General.BorderStyle.Value or "KkthnxUI"
-	local BorderSize = bSize or (BorderValue == "KkthnxUI" and 12 or 10)
 
-	if not bFrame.KKUI_Border then
-		local BorderTexture = bTexture or ("Interface\\AddOns\\KkthnxUI\\Media\\Border\\" .. BorderValue .. "\\Border.tga")
-		local BorderOffset = bOffset or -4
-		local BorderColor = bColor or Media.Borders.ColorBorder
+	local General, Media = C.General, C.Media
+	local BorderValue = General.BorderStyle or "KkthnxUI"
+	local BorderSize = bSize or K.BorderSize or (BorderValue == "KkthnxUI" and 12 or 10)
 
-		local kkui_border = K.CreateBorder(bFrame, bSubLevel or "OVERLAY", bLayer or 1)
-		kkui_border:SetSize(BorderSize)
-		kkui_border:SetTexture(BorderTexture)
-		kkui_border:SetOffset(BorderOffset)
-
-		local r, g, b = unpack(General.ColorTextures and General.TexturesColor or BorderColor)
-		kkui_border:SetVertexColor(r, g, b)
-
-		bFrame.KKUI_Border = kkui_border
+	-- Create the internal border object
+	local kkui_border = K.CreateBorder(bFrame, bSubLevel or "OVERLAY", bLayer or 1)
+	if not kkui_border then
+		return nil, "Failed to create border"
 	end
 
-	if not bFrame.KKUI_Background then
-		local BackgroundTexture = bgTexture or Media.Textures.White8x8Texture
-		local BackgroundSubLevel = bgSubLevel or "BACKGROUND"
-		local BackgroundLayer = bgLayer or -2
-		local BackgroundPoint = bgPoint or 0
-		local BackgroundColor = bgColor or Media.Backdrops.ColorBackdrop
-
-		local kkui_background = bFrame:CreateTexture(nil, BackgroundSubLevel, nil, BackgroundLayer)
-		kkui_background:SetTexture(BackgroundTexture, true, true)
-		kkui_background:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
-		kkui_background:SetPoint("TOPLEFT", bFrame, "TOPLEFT", BackgroundPoint, -BackgroundPoint)
-		kkui_background:SetPoint("BOTTOMRIGHT", bFrame, "BOTTOMRIGHT", -BackgroundPoint, BackgroundPoint)
-		kkui_background:SetVertexColor(unpack(BackgroundColor))
-
-		bFrame.KKUI_Background = kkui_background
+	-- Resolve the border texture from configured media instead of hardcoded paths
+	local borderTextures = Media.Borders
+	local resolvedTexture
+	if BorderValue == "KkthnxUI" then
+		resolvedTexture = borderTextures.KkthnxUIBorder
+	elseif BorderValue == "AzeriteUI" then
+		resolvedTexture = borderTextures.AzeriteUIBorder
+	elseif BorderValue == "KkthnxUI_Blank" then
+		resolvedTexture = borderTextures.KkthnxUI_BlankBorder
+	elseif BorderValue == "KkthnxUI_Pixel" then
+		resolvedTexture = borderTextures.KkthnxUI_PixelBorder
 	end
+
+	local BorderTexture = bTexture or resolvedTexture or borderTextures.KkthnxUIBorder
+	local BorderOffset = bOffset or -4
+	local BorderColor = bColor or Media.Borders.ColorBorder
+
+	kkui_border:SetSize(BorderSize)
+	kkui_border:SetTexture(BorderTexture)
+	kkui_border:SetOffset(BorderOffset)
+
+	-- Handle Coloring
+	local colorToUse = (General.ColorTextures and General.TexturesColor) or BorderColor
+	if colorToUse and type(colorToUse) == "table" then
+		kkui_border:SetVertexColor(unpack(colorToUse))
+	else
+		kkui_border:SetVertexColor(1, 1, 1)
+	end
+
+	bFrame.KKUI_Border = kkui_border
+
+	-- Add the Background
+	AddBackground(bFrame, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor)
 
 	return bFrame
 end
 
--- Create Backdrop
+-- 3. CreateBackdrop
 local function CreateBackdrop(bFrame, ...)
 	if not bFrame or type(bFrame) ~= "table" then
-		return nil, "Invalid frame provided"
+		return
+	end
+	if bFrame.KKUI_Backdrop then
+		return bFrame.KKUI_Backdrop
 	end
 
-	local bPointa, bPointb, bPointc, bPointd, bSubLevel, bLayer, bSize, bTexture, bOffset, bColor, bAlpha, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor = ...
+	local bPointa, bPointb, bPointc, bPointd, bSubLevel, bLayer, bSize, bTexture, bOffset, bColor, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor = ...
 
-	if not bFrame.KKUI_Background then
-		-- Assign default values if not provided
-		local BorderPoints = {
-			bPointa or 0,
-			bPointb or 0,
-			bPointc or 0,
-			bPointd or 0,
-		}
+	local points = { bPointa or 0, bPointb or 0, bPointc or 0, bPointd or 0 }
 
-		local kkui_backdrop = CreateFrame("Frame", "$parentBackdrop", bFrame)
-		kkui_backdrop:SetPoint("TOPLEFT", bFrame, "TOPLEFT", BorderPoints[1], BorderPoints[2])
-		kkui_backdrop:SetPoint("BOTTOMRIGHT", bFrame, "BOTTOMRIGHT", BorderPoints[3], BorderPoints[4])
+	local backdrop = CreateFrame("Frame", "$parentBackdrop", bFrame)
+	backdrop:SetPoint("TOPLEFT", bFrame, "TOPLEFT", points[1], points[2])
+	backdrop:SetPoint("BOTTOMRIGHT", bFrame, "BOTTOMRIGHT", points[3], points[4])
 
-		-- Ensure CreateBorder function exists and is callable
-		if type(kkui_backdrop.CreateBorder) == "function" then
-			kkui_backdrop:CreateBorder(bSubLevel, bLayer, bSize, bTexture, bOffset, bColor, bAlpha, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor)
-		end
+	-- Apply border and background to the new backdrop frame
+	CreateBorder(backdrop, bSubLevel, bLayer, bSize, bTexture, bOffset, bColor, bgTexture, bgSubLevel, bgLayer, bgPoint, bgColor)
 
-		kkui_backdrop:SetFrameLevel(max(0, bFrame:GetFrameLevel() - 1))
-
-		bFrame.KKUI_Backdrop = kkui_backdrop
-	end
+	backdrop:SetFrameLevel(math_max(0, bFrame:GetFrameLevel() - 1))
+	bFrame.KKUI_Backdrop = backdrop
 
 	return bFrame
 end
 
--- Create Shadow
+-- 4. CreateShadow
 local function CreateShadow(frame, useBackdrop)
-	-- Validate the frame
 	if not frame or type(frame) ~= "table" then
-		return nil, "Invalid frame provided"
+		return
 	end
-
-	-- Check if the shadow already exists; if so, return
 	if frame.Shadow then
 		return frame.Shadow
 	end
 
-	-- Get the parent frame if the passed object is a texture
 	local parentFrame = frame:IsObjectType("Texture") and frame:GetParent() or frame
-
-	-- Create the shadow frame using the BackdropTemplate
 	local shadow = CreateFrame("Frame", nil, parentFrame, "BackdropTemplate")
 
-	-- Set the position and size of the shadow frame
 	shadow:SetPoint("TOPLEFT", frame, -3, 3)
 	shadow:SetPoint("BOTTOMRIGHT", frame, 3, -3)
 
-	-- Define the backdrop of the shadow frame
 	local backdrop = {
 		edgeFile = C["Media"].Textures.GlowTexture,
 		edgeSize = 3,
 	}
 
-	-- Include additional backdrop settings if requested
+	-- Apply background if requested
 	if useBackdrop then
 		backdrop.bgFile = C["Media"].Textures.White8x8Texture
 		backdrop.insets = { left = 3, right = 3, top = 3, bottom = 3 }
 	end
 
-	-- Set the backdrop of the shadow frame
 	shadow:SetBackdrop(backdrop)
+	shadow:SetFrameLevel(math_max(parentFrame:GetFrameLevel() - 1, 0))
 
-	-- Set the frame level of the shadow frame to be one lower than the parent frame
-	shadow:SetFrameLevel(max(parentFrame:GetFrameLevel() - 1, 0))
-
-	-- Set the background and border color of the shadow frame based on the 'useBackdrop' argument
 	if useBackdrop then
 		shadow:SetBackdropColor(unpack(C["Media"].Backdrops.ColorBackdrop))
 	end
 	shadow:SetBackdropBorderColor(0, 0, 0, 0.8)
 
-	-- Save the shadow frame as a property of the parent frame
 	frame.Shadow = shadow
-
-	-- Return the created shadow frame
 	return shadow
 end
 
 -- Kill Function
 local function Kill(object)
-	-- Check if the object has an "UnregisterAllEvents" method
 	if object.UnregisterAllEvents then
-		-- Unregister all events for the object
 		object:UnregisterAllEvents()
-		-- Set the object's parent to K.UIFrameHider (likely a hidden frame used for hiding objects)
 		object:SetParent(K.UIFrameHider)
 	else
-		-- If the object does not have an "UnregisterAllEvents" method, set its "Show" method to its "Hide" method
 		object.Show = object.Hide
 	end
-	-- Hide the object
 	object:Hide()
 end
 
@@ -339,12 +351,36 @@ local blizzRegions = {
 	"Left",
 	"Middle",
 	"Right",
+	"Mid",
+	"LeftDisabled",
+	"MiddleDisabled",
+	"RightDisabled",
 	"TopLeft",
 	"TopRight",
 	"BottomLeft",
 	"BottomRight",
-	"Background",
+	"TopMiddle",
+	"MiddleLeft",
+	"MiddleRight",
+	"BottomMiddle",
+	"MiddleMiddle",
+	"TabSpacer",
+	"TabSpacer1",
+	"TabSpacer2",
+	"_RightSeparator",
+	"_LeftSeparator",
+	"Cover",
 	"Border",
+	"Background",
+	"TopTex",
+	"TopLeftTex",
+	"TopRightTex",
+	"LeftTex",
+	"BottomTex",
+	"BottomLeftTex",
+	"BottomRightTex",
+	"RightTex",
+	"MiddleTex",
 	"Center",
 }
 
@@ -427,39 +463,52 @@ end
 -- Skin CheckBox
 local function SkinCheckBox(self, forceSaturation)
 	self:SetNormalTexture(0)
-	self:SetPushedTexture(0)
 
 	local bg = CreateFrame("Frame", nil, self, "BackdropTemplate")
 	bg:SetAllPoints(self)
 	bg:SetFrameLevel(self:GetFrameLevel())
-	bg:CreateBorder(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, { 0.20, 0.20, 0.20 })
+	bg:CreateBorder()
 	self.bg = bg
+
+	self:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
+	local hl = self:GetHighlightTexture()
+	hl:SetAllPoints(bg)
+
+	self:SetPushedTexture("Interface\\Buttons\\ButtonHilight-Square")
+	local pushed = self:GetPushedTexture()
+	pushed:SetAllPoints(bg)
+	pushed:SetVertexColor(246 / 255, 196 / 255, 66 / 255)
+
+	local ch = self:GetCheckedTexture()
+	ch:SetAtlas("checkmark-minimal")
+	ch:SetPoint("TOPLEFT", bg, "TOPLEFT", -3, 3)
+	ch:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", 3, -3)
 
 	self.forceSaturation = forceSaturation
 end
 
-local function SkinEditBox(frame, width, height)
-	frame:DisableDrawLayer("BACKGROUND")
-
-	frame:CreateBackdrop()
-
-	local frameName = frame.GetName and frame:GetName()
-	if frameName and (frameName:find("Gold") or frameName:find("Silver") or frameName:find("Copper")) then
-		if frameName:find("Gold") then
-			frame.KKUI_Backdrop:SetPoint("TOPLEFT", -3, 1)
-			frame.KKUI_Backdrop:SetPoint("BOTTOMRIGHT", -3, 0)
-		else
-			frame.KKUI_Backdrop:SetPoint("TOPLEFT", -3, 1)
-			frame.KKUI_Backdrop:SetPoint("BOTTOMRIGHT", -13, 0)
+local function SkinEditBox(self, height, width)
+	local frameName = self.GetName and self:GetName()
+	for _, region in pairs(blizzRegions) do
+		region = frameName and _G[frameName .. region] or self[region]
+		if region then
+			region:SetAlpha(0)
 		end
 	end
 
-	if width then
-		frame:SetWidth(width)
-	end
+	local bg = CreateFrame("Frame", nil, self)
+	bg:SetFrameLevel(self:GetFrameLevel())
+	bg:SetPoint("TOPLEFT", -2, 0)
+	bg:SetPoint("BOTTOMRIGHT", 0, 0)
+	bg:CreateBorder()
+	self.__bg = bg
 
 	if height then
-		frame:SetHeight(height)
+		self:SetHeight(height)
+	end
+
+	if width then
+		self:SetWidth(width)
 	end
 end
 
@@ -543,56 +592,53 @@ local function SkinScrollBar(self)
 	K.ReskinArrow(down, "down")
 end
 
+local function KillEditMode(object)
+	object.HighlightSystem = K.Noop
+	object.ClearHighlight = K.Noop
+end
+
 -- Add API Function
 local function addapi(object)
 	local mt = getmetatable(object).__index
 
-	if not object.CreateBorder then
+	if not mt.CreateBorder then
 		mt.CreateBorder = CreateBorder
 	end
-
-	if not object.CreateBackdrop then
+	if not mt.CreateBackdrop then
 		mt.CreateBackdrop = CreateBackdrop
 	end
-
-	if not object.CreateShadow then
+	if not mt.CreateShadow then
 		mt.CreateShadow = CreateShadow
 	end
-
-	if not object.Kill then
+	if not mt.Kill then
 		mt.Kill = Kill
 	end
-
-	if not object.SkinButton then
+	if not mt.SkinButton then
 		mt.SkinButton = SkinButton
 	end
-
-	if not object.StripTextures then
+	if not mt.StripTextures then
 		mt.StripTextures = StripTextures
 	end
-
-	if not object.StyleButton then
+	if not mt.StyleButton then
 		mt.StyleButton = StyleButton
 	end
-
-	if not object.SkinCloseButton then
+	if not mt.SkinCloseButton then
 		mt.SkinCloseButton = SkinCloseButton
 	end
-
-	if not object.SkinCheckBox then
+	if not mt.SkinCheckBox then
 		mt.SkinCheckBox = SkinCheckBox
 	end
-
-	if not object.SkinEditBox then
+	if not mt.SkinEditBox then
 		mt.SkinEditBox = SkinEditBox
 	end
-
-	if not object.SkinScrollBar then
+	if not mt.SkinScrollBar then
 		mt.SkinScrollBar = SkinScrollBar
 	end
-
-	if not object.HideBackdrop then
+	if not mt.HideBackdrop then
 		mt.HideBackdrop = HideBackdrop
+	end
+	if not mt.KillEditMode then
+		mt.KillEditMode = KillEditMode
 	end
 end
 
@@ -606,10 +652,9 @@ addapi(object:CreateMaskTexture())
 
 object = EnumerateFrames()
 while object do
-	local objType = object:GetObjectType()
-	if not object:IsForbidden() and not handled[objType] then
+	if not object:IsForbidden() and not handled[object:GetObjectType()] then
 		addapi(object)
-		handled[objType] = true
+		handled[object:GetObjectType()] = true
 	end
 
 	object = EnumerateFrames(object)

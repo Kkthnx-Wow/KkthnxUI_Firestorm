@@ -5,6 +5,8 @@ local CreateFrame = CreateFrame
 local UnitIsUnit = UnitIsUnit
 
 function Module:CreatePartyPet()
+	self.mystyle = "partypet"
+
 	local PartyPetframeFont = K.UIFont
 	local PartyPetframeTexture = K.GetTexture(C["General"].Texture)
 
@@ -24,11 +26,11 @@ function Module:CreatePartyPet()
 	self.Health.colorDisconnected = true
 	self.Health.frequentUpdates = true
 
-	if C["Party"].HealthbarColor.Value == "Value" then
+	if C["Party"].HealthbarColor == 3 then
 		self.Health.colorSmooth = true
 		self.Health.colorClass = false
 		self.Health.colorReaction = false
-	elseif C["Party"].HealthbarColor.Value == "Dark" then
+	elseif C["Party"].HealthbarColor == 2 then
 		self.Health.colorSmooth = false
 		self.Health.colorClass = false
 		self.Health.colorReaction = false
@@ -39,21 +41,21 @@ function Module:CreatePartyPet()
 		self.Health.colorReaction = true
 	end
 
-	self.Power = CreateFrame("StatusBar", nil, self)
-	self.Power:SetFrameStrata("LOW")
-	self.Power:SetFrameLevel(self:GetFrameLevel())
-	self.Power:SetPoint("TOPLEFT", self.Health, "BOTTOMLEFT", 0, -1)
-	self.Power:SetPoint("TOPRIGHT", self.Health, "BOTTOMRIGHT", 0, -1)
-	self.Power:SetHeight(5.5)
-	self.Power:SetStatusBarTexture(PartyPetframeTexture)
+	-- self.Power = CreateFrame("StatusBar", nil, self)
+	-- self.Power:SetFrameStrata("LOW")
+	-- self.Power:SetFrameLevel(self:GetFrameLevel())
+	-- self.Power:SetPoint("TOPLEFT", self.Health, "BOTTOMLEFT", 0, -1)
+	-- self.Power:SetPoint("TOPRIGHT", self.Health, "BOTTOMRIGHT", 0, -1)
+	-- self.Power:SetHeight(5.5)
+	-- self.Power:SetStatusBarTexture(PartyPetframeTexture)
 
-	self.Power.colorPower = true
-	self.Power.frequentUpdates = false
+	-- self.Power.colorPower = true
+	-- self.Power.frequentUpdates = false
 
-	self.Power.Background = self.Power:CreateTexture(nil, "BORDER")
-	self.Power.Background:SetAllPoints(self.Power)
-	self.Power.Background:SetColorTexture(0.2, 0.2, 0.2)
-	self.Power.Background.multiplier = 0.3
+	-- self.Power.Background = self.Power:CreateTexture(nil, "BORDER")
+	-- self.Power.Background:SetAllPoints(self.Power)
+	-- self.Power.Background:SetColorTexture(0.2, 0.2, 0.2)
+	-- self.Power.Background.multiplier = 0.3
 
 	self.Portrait = CreateFrame("PlayerModel", nil, self.Health)
 	self.Portrait:SetFrameLevel(self.Health:GetFrameLevel())
@@ -112,5 +114,7 @@ function Module:CreatePartyPet()
 		Override = Module.UpdateThreat,
 	}
 
-	self.Range = Module.CreateRangeIndicator(self)
+	self.Range = {
+		Override = Module.UpdateRange,
+	}
 end

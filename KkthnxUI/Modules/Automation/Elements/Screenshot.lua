@@ -1,35 +1,41 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Automation")
 
-local screenshotFrame
+-- Cache global references locally
+local CreateFrame = CreateFrame
+local Screenshot = Screenshot
 
-local function onAchievementEarned()
-	screenshotFrame.delay = 1
-	screenshotFrame:Show()
+-- Achievement screenshot
+local ScreenShotFrame
+
+local function ScreenShotOnEvent(_, alreadyEarned)
+	if alreadyEarned then
+		return
+	end
+
+	ScreenShotFrame.delay = 1
+	ScreenShotFrame:Show()
 end
 
-local function onUpdate(self, elapsed)
-	if self.delay then
-		self.delay = self.delay - elapsed
-		if self.delay < 0 then
-			Screenshot()
-			self:Hide()
-		end
+local function OnUpdate(self, elapsed)
+	self.delay = self.delay - elapsed
+	if self.delay < 0 then
+		Screenshot()
+		self:Hide()
 	end
 end
 
 function Module:CreateAutoScreenshot()
-	if not screenshotFrame then
-		screenshotFrame = CreateFrame("Frame")
-		screenshotFrame:Hide()
-		screenshotFrame:SetScript("OnUpdate", onUpdate)
+	if not ScreenShotFrame then
+		ScreenShotFrame = CreateFrame("Frame")
+		ScreenShotFrame:Hide()
+		ScreenShotFrame:SetScript("OnUpdate", OnUpdate)
 	end
 
 	if C["Automation"].AutoScreenshot then
-		K:RegisterEvent("ACHIEVEMENT_EARNED", onAchievementEarned)
-		screenshotFrame:Show()
+		K:RegisterEvent("ACHIEVEMENT_EARNED", ScreenShotOnEvent)
 	else
-		K:UnregisterEvent("ACHIEVEMENT_EARNED", onAchievementEarned)
-		screenshotFrame:Hide()
+		ScreenShotFrame:Hide()
+		K:UnregisterEvent("ACHIEVEMENT_EARNED", ScreenShotOnEvent)
 	end
 end

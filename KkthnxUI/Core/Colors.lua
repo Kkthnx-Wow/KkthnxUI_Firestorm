@@ -62,7 +62,16 @@ oUF.colors.power = {
 	["AMMOSLOT"] = { 0.75, 0.60, 0.20 }, -- Warm earthy brown
 	["ARCANE_CHARGES"] = { 0.45, 0.75, 0.85 }, -- Soft sky blue
 	["CHI"] = { 0.65, 0.90, 0.80 }, -- Muted teal-green, softening the brightness
-	["COMBO_POINTS"] = { 0.65, 0.30, 0.30 }, -- Deep muted red
+	["COMBO_POINTS"] = { 0.65, 0.30, 0.30 }, -- Deep muted red (fallback for oUF compatibility)
+	["COMBO_POINTS_GRADUATED"] = {
+		{ 0.75, 0.31, 0.31 }, -- 1 point: Red
+		{ 0.78, 0.56, 0.31 }, -- 2 points: Red-orange
+		{ 0.81, 0.81, 0.31 }, -- 3 points: Yellow
+		{ 0.56, 0.78, 0.31 }, -- 4 points: Yellow-green
+		{ 0.43, 0.76, 0.31 }, -- 5 points: Light green
+		{ 0.31, 0.75, 0.31 }, -- 6 points: Green
+		{ 0.36, 0.81, 0.54 }, -- 7 points: Teal-green
+	},
 	["ENERGY"] = { 0.60, 0.60, 0.40 }, -- Softened yellow-brown
 	["ESSENCE"] = { 0.40, 0.70, 0.80 }, -- Softened cyan-blue
 	["FOCUS"] = { 0.70, 0.45, 0.30 }, -- Warm, softer orange-brown
@@ -80,6 +89,7 @@ oUF.colors.power = {
 	["RUNES"] = { 0.55, 0.55, 0.60 }, -- Neutral gray, consistent with Steam
 	["RUNIC_POWER"] = { 0.00, 0.70, 0.85 }, -- Deep sky blue, softer cyan
 	["SOUL_SHARDS"] = { 0.50, 0.35, 0.60 }, -- Softened purple-gray
+	["EBON_MIGHT"] = { 0.70, 0.45, 0.30 }, -- Warm, softer orange-brown
 	["STAGGER"] = {
 		{ 0.50, 0.85, 0.50 }, -- Soft green
 		{ 0.90, 0.85, 0.55 }, -- Muted golden yellow

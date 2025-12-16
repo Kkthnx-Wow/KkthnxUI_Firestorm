@@ -3,15 +3,23 @@ local Module = K:GetModule("Unitframes")
 
 -- Lua functions
 local math_rad = math.rad
+local floor = math.floor
 local pairs = pairs
+local ipairs = ipairs
 local string_format = string.format
+local strmatch = string.match
 local table_wipe = table.wipe
 local tonumber = tonumber
 local unpack = unpack
 
 -- WoW API
 local Ambiguate = Ambiguate
+local GetCVar = GetCVar
+local GetCVarBool = GetCVarBool
+local IsInInstance = IsInInstance
+local UnitCanAttack = UnitCanAttack
 local C_NamePlate_GetNamePlateForUnit = C_NamePlate.GetNamePlateForUnit
+local C_NamePlate_GetNamePlates = C_NamePlate.GetNamePlates
 local C_NamePlate_SetNamePlateEnemySize = C_NamePlate.SetNamePlateEnemySize
 local C_NamePlate_SetNamePlateFriendlySize = C_NamePlate.SetNamePlateFriendlySize
 local C_NamePlate_SetNamePlateEnemyClickThrough = C_NamePlate.SetNamePlateEnemyClickThrough
@@ -21,7 +29,6 @@ local C_Scenario_GetStepInfo = C_Scenario.GetStepInfo
 local CreateFrame = CreateFrame
 local GetNumGroupMembers = GetNumGroupMembers
 local GetNumSubgroupMembers = GetNumSubgroupMembers
-local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local INTERRUPTED = INTERRUPTED
 local InCombatLockdown = InCombatLockdown
 local IsInGroup = IsInGroup
@@ -41,9 +48,42 @@ local UnitPlayerControlled = UnitPlayerControlled
 local UnitReaction = UnitReaction
 local UnitThreatSituation = UnitThreatSituation
 local hooksecurefunc = hooksecurefunc
+local UnitHealth = UnitHealth
+local UnitHealthMax = UnitHealthMax
+
+-- Profiling support (disabled by default). Enable via Module:EnableNameplateProfiling() in-game
+local debugprofilestop = debugprofilestop
+local profilingEnabled = false
+local profileStats = {}
+
+function Module:EnableNameplateProfiling()
+	profilingEnabled = true
+	K.Print("Nameplate profiling: ON")
+end
+
+function Module:DisableNameplateProfiling()
+	profilingEnabled = false
+	K.Print("Nameplate profiling: OFF")
+end
+
+function Module:PrintNameplateProfiling()
+	local sortable = {}
+	for tag, s in pairs(profileStats) do
+		sortable[#sortable + 1] = { tag = tag, total = s.total or 0, count = s.count or 0, max = s.max or 0 }
+	end
+	table.sort(sortable, function(a, b)
+		return a.total > b.total
+	end)
+	K.Print("Nameplate profiling (ms): tag avg total count max")
+	for i = 1, #sortable do
+		local e = sortable[i]
+		local avg = e.count > 0 and (e.total / e.count) or 0
+		K.Print(string_format("%s: avg=%.3f total=%.3f count=%d max=%.3f", e.tag, avg, e.total, e.count, e.max))
+	end
+end
 
 -- Custom data
-local aksCacheData = {} -- Cache for data of abilities used by players
+local mdtCacheData = {} -- Cache for data of abilities used by players
 local customUnits = {} -- Custom unit data
 local groupRoles = {} -- Group roles for players
 local showPowerList = {} -- List of players who have their power displayed
@@ -60,8 +100,10 @@ local NPClassifies = {
 
 -- Specific NPCs to show
 local ShowTargetNPCs = {
-	[165251] = true, -- Fox of Xianlin
-	[174773] = true, -- Envious Monster
+	-- [165251] = true,	-- 仙林狐狸
+	[40357] = true, -- 格瑞姆巴托火元素
+	[164702] = true, -- 食腐蛆虫
+	[174773] = true, -- 怨毒怪
 }
 
 -- Init
@@ -70,12 +112,21 @@ function Module:UpdatePlateCVars()
 		return
 	end
 
+	local curTop, curBottom = GetCVar("nameplateOtherTopInset"), GetCVar("nameplateOtherBottomInset")
 	if C["Nameplate"].InsideView then
-		SetCVar("nameplateOtherTopInset", 0.05)
-		SetCVar("nameplateOtherBottomInset", 0.08)
-	elseif GetCVar("nameplateOtherTopInset") == "0.05" and GetCVar("nameplateOtherBottomInset") == "0.08" then
-		SetCVar("nameplateOtherTopInset", -1)
-		SetCVar("nameplateOtherBottomInset", -1)
+		if curTop ~= "0.05" then
+			SetCVar("nameplateOtherTopInset", 0.05)
+		end
+		if curBottom ~= "0.08" then
+			SetCVar("nameplateOtherBottomInset", 0.08)
+		end
+	else
+		if curTop == "0.05" then
+			SetCVar("nameplateOtherTopInset", -1)
+		end
+		if curBottom == "0.08" then
+			SetCVar("nameplateOtherBottomInset", -1)
+		end
 	end
 
 	local settings = {
@@ -89,7 +140,11 @@ function Module:UpdatePlateCVars()
 	}
 
 	for cvar, value in pairs(settings) do
-		SetCVar(cvar, value)
+		local cur = GetCVar(cvar)
+		local want = tostring(value)
+		if cur ~= want then
+			SetCVar(cvar, value)
+		end
 	end
 end
 
@@ -121,7 +176,7 @@ function Module:SetupCVars()
 		nameplateOverlapH = 0.8, -- Controls the horizontal overlap of nameplates. A lower value means nameplates will be more spaced out horizontally.
 		nameplateSelectedAlpha = 1, -- Sets the transparency level for the selected nameplate (the one currently targeted). A value of 1 means fully opaque.
 		showQuestTrackingTooltips = 1, -- Enables (1) or disables (0) the display of quest-related information in tooltips.
-		nameplateSelectedScale = 1.1, -- Determines the scale of the selected nameplate. A value greater than 1 enlarges the nameplate.
+		nameplateSelectedScale = C["Nameplate"].SelectedScale, -- Determines the scale of the selected nameplate. A value greater than 1 enlarges the nameplate.
 		nameplateLargerScale = 1.1, -- Adjusts the scale of larger nameplates, such as for bosses or important enemies. Default is 1 (normal size).
 		nameplateGlobalScale = 1, -- Sets the overall scale for all nameplates. Default is 1 (normal size).
 		NamePlateHorizontalScale = 1,
@@ -229,6 +284,12 @@ end
 
 function Module:UpdateGroupRoles()
 	refreshGroupRoles()
+
+	-- Unregister existing events first to prevent duplicates
+	K:UnregisterEvent("GROUP_ROSTER_UPDATE", refreshGroupRoles)
+	K:UnregisterEvent("GROUP_LEFT", resetGroupRoles)
+
+	-- Register events
 	K:RegisterEvent("GROUP_ROSTER_UPDATE", refreshGroupRoles)
 	K:RegisterEvent("GROUP_LEFT", resetGroupRoles)
 end
@@ -252,6 +313,11 @@ end
 function Module:UpdateColor(_, unit)
 	if not unit or self.unit ~= unit then
 		return
+	end
+
+	local t0
+	if profilingEnabled then
+		t0 = debugprofilestop()
 	end
 
 	local element = self.Health
@@ -286,23 +352,24 @@ function Module:UpdateColor(_, unit)
 			r, g, b = dotColor[1], dotColor[2], dotColor[3]
 		elseif isPlayer and isFriendly then
 			if C["Nameplate"].FriendlyCC then
-				r, g, b = K.UnitColor(unit)
+				local ur, ug, ub = K.UnitColor(unit)
+				r, g, b = ur, ug, ub
 			else
 				r, g, b = K.Colors.power["MANA"][1], K.Colors.power["MANA"][2], K.Colors.power["MANA"][3]
 			end
 		elseif isPlayer and not isFriendly and C["Nameplate"].HostileCC then
-			r, g, b = K.UnitColor(unit)
+			local ur, ug, ub = K.UnitColor(unit)
+			r, g, b = ur, ug, ub
 		elseif UnitIsTapDenied(unit) and not UnitPlayerControlled(unit) or C.NameplateTrashUnits[npcID] then
 			r, g, b = 0.6, 0.6, 0.6
 		else
-			-- Ill work on this later, I have an idea how I want to handle it.
-			local selectionType = UnitSelectionType(unit, true)
-			-- print(selectionType)
-			if selectionType == 1 then -- Hostile or Unfriendly -- Dumbass orange color.
-				r, g, b = 0.87, 0.44, 0.20
-			else
-				r, g, b = K.UnitColor(unit)
-			end
+			-- Prefer robust reaction-based coloring over UnitSelectionType magic numbers
+			-- if UnitIsEnemy("player", unit) then
+			-- 	r, g, b = 0.87, 0.44, 0.20
+			-- else
+			local ur, ug, ub = K.UnitColor(unit)
+			r, g, b = ur, ug, ub
+			--end
 
 			if status and (C["Nameplate"].TankMode or K.Role == "Tank") then
 				if status == 3 then
@@ -343,10 +410,25 @@ function Module:UpdateColor(_, unit)
 		end
 	end
 
-	if executeRatio > 0 and healthPerc <= executeRatio then
-		self.nameText:SetTextColor(1, 0, 0)
-	else
-		self.nameText:SetTextColor(1, 1, 1)
+	local useExecuteColor = executeRatio > 0 and healthPerc <= executeRatio
+	if useExecuteColor ~= self._lastExecuteColor then
+		self._lastExecuteColor = useExecuteColor
+		if useExecuteColor then
+			self.nameText:SetTextColor(1, 0, 0)
+		else
+			self.nameText:SetTextColor(1, 1, 1)
+		end
+	end
+
+	if profilingEnabled then
+		local dt = debugprofilestop() - t0
+		local s = profileStats.UpdateColor or { total = 0, count = 0, max = 0 }
+		s.total = s.total + dt
+		s.count = s.count + 1
+		if dt > s.max then
+			s.max = dt
+		end
+		profileStats.UpdateColor = s
 	end
 end
 
@@ -374,7 +456,7 @@ function Module:UpdateTargetChange()
 	local element = self.TargetIndicator
 	local unit = self.unit
 
-	if C["Nameplate"].TargetIndicator.Value ~= 1 then
+	if C["Nameplate"].TargetIndicator ~= 1 then
 		local isTarget = UnitIsUnit(unit, "target") and not UnitIsUnit(unit, "player")
 		element:SetShown(isTarget)
 
@@ -394,7 +476,12 @@ function Module:UpdateTargetChange()
 end
 
 function Module:UpdateTargetIndicator()
-	local style = C["Nameplate"].TargetIndicator.Value
+	local t0
+	if profilingEnabled then
+		t0 = debugprofilestop()
+	end
+
+	local style = C["Nameplate"].TargetIndicator
 	local element = self.TargetIndicator
 	local isNameOnly = self.plateType == "NameOnly"
 
@@ -413,6 +500,17 @@ function Module:UpdateTargetIndicator()
 	element.Glow:SetShown(showGlow)
 	element.nameGlow:SetShown(showNameGlow)
 	element:Show()
+
+	if profilingEnabled then
+		local dt = debugprofilestop() - t0
+		local s = profileStats.UpdateTargetIndicator or { total = 0, count = 0, max = 0 }
+		s.total = s.total + dt
+		s.count = s.count + 1
+		if dt > s.max then
+			s.max = dt
+		end
+		profileStats.UpdateTargetIndicator = s
+	end
 end
 
 local points = { -15, -5, 0, 5, 0 }
@@ -427,7 +525,7 @@ function Module:AddTargetIndicator(self)
 	local function CreateArrow(parent, point, x, y, rotation)
 		local arrow = parent:CreateTexture(nil, "BACKGROUND", nil, -5)
 		arrow:SetSize(64, 64) -- 128 / 2 simplified
-		arrow:SetTexture(C["Nameplate"].TargetIndicatorTexture.Value)
+		arrow:SetTexture(C["Nameplate"].TargetIndicatorTexture)
 		arrow:SetPoint(point, parent, point, x, y)
 		if rotation then
 			arrow:SetRotation(rotation)
@@ -598,54 +696,44 @@ function Module:UpdateClassIcon(self, unit)
 	end
 end
 
--- Dungeon progress, AngryKeystones required
+-- Dungeon progress, MDT required
 function Module:AddDungeonProgress(self)
 	if not C["Nameplate"].AKSProgress then
 		return
 	end
 
 	self.progressText = K.CreateFontString(self, 13, "", "", false, "LEFT", 0, 0)
+	self.progressText:ClearAllPoints()
 	self.progressText:SetPoint("LEFT", self, "RIGHT", 5, 0)
 end
 
 function Module:UpdateDungeonProgress(unit)
-	if not self.progressText or not AngryKeystones_Data then
+	if not self.progressText or not MDT then
 		return
 	end
-
 	if unit ~= self.unit then
 		return
 	end
-
 	self.progressText:SetText("")
 
 	local name, _, _, _, _, _, _, _, _, scenarioType = C_Scenario_GetInfo()
 	if scenarioType == LE_SCENARIO_TYPE_CHALLENGE_MODE then
-		local npcID = self.npcID
-		local info = AngryKeystones_Data.progress[npcID]
-		if info then
-			local numCriteria = select(3, C_Scenario_GetStepInfo())
-			local total = aksCacheData[name]
+		local value = MDT:GetEnemyForces(self.npcID)
+		if value and value > 0 then
+			local total = mdtCacheData[name]
 			if not total then
+				local numCriteria = select(3, C_Scenario_GetStepInfo())
 				for criteriaIndex = 1, numCriteria do
 					local criteriaInfo = C_ScenarioInfo.GetCriteriaInfo(criteriaIndex)
 					if criteriaInfo and criteriaInfo.isWeightedProgress then
-						aksCacheData[name] = criteriaInfo.totalQuantity
-						total = aksCacheData[name]
+						mdtCacheData[name] = criteriaInfo.totalQuantity
+						total = mdtCacheData[name]
 						break
 					end
 				end
 			end
 
-			local value, valueCount
-			for amount, count in pairs(info) do
-				if not valueCount or count > valueCount or (count == valueCount and amount < value) then
-					value = amount
-					valueCount = count
-				end
-			end
-
-			if value and total then
+			if total then
 				self.progressText:SetText(string_format("+%.2f", value / total * 100))
 			end
 		end
@@ -745,6 +833,10 @@ end
 
 -- Interrupt info on castbars
 function Module:UpdateSpellInterruptor(...)
+	-- if not C["Nameplate"].Interruptor then
+	-- 	return
+	-- end
+
 	local _, _, sourceGUID, sourceName, _, _, destGUID = ...
 	if destGUID == self.unitGUID and sourceGUID and sourceName and sourceName ~= "" then
 		local _, class = GetPlayerInfoByGUID(sourceGUID)
@@ -809,6 +901,7 @@ function Module:CreatePlates()
 	self.nameText:ClearAllPoints()
 	self.nameText:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
 	self.nameText:SetPoint("BOTTOMRIGHT", self.levelText, "TOPRIGHT", -21, 4)
+	self:Tag(self.nameText, "[name]")
 
 	self.npcTitle = K.CreateFontString(self, C["Nameplate"].NameTextSize - 1)
 	self.npcTitle:ClearAllPoints()
@@ -902,57 +995,77 @@ function Module:CreatePlates()
 		frame:SetAllPoints(self.Health)
 		local frameLevel = frame:GetFrameLevel()
 
+		local normalTexture = K.GetTexture(C["General"].Texture)
+
 		-- Position and size
 		local myBar = CreateFrame("StatusBar", nil, frame)
 		myBar:SetPoint("TOP")
 		myBar:SetPoint("BOTTOM")
 		myBar:SetPoint("LEFT", self.Health:GetStatusBarTexture(), "RIGHT")
-		myBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		myBar:SetStatusBarTexture(normalTexture)
 		myBar:SetStatusBarColor(0, 1, 0.5, 0.5)
+		myBar:SetFrameLevel(frameLevel)
 		myBar:Hide()
 
 		local otherBar = CreateFrame("StatusBar", nil, frame)
 		otherBar:SetPoint("TOP")
 		otherBar:SetPoint("BOTTOM")
 		otherBar:SetPoint("LEFT", myBar:GetStatusBarTexture(), "RIGHT")
-		otherBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+		otherBar:SetStatusBarTexture(normalTexture)
 		otherBar:SetStatusBarColor(0, 1, 0, 0.5)
+		otherBar:SetFrameLevel(frameLevel)
 		otherBar:Hide()
 
 		local absorbBar = CreateFrame("StatusBar", nil, frame)
 		absorbBar:SetPoint("TOP")
 		absorbBar:SetPoint("BOTTOM")
 		absorbBar:SetPoint("LEFT", otherBar:GetStatusBarTexture(), "RIGHT")
-		absorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-		absorbBar:SetStatusBarColor(0.66, 1, 1, 0.7)
+		absorbBar:SetStatusBarTexture(normalTexture)
+		absorbBar:SetStatusBarColor(0.66, 1, 1)
 		absorbBar:SetFrameLevel(frameLevel)
+		absorbBar:SetAlpha(0.5)
 		absorbBar:Hide()
+		local tex = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(absorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		overAbsorbBar:SetAllPoints()
-		overAbsorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-		overAbsorbBar:SetStatusBarColor(0.66, 1, 1, 0.5)
+		overAbsorbBar:SetStatusBarTexture(normalTexture)
+		overAbsorbBar:SetStatusBarColor(0.66, 1, 1)
 		overAbsorbBar:SetFrameLevel(frameLevel)
+		overAbsorbBar:SetAlpha(0.35)
 		overAbsorbBar:Hide()
+		local tex = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
+		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex:SetHorizTile(true)
+		tex:SetVertTile(true)
 
 		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		healAbsorbBar:SetPoint("TOP")
 		healAbsorbBar:SetPoint("BOTTOM")
 		healAbsorbBar:SetPoint("RIGHT", self.Health:GetStatusBarTexture())
 		healAbsorbBar:SetReverseFill(true)
-		healAbsorbBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-		local tex = healAbsorbBar:GetStatusBarTexture()
+		healAbsorbBar:SetStatusBarTexture(normalTexture)
+		healAbsorbBar:SetStatusBarColor(1, 0, 0.5)
+		healAbsorbBar:SetFrameLevel(frameLevel)
+		healAbsorbBar:SetAlpha(0.35)
+		healAbsorbBar:Hide()
+		local tex = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
 		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
 		tex:SetHorizTile(true)
 		tex:SetVertTile(true)
-		healAbsorbBar:Hide()
 
-		local overAbsorb = self.Health:CreateTexture(nil, "OVERLAY")
-		overAbsorb:SetWidth(15)
+		local overAbsorb = self.Health:CreateTexture(nil, "OVERLAY", nil, 2)
+		overAbsorb:SetWidth(8)
 		overAbsorb:SetTexture("Interface\\RaidFrame\\Shield-Overshield")
 		overAbsorb:SetBlendMode("ADD")
-		overAbsorb:SetPoint("TOPLEFT", self.Health, "TOPRIGHT", -5, 2)
-		overAbsorb:SetPoint("BOTTOMLEFT", self.Health, "BOTTOMRIGHT", -5, -2)
+		overAbsorb:SetPoint("TOPLEFT", self.Health, "TOPRIGHT", -5, 0)
+		overAbsorb:SetPoint("BOTTOMLEFT", self.Health, "BOTTOMRIGHT", -5, -0)
 		overAbsorb:Hide()
 
 		local overHealAbsorb = frame:CreateTexture(nil, "OVERLAY")
@@ -984,8 +1097,8 @@ function Module:CreatePlates()
 	self.Auras.initdialAnchor = "BOTTOMLEFT"
 	self.Auras["growth-y"] = "UP"
 	if C["Nameplate"].NameplateClassPower then
-		self.Auras:SetPoint("BOTTOMLEFT", self.nameText, "TOPLEFT", 0, 6 + C["Nameplate"].PlateHeight)
-		self.Auras:SetPoint("BOTTOMRIGHT", self.nameText, "TOPRIGHT", 0, 6 + C["Nameplate"].PlateHeight)
+		self.Auras:SetPoint("BOTTOMLEFT", self.nameText, "TOPLEFT", 0, 8 + C["Nameplate"].PlateHeight)
+		self.Auras:SetPoint("BOTTOMRIGHT", self.nameText, "TOPRIGHT", 0, 8 + C["Nameplate"].PlateHeight)
 	else
 		self.Auras:SetPoint("BOTTOMLEFT", self.nameText, "TOPLEFT", 0, 6)
 		self.Auras:SetPoint("BOTTOMRIGHT", self.nameText, "TOPRIGHT", 0, 6)
@@ -1043,6 +1156,11 @@ function Module:ToggleNameplateAuras()
 end
 
 function Module:UpdateNameplateAuras()
+	local t0
+	if profilingEnabled then
+		t0 = debugprofilestop()
+	end
+
 	Module.ToggleNameplateAuras(self)
 
 	if not C["Nameplate"].PlateAuras then
@@ -1063,34 +1181,31 @@ function Module:UpdateNameplateAuras()
 	element:SetHeight((element.size + element.spacing) * 2)
 
 	element:ForceUpdate()
+
+	if profilingEnabled then
+		local dt = debugprofilestop() - t0
+		local s = profileStats.UpdateNameplateAuras or { total = 0, count = 0, max = 0 }
+		s.total = s.total + dt
+		s.count = s.count + 1
+		if dt > s.max then
+			s.max = dt
+		end
+		profileStats.UpdateNameplateAuras = s
+	end
 end
 
 function Module:UpdateNameplateSize()
-	-- local plateHeight = C["Nameplate"].PlateHeight
-	-- local nameTextSize = C["Nameplate"].NameTextSize
-	-- local iconSize = plateHeight * 2 + 3
-
-	-- self:SetSize(C["Nameplate"].PlateWidth, plateHeight)
-
-	--self.nameText:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
 	if self.plateType == "NameOnly" then
 		self:Tag(self.nameText, "[nprare][color][name] [nplevel]")
 		self.npcTitle:UpdateTag()
 	else
+		self.nameText:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
+		self.nameText:SetPoint("BOTTOMRIGHT", self.levelText, "TOPRIGHT", -21, 4)
 		self:Tag(self.nameText, "[nprare][name]")
+		self.healthValue:UpdateTag()
+
+		self:SetSize(C["Nameplate"].PlateWidth, C["Nameplate"].PlateHeight)
 	end
-
-	-- self.npcTitle:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize - 1, "")
-	-- self.tarName:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize + 4, "")
-
-	-- self.Castbar.Icon:SetSize(iconSize, iconSize)
-	-- self.Castbar:SetHeight(plateHeight)
-	-- self.Castbar.Time:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
-	-- self.Castbar.Text:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize, "")
-	-- self.Castbar.spellTarget:SetFont(select(1, KkthnxUIFont:GetFont()), nameTextSize + 3, "")
-
-	-- self.healthValue:SetFont(select(1, KkthnxUIFont:GetFont()), C["Nameplate"].HealthTextSize, "")
-	-- self.healthValue:UpdateTag()
 
 	self.nameText:UpdateTag()
 end
@@ -1125,6 +1240,10 @@ local DisabledElements = {
 	"ThreatIndicator",
 }
 function Module:UpdatePlateByType()
+	local t0
+	if profilingEnabled then
+		t0 = debugprofilestop()
+	end
 	local name = self.nameText
 	local level = self.levelText
 	local hpval = self.healthValue
@@ -1133,27 +1252,24 @@ function Module:UpdatePlateByType()
 	local raidtarget = self.RaidTargetIndicator
 	local questIcon = self.questIcon
 
-	-- name:SetShown(not self.widgetsOnly)
-	-- name:ClearAllPoints()
-	if self.widgetsOnly then
+	local shouldHideName = self.widgetsOnly
+	if shouldHideName then
 		name:Hide()
 	else
 		name:Show()
-		-- name:UpdateTag()
+		name:UpdateTag()
 		name:ClearAllPoints()
 	end
-	-- self:Tag(self.nameText, "[nprare] [color][name] [nplevel]")
-	-- self.npcTitle:UpdateTag()
 	raidtarget:ClearAllPoints()
 
 	if self.isSoftTarget then
-		for _, element in pairs(SoftTargetBlockElements) do
+		for _, element in ipairs(SoftTargetBlockElements) do
 			if self:IsElementEnabled(element) then
 				self:DisableElement(element)
 			end
 		end
 	else
-		for _, element in pairs(SoftTargetBlockElements) do
+		for _, element in ipairs(SoftTargetBlockElements) do
 			if not self:IsElementEnabled(element) then
 				self:EnableElement(element)
 			end
@@ -1161,7 +1277,7 @@ function Module:UpdatePlateByType()
 	end
 
 	if self.plateType == "NameOnly" then
-		for _, element in pairs(DisabledElements) do
+		for _, element in ipairs(DisabledElements) do
 			if self:IsElementEnabled(element) then
 				self:DisableElement(element)
 			end
@@ -1169,6 +1285,8 @@ function Module:UpdatePlateByType()
 
 		name:SetJustifyH("CENTER")
 		name:SetPoint("CENTER", self, "BOTTOM")
+		name:Show()
+		name:UpdateTag()
 
 		level:Hide()
 		hpval:Hide()
@@ -1186,16 +1304,13 @@ function Module:UpdatePlateByType()
 			self.widgetContainer:SetPoint("TOP", title, "BOTTOM", 0, -10)
 		end
 	else
-		for _, element in pairs(DisabledElements) do
+		for _, element in ipairs(DisabledElements) do
 			if not self:IsElementEnabled(element) then
 				self:EnableElement(element)
 			end
 		end
 
 		name:SetJustifyH("LEFT")
-		name:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 4)
-		name:SetPoint("BOTTOMRIGHT", level, "TOPRIGHT", -21, 4)
-		-- self:Tag(self.nameText, "[name]")
 
 		level:Show()
 		hpval:Show()
@@ -1212,11 +1327,25 @@ function Module:UpdatePlateByType()
 			self.widgetContainer:ClearAllPoints()
 			self.widgetContainer:SetPoint("TOP", self.Castbar, "BOTTOM", 0, -6)
 		end
+
+		name:Show()
+		name:UpdateTag()
 	end
 
 	Module.UpdateNameplateSize(self)
 	Module.UpdateTargetIndicator(self)
 	Module.ToggleNameplateAuras(self)
+
+	if profilingEnabled then
+		local dt = debugprofilestop() - t0
+		local s = profileStats.UpdatePlateByType or { total = 0, count = 0, max = 0 }
+		s.total = s.total + dt
+		s.count = s.count + 1
+		if dt > s.max then
+			s.max = dt
+		end
+		profileStats.UpdatePlateByType = s
+	end
 end
 
 function Module:RefreshPlateType(unit)
@@ -1250,7 +1379,7 @@ function Module:OnUnitSoftTargetChanged(previousTarget, currentTarget)
 		return
 	end
 
-	for _, nameplate in pairs(C_NamePlate.GetNamePlates()) do
+	for _, nameplate in ipairs(C_NamePlate_GetNamePlates()) do
 		local unitFrame = nameplate and nameplate.unitFrame
 		local guid = unitFrame and unitFrame.unitGUID
 		if guid and (guid == previousTarget or guid == currentTarget) then
@@ -1262,11 +1391,21 @@ function Module:OnUnitSoftTargetChanged(previousTarget, currentTarget)
 end
 
 function Module:RefreshPlateOnFactionChanged()
+	-- Unregister existing events first to prevent duplicates
+	K:UnregisterEvent("UNIT_FACTION", Module.OnUnitFactionChanged)
+	K:UnregisterEvent("PLAYER_SOFT_INTERACT_CHANGED", Module.OnUnitSoftTargetChanged)
+
+	-- Register events
 	K:RegisterEvent("UNIT_FACTION", Module.OnUnitFactionChanged)
 	K:RegisterEvent("PLAYER_SOFT_INTERACT_CHANGED", Module.OnUnitSoftTargetChanged)
 end
 
 function Module:PostUpdatePlates(event, unit)
+	local t0
+	if profilingEnabled then
+		t0 = debugprofilestop()
+	end
+
 	if not self then
 		return
 	end
@@ -1294,6 +1433,14 @@ function Module:PostUpdatePlates(event, unit)
 		end
 
 		Module.RefreshPlateType(self, unit)
+		-- Mitigate intermittent delayed name availability
+		if self.nameText and self.plateType == "NameOnly" then
+			C_Timer.After(0.25, function()
+				if self.nameText and self:IsShown() then
+					self.nameText:UpdateTag()
+				end
+			end)
+		end
 	elseif event == "NAME_PLATE_UNIT_REMOVED" then
 		self.npcID = nil
 	end
@@ -1308,6 +1455,17 @@ function Module:PostUpdatePlates(event, unit)
 		Module:UpdateTargetClassPower()
 
 		self.tarName:SetShown(ShowTargetNPCs[self.npcID])
+	end
+
+	if profilingEnabled then
+		local dt = debugprofilestop() - t0
+		local s = profileStats.PostUpdatePlates or { total = 0, count = 0, max = 0 }
+		s.total = s.total + dt
+		s.count = s.count + 1
+		if dt > s.max then
+			s.max = dt
+		end
+		profileStats.PostUpdatePlates = s
 	end
 end
 
@@ -1364,13 +1522,6 @@ function Module:CreatePlayerPlate()
 		self.Stagger.Value:SetFontObject(K.UIFont)
 		self.Stagger.Value:SetPoint("CENTER", self.Stagger, "CENTER", 0, 0)
 		self:Tag(self.Stagger.Value, "[monkstagger]")
-	end
-
-	if C["Nameplate"].ClassAuras then
-		local Lumos = K:GetModule("Auras")
-		if Lumos then
-			Lumos:CreateLumos(self)
-		end
 	end
 
 	local textFrame = CreateFrame("Frame", nil, self.Power)
@@ -1446,13 +1597,16 @@ function Module:UpdateTargetClassPower()
 
 	local bar = plate.ClassPowerBar
 	local nameplate = C_NamePlate_GetNamePlateForUnit("target")
-	if nameplate then
+	if nameplate and nameplate.unitFrame then
 		bar:SetParent(nameplate.unitFrame)
 		bar:ClearAllPoints()
-		bar:SetPoint("BOTTOM", nameplate.unitFrame, "TOP", 0, 20)
+		bar:SetPoint("BOTTOM", nameplate.unitFrame, "TOP", 0, 24)
 		bar:Show()
 	else
 		bar:Hide()
+		-- Reset parent back to the original holder to avoid dangling references on recycled plates
+		bar:SetParent(plate)
+		bar:ClearAllPoints()
 	end
 end
 

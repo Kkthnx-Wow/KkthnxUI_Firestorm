@@ -33,10 +33,15 @@ CALLBACKS
 ]]
 
 local addon, ns = ...
+local B, C, L, DB = unpack(ns)
 local cargBags = ns.cargBags
 local Implementation = cargBags.classes.Implementation
 
 local ContainerIDToInventoryID = C_Container.ContainerIDToInventoryID
+local pairs = pairs
+local ipairs = ipairs
+local table_insert = table.insert
+local CreateFrame = CreateFrame
 local maxBagSlots = 5
 
 function Implementation:GetBagButtonClass()
@@ -59,7 +64,7 @@ local buttonNum = 0
 function BagButton:Create(bagID)
 	buttonNum = buttonNum + 1
 	local name = addon .. "BagButton" .. buttonNum
-	local isBankBag = bagID > 5 and bagID < 13
+	local isBankBag = bagID > 5 and bagID < 18
 	local button = setmetatable(CreateFrame("ItemButton", name, nil, "BackdropTemplate"), self.__index)
 
 	local invID = (isBankBag and bagID - maxBagSlots) or ContainerIDToInventoryID(bagID)
@@ -178,12 +183,11 @@ function BagButton:OnClick(btn)
 		if self.bar.isGlobal then
 			for _, container in pairs(container.implementation.contByID) do
 				container:SetFilter(self.filter, self.hidden)
-				container.implementation:OnEvent("BAG_UPDATE", self.bagId)
 			end
 		else
 			container:SetFilter(self.filter, self.hidden)
-			container.implementation:OnEvent("BAG_UPDATE", self.bagId)
 		end
+		container.implementation:OnEvent("BAG_UPDATE", self.bagId)
 	end
 end
 BagButton.OnReceiveDrag = BagButton.OnClick
@@ -240,7 +244,7 @@ cargBags:RegisterPlugin("BagBar", function(self, bags)
 			local button = buttonClass:Create(bags[i])
 			button:SetParent(bar)
 			button.bar = bar
-			table.insert(bar.buttons, button)
+			table_insert(bar.buttons, button)
 		end
 	end
 

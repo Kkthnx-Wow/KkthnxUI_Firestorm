@@ -7,6 +7,9 @@ local oUF = K.oUF
 local pairs = pairs
 local string_format = string.format
 local unpack = unpack
+local math_min = math.min
+local ceil = math.ceil
+local floor = math.floor
 
 -- WoW API
 local CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
@@ -17,6 +20,7 @@ local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES
 local PlaySound = PlaySound
 local SOUNDKIT = SOUNDKIT
 local UIParent = UIParent
+local RegisterStateDriver = RegisterStateDriver
 local UnitClass = UnitClass
 local UnitExists = UnitExists
 local UnitFactionGroup = UnitFactionGroup
@@ -40,21 +44,182 @@ local filteredStyle = {
 	["target"] = true,
 }
 
+-- Header registry (NDui-like pattern)
+Module.headers = Module.headers or {}
+
+-- Visibility helpers (NDui-like, adapted to our config)
+function Module:GetPartyVisibility()
+	if not C["Party"].Enable then
+		return "hide"
+	end
+	-- If using raid layout for party, hide party header entirely
+	if C["Raid"].UseRaidForParty then
+		return "hide"
+	end
+	-- Blizzard-like: hide party when in raid; show in party (and optional solo)
+	local vis = "[group:raid] hide;[group:party] show;hide"
+	if C["Party"].ShowPartySolo then
+		vis = "[nogroup] show;" .. vis
+	end
+	return vis
+end
+
+function Module:GetRaidVisibility()
+	if not C["Raid"].Enable then
+		return "hide"
+	end
+	-- When using raid layout for party, show raid header for any group (party or raid)
+	if C["Raid"].UseRaidForParty then
+		return "[group] show;hide"
+	end
+	-- Only show in raid (Blizzard-like)
+	return "[group:raid] show;hide"
+end
+
+function Module:GetPartyPetVisibility()
+	if not C["Party"].Enable or not C["Party"].ShowPet then
+		return "hide"
+	end
+	-- If using raid layout for party, hide party-pet header too
+	if C["Raid"].UseRaidForParty then
+		return "hide"
+	end
+	return self:GetPartyVisibility()
+end
+
+function Module:ResetHeaderPoints(header)
+	for i = 1, header:GetNumChildren() do
+		local child = select(i, header:GetChildren())
+		if child and child.ClearAllPoints then
+			child:ClearAllPoints()
+		end
+	end
+end
+
+function Module:UpdateAllHeaders()
+	if not self.headers or #self.headers == 0 then
+		return
+	end
+	-- Avoid protected attribute changes in combat; defer until out of combat
+	if InCombatLockdown() then
+		self._pendingHeaderUpdate = true
+		K:RegisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateAllHeaders)
+		return
+	elseif self._pendingHeaderUpdate then
+		self._pendingHeaderUpdate = nil
+		K:UnregisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateAllHeaders)
+	end
+
+	for _, header in pairs(self.headers) do
+		local vis
+		if header.groupType == "party" then
+			vis = self:GetPartyVisibility()
+		elseif header.groupType == "pet" then
+			vis = self:GetPartyPetVisibility()
+		elseif header.groupType == "raid" then
+			vis = self:GetRaidVisibility()
+		end
+
+		-- Apply only when visibility state actually changes to avoid taint churn
+		if vis and header.__lastVis ~= vis then
+			RegisterStateDriver(header, "visibility", vis)
+			header.__lastVis = vis
+		end
+	end
+end
+
+-- Centralized 3D portrait alpha fix (handles model and optional border)
+function Module:ApplyPortraitAlphaFix(frame)
+	if not frame then
+		return
+	end
+	if not frame.Portrait then
+		return
+	end
+	if not frame.Portrait.IsObjectType or not frame.Portrait:IsObjectType("PlayerModel") then
+		return
+	end
+
+	local portrait = frame.Portrait
+	portrait.__baseAlpha = portrait.__baseAlpha or (portrait:GetAlpha() or 1)
+	if portrait.SetIgnoreParentAlpha then
+		portrait:SetIgnoreParentAlpha(true)
+	end
+
+	-- Ensure our border (if present) also ignores parent alpha and is driven manually
+	local border = portrait.KKUI_Border
+	if border and border.SetIgnoreParentAlpha then
+		border:SetIgnoreParentAlpha(true)
+	end
+	-- Also handle a potential portrait background
+	local background = portrait.KKUI_Background
+	if background and background.SetIgnoreParentAlpha then
+		background:SetIgnoreParentAlpha(true)
+	end
+
+	-- Cache base alphas so we can restore intended alpha when scale returns to 1
+	if border and not border.__baseAlpha and border.GetAlpha then
+		border.__baseAlpha = border:GetAlpha() or 1
+	end
+	if background and not background.__baseAlpha then
+		local baseAlpha
+		if background.GetVertexColor then
+			local _r, _g, _b, a = background:GetVertexColor()
+			baseAlpha = a
+		end
+		background.__baseAlpha = baseAlpha or ((C["Media"] and C["Media"].Backdrops and C["Media"].Backdrops.ColorBackdrop and C["Media"].Backdrops.ColorBackdrop[4]) or 0.9)
+	end
+
+	if not frame.__portraitAlphaHooked then
+		frame.__portraitAlphaHooked = true
+		hooksecurefunc(frame, "SetAlpha", function(owner, value)
+			local p = owner.Portrait
+			if p and p.IsObjectType and p:IsObjectType("PlayerModel") then
+				local scale = (value or 1)
+				local alpha = scale * (p.__baseAlpha or 1)
+				if p.SetModelAlpha then
+					p:SetModelAlpha(alpha)
+				end
+				local b = p.KKUI_Border
+				if b and b.SetAlpha then
+					b:SetAlpha(scale * (b.__baseAlpha or 1))
+				end
+				local bg = p.KKUI_Background
+				if bg and bg.SetAlpha then
+					bg:SetAlpha(scale * (bg.__baseAlpha or 1))
+				end
+			end
+		end)
+	end
+
+	local scaleSeed = (frame:GetAlpha() or 1)
+	local seed = scaleSeed * (portrait.__baseAlpha or 1)
+	if portrait.SetModelAlpha then
+		portrait:SetModelAlpha(seed)
+	end
+	if border and border.SetAlpha then
+		border:SetAlpha(scaleSeed * (border.__baseAlpha or 1))
+	end
+	if background and background.SetAlpha then
+		background:SetAlpha(scaleSeed * (background.__baseAlpha or 1))
+	end
+end
+
 function Module:UpdateClassPortraits(unit)
-	if C["Unitframe"].PortraitStyle.Value == "NoPortraits" or not unit then
+	if C["Unitframe"].PortraitStyle == 0 or not unit then
 		return
 	end
 
 	local _, unitClass = UnitClass(unit)
 
 	if unitClass then
-		local PortraitValue = C["Unitframe"].PortraitStyle.Value
+		local PortraitValue = C["Unitframe"].PortraitStyle
 		local ClassTCoords = CLASS_ICON_TCOORDS[unitClass]
 
 		local texturePath
-		if PortraitValue == "ClassPortraits" and UnitIsPlayer(unit) then
+		if PortraitValue == 2 and UnitIsPlayer(unit) then
 			texturePath = "Interface\\AddOns\\KkthnxUI\\Media\\Unitframes\\OLD-ICONS-CLASSES"
-		elseif PortraitValue == "NewClassPortraits" and UnitIsPlayer(unit) then
+		elseif PortraitValue == 3 and UnitIsPlayer(unit) then
 			texturePath = "Interface\\AddOns\\KkthnxUI\\Media\\Unitframes\\NEW-ICONS-CLASSES"
 		end
 
@@ -93,15 +258,15 @@ function Module:UpdateThreat(_, unit)
 	local status = UnitThreatSituation(unit)
 
 	-- Get the portrait style, health frame, and portrait frame
-	local portraitStyle = C["Unitframe"].PortraitStyle.Value
+	local portraitStyle = C["Unitframe"].PortraitStyle
 	local health = self.Health
 	local portrait = self.Portrait
 
 	-- Determine the border object based on the portrait style
 	local borderObject
-	if portraitStyle == "ThreeDPortraits" then
+	if portraitStyle == 5 then
 		borderObject = portrait.KKUI_Border
-	elseif portraitStyle ~= "NoPortraits" and portraitStyle ~= "OverlayPortrait" then
+	elseif portraitStyle ~= 0 and portraitStyle ~= 4 then
 		borderObject = portrait.Border and portrait.Border.KKUI_Border
 	else
 		borderObject = health.KKUI_Border
@@ -122,7 +287,59 @@ function Module:UpdatePhaseIcon(isPhased)
 	self:SetTexCoord(unpack(phaseIconTexCoords[isPhased == 2 and 2 or 1]))
 end
 
+-- Function that plays a sound when the target or focus changes
+local function CreateTargetSound(_, unit)
+	-- Check if the unit exists
+	if UnitExists(unit) then
+		local soundKit
+		-- Determine the sound kit based on the unit's relation to the player
+		if UnitIsEnemy("player", unit) then
+			soundKit = SOUNDKIT.IG_CREATURE_AGGRO_SELECT
+		elseif UnitIsFriend("player", unit) then
+			soundKit = SOUNDKIT.IG_CHARACTER_NPC_SELECT
+		else
+			soundKit = SOUNDKIT.IG_CREATURE_NEUTRAL_SELECT
+		end
+		PlaySound(soundKit)
+	else
+		PlaySound(SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT)
+	end
+end
+
+-- Function that plays a sound when the player changes their focus
+function Module:PLAYER_FOCUS_CHANGED()
+	CreateTargetSound(_, "focus")
+end
+
+-- Function that plays a sound when the player changes their target
+function Module:PLAYER_TARGET_CHANGED()
+	CreateTargetSound(_, "target")
+end
+
+function Module:UNIT_FACTION(unit)
+	if unit ~= "player" then
+		return
+	end
+
+	-- Check if player is in a PvP zone
+	local isPvP = not not (UnitIsPVPFreeForAll("player") or UnitIsPVP("player"))
+
+	-- Play sound if player enters a PvP zone and it has not been played yet
+	if isPvP and not lastPvPSound then
+		PlaySound(SOUNDKIT.IG_PVP_UPDATE)
+	end
+
+	-- Update lastPvPSound variable
+	lastPvPSound = isPvP
+end
+
+local showOverAbsorb = false
 function Module:PostUpdatePrediction(_, health, maxHealth, allIncomingHeal, allAbsorb)
+	if not showOverAbsorb then
+		self.overAbsorbBar:Hide()
+		return
+	end
+
 	local hasOverAbsorb
 	local overAbsorbAmount = health + allIncomingHeal + allAbsorb - maxHealth
 	if overAbsorbAmount > 0 then
@@ -144,22 +361,36 @@ function Module:PostUpdatePrediction(_, health, maxHealth, allIncomingHeal, allA
 	end
 end
 
-function Module:CreateHeader()
-	-- Register for mouse clicks and hook mouse enter/leave events
-	self:RegisterForClicks("AnyUp")
-	self:HookScript("OnEnter", function()
+-- Elements
+local function UF_OnEnter(self)
+	if not self.disableTooltip then
 		UnitFrame_OnEnter(self)
-		if self.Highlight then
-			self.Highlight:Show()
-		end
-	end)
+	end
+	self.Highlight:Show()
+end
 
-	self:HookScript("OnLeave", function()
+local function UF_OnLeave(self)
+	if not self.disableTooltip then
 		UnitFrame_OnLeave(self)
-		if self.Highlight then
-			self.Highlight:Hide()
-		end
-	end)
+	end
+	self.Highlight:Hide()
+end
+
+function Module:UpdateClickState()
+	self:RegisterForClicks(self.onKeyDown and "AnyDown" or "AnyUp")
+	self.onKeyDown = nil
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateClickState, true)
+end
+
+function Module:CreateHeader(_, onKeyDown)
+	if InCombatLockdown() then
+		self.onKeyDown = onKeyDown
+		self:RegisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateClickState, true)
+	else
+		self:RegisterForClicks(onKeyDown and "AnyDown" or "AnyUp")
+	end
+	self:HookScript("OnEnter", UF_OnEnter)
+	self:HookScript("OnLeave", UF_OnLeave)
 end
 
 function Module:ToggleCastBarLatency(frame)
@@ -389,7 +620,7 @@ function Module.CustomFilter(element, unit, data)
 			return true
 		else
 			-- Filter based on aura filter settings
-			local auraFilter = C["Nameplate"].AuraFilter.Value
+			local auraFilter = C["Nameplate"].AuraFilter
 			return (auraFilter == 3 and nameplateShowAll) or (auraFilter ~= 1 and data.isPlayerAura)
 		end
 	else
@@ -436,7 +667,8 @@ end
 
 local function SetStatusBarColor(element, r, g, b)
 	for i = 1, #element do
-		element[i]:SetStatusBarColor(r, g, b)
+		local bar = element[i]
+		bar:SetStatusBarColor(r, g, b)
 	end
 end
 
@@ -444,18 +676,57 @@ function Module.PostUpdateClassPower(element, cur, max, diff, powerType, charged
 	local prevColor = element.prevColor
 	local thisColor
 
-	if not cur or cur == 0 then
-		thisColor = nil
-	else
-		thisColor = cur == max and 1 or 2
-		if not prevColor or prevColor ~= thisColor then
-			local r, g, b = 1, 0, 0
-			if thisColor == 2 then
-				local color = element.__owner.colors.power[powerType]
-				r, g, b = color[1], color[2], color[3]
+	-- Special handling for combo points with graduated colors
+	if powerType == "COMBO_POINTS" then
+		local comboColors = element.__owner.colors.power["COMBO_POINTS_GRADUATED"]
+		if comboColors and cur and cur > 0 then
+			-- Set individual colors for each active combo point bar
+			for i = 1, cur do
+				local bar = element[i]
+				local colorIndex = math_min(i, #comboColors)
+				local color = comboColors[colorIndex]
+				if color then
+					bar:SetStatusBarColor(color[1], color[2], color[3])
+				else
+					-- Fallback to first color if colorIndex is out of range
+					local fallbackColor = comboColors[1]
+					bar:SetStatusBarColor(fallbackColor[1], fallbackColor[2], fallbackColor[3])
+				end
 			end
-			SetStatusBarColor(element, r, g, b)
-			element.prevColor = thisColor
+			element.prevColor = cur -- Track current combo points for change detection
+			return -- Exit early since we handled combo points
+		else
+			-- Fallback to original logic if graduated colors not available
+			if not cur or cur == 0 then
+				thisColor = nil
+			else
+				thisColor = cur == max and 1 or 2
+				if not prevColor or prevColor ~= thisColor then
+					local r, g, b = 1, 0, 0
+					if thisColor == 2 then
+						local color = element.__owner.colors.power[powerType]
+						r, g, b = color[1], color[2], color[3]
+					end
+					SetStatusBarColor(element, r, g, b)
+					element.prevColor = thisColor
+				end
+			end
+		end
+	else
+		-- Original logic for non-combo point power types
+		if not cur or cur == 0 then
+			thisColor = nil
+		else
+			thisColor = cur == max and 1 or 2
+			if not prevColor or prevColor ~= thisColor then
+				local r, g, b = 1, 0, 0
+				if thisColor == 2 then
+					local color = element.__owner.colors.power[powerType]
+					r, g, b = color[1], color[2], color[3]
+				end
+				SetStatusBarColor(element, r, g, b)
+				element.prevColor = thisColor
+			end
 		end
 	end
 
@@ -591,7 +862,39 @@ function Module:UpdateTextScale()
 	end
 end
 
+-- Add direction/apply helper and init string factory
+local function CreateHeaderInit(width, height)
+	return string_format(
+		[[ 
+		self:SetWidth(%d)
+		self:SetHeight(%d)
+	]],
+		width,
+		height
+	)
+end
+
+-- Centralized Blizzard raid frame disable
+local function DisableBlizzardRaidFrames()
+	if InCombatLockdown() then
+		return
+	end
+	if CompactPartyFrame then
+		CompactPartyFrame:UnregisterAllEvents()
+	end
+	if _G.CompactRaidFrameManager_SetSetting then
+		_G.CompactRaidFrameManager_SetSetting("IsShown", "0")
+		UIParent:UnregisterEvent("GROUP_ROSTER_UPDATE")
+		_G.CompactRaidFrameManager:UnregisterAllEvents()
+		_G.CompactRaidFrameManager:SetParent(K.UIFrameHider)
+	end
+end
+
 function Module:CreateUnits()
+	-- Reset header list to avoid duplicates on re-init/profile switch
+	if Module.headers then
+		wipe(Module.headers)
+	end
 	local horizonRaid = C["Raid"].HorizonRaid
 	local numGroups = C["Raid"].NumGroups
 	local raidWidth, raidHeight = C["Raid"].Width, C["Raid"].Height
@@ -682,7 +985,7 @@ function Module:CreateUnits()
 		oUF:SetActiveStyle("Boss")
 
 		local Boss = {}
-		for i = 1, MAX_BOSS_FRAMES do
+		for i = 1, 10 do -- MAX_BOSS_FRAMES, 10 in 11.0?
 			Boss[i] = oUF:Spawn("boss" .. i, "oUF_Boss" .. i)
 			Boss[i]:SetSize(C["Boss"].HealthWidth, C["Boss"].HealthHeight + C["Boss"].PowerHeight + 6)
 
@@ -715,38 +1018,98 @@ function Module:CreateUnits()
 
 	local partyMover
 	if showPartyFrame then
-		oUF:RegisterStyle("Party", Module.CreateParty)
-		oUF:SetActiveStyle("Party")
+		-- Check if using SimpleParty (raid-style compact) or traditional Party frames
+		if C["SimpleParty"].Enable then
+			-- Use raid-style compact party frames
+			oUF:RegisterStyle("SimpleParty", Module.CreateSimpleParty)
+			oUF:SetActiveStyle("SimpleParty")
 
-		local partyXOffset, partyYOffset = 6, C["Party"].ShowBuffs and 56 or 36
-		local partyMoverWidth = C["Party"].HealthWidth
-		local partyMoverHeight = C["Party"].HealthHeight + C["Party"].PowerHeight + 1 + partyYOffset * 8
-		local partyGroupingOrder = "NONE,DAMAGER,HEALER,TANK"
+			local simplePartyWidth = C["SimpleParty"].HealthWidth
+			local simplePartyHeight = C["SimpleParty"].HealthHeight
+			local horizonParty = C["SimpleParty"].HorizonParty
+			local partyXOffset = horizonParty and 6 or 0
+			local partyYOffset = horizonParty and 0 or -6
 
-		-- stylua: ignore
-		local party = oUF:SpawnHeader(
-			"oUF_Party", nil, "solo,party",
-			"showPlayer", C["Party"].ShowPlayer,
-			"showSolo", C["Party"].ShowPartySolo,
-			"showParty", true,
-			"showRaid", false,
-			"xoffset", partyXOffset,
-			"yOffset", partyYOffset,
-			"groupFilter", "1",
-			"groupingOrder", partyGroupingOrder,
-			"groupBy", "ASSIGNEDROLE",
-			"sortMethod", "NAME",
-			"point", "BOTTOM",
-			"columnAnchorPoint", "LEFT",
-			"oUF-initialConfigFunction", ([[
-				self:SetWidth(%d)
-				self:SetHeight(%d)
-			]]):format(C["Party"].HealthWidth, C["Party"].HealthHeight + C["Party"].PowerHeight + 6)
-		)
+			-- Calculate mover size based on orientation
+			local partyMoverWidth, partyMoverHeight
+			if horizonParty then
+				-- Horizontal: width = 5 frames wide, height = 1 frame tall
+				partyMoverWidth = (simplePartyWidth + 6) * 5
+				partyMoverHeight = simplePartyHeight
+			else
+				-- Vertical: width = 1 frame wide, height = 5 frames tall
+				partyMoverWidth = simplePartyWidth
+				partyMoverHeight = (simplePartyHeight + 6) * 5
+			end
 
-		partyMover = K.Mover(party, "PartyFrame", "PartyFrame", { "TOPLEFT", UIParent, "TOPLEFT", 50, -300 }, partyMoverWidth, partyMoverHeight)
-		party:ClearAllPoints()
-		party:SetPoint("TOPLEFT", partyMover)
+			-- stylua: ignore
+			local party = oUF:SpawnHeader(
+				"oUF_SimpleParty", nil, nil,
+				"showPlayer", C["Party"].ShowPlayer,
+				"showSolo", true,
+				"showParty", true,
+				"showRaid", false,
+				"xoffset", partyXOffset,
+				"yOffset", partyYOffset,
+				"groupFilter", "1",
+				"groupingOrder", "TANK,HEALER,DAMAGER,NONE",
+				"groupBy", "GROUP",
+				"sortMethod", "INDEX",
+				"maxColumns", 1,
+				"unitsPerColumn", 5,
+				"columnSpacing", 6,
+				"point", horizonParty and "LEFT" or "TOP",
+				"columnAnchorPoint", "LEFT",
+				"oUF-initialConfigFunction", string_format([[ 
+					self:SetWidth(%d)
+					self:SetHeight(%d)
+				]], simplePartyWidth, simplePartyHeight)
+			)
+
+			partyMover = K.Mover(party, "SimplePartyFrame", "SimplePartyFrame", { "LEFT", UIParent, 350, 0 }, partyMoverWidth, partyMoverHeight)
+			party.groupType = "party"
+			tinsert(Module.headers, party)
+			RegisterStateDriver(party, "visibility", Module:GetPartyVisibility())
+			party:ClearAllPoints()
+			party:SetPoint("TOPLEFT", partyMover)
+		else
+			-- Use traditional party frames with portraits, castbars, etc.
+			oUF:RegisterStyle("Party", Module.CreateParty)
+			oUF:SetActiveStyle("Party")
+
+			local partyXOffset, partyYOffset = 6, C["Party"].ShowBuffs and 56 or 36
+			local partyMoverWidth = C["Party"].HealthWidth
+			local partyMoverHeight = C["Party"].HealthHeight + C["Party"].PowerHeight + 1 + partyYOffset * 8
+			local partyGroupingOrder = "NONE,DAMAGER,HEALER,TANK"
+
+			-- stylua: ignore
+			local party = oUF:SpawnHeader(
+				"oUF_Party", nil, nil,
+				"showPlayer", C["Party"].ShowPlayer,
+				"showSolo", true,
+				"showParty", true,
+				"showRaid", false,
+				"xoffset", partyXOffset,
+				"yOffset", partyYOffset,
+				"groupFilter", "1",
+				"groupingOrder", partyGroupingOrder,
+				"groupBy", "ASSIGNEDROLE",
+				"sortMethod", "NAME",
+				"point", "BOTTOM",
+				"columnAnchorPoint", "LEFT",
+				"oUF-initialConfigFunction", string_format([[ 
+					self:SetWidth(%d)
+					self:SetHeight(%d)
+				]], C["Party"].HealthWidth, C["Party"].HealthHeight + C["Party"].PowerHeight + 6)
+			)
+
+			partyMover = K.Mover(party, "PartyFrame", "PartyFrame", { "TOPLEFT", UIParent, "TOPLEFT", 50, -300 }, partyMoverWidth, partyMoverHeight)
+			party.groupType = "party"
+			tinsert(Module.headers, party)
+			RegisterStateDriver(party, "visibility", Module:GetPartyVisibility())
+			party:ClearAllPoints()
+			party:SetPoint("TOPLEFT", partyMover)
+		end
 
 		if C["Party"].ShowPet then
 			oUF:RegisterStyle("PartyPet", Module.CreatePartyPet)
@@ -758,24 +1121,25 @@ function Module:CreateUnits()
 
 			-- stylua: ignore
 			local partyPet = oUF:SpawnHeader(
-				"oUF_PartyPet", nil, "solo,party",
-				"showPlayer", true,
-				"showSolo", false,
+				"oUF_PartyPet", "SecureGroupPetHeaderTemplate", nil,
+				"showSolo", true,
 				"showParty", true,
 				"showRaid", false,
 				"xoffset", partypetXOffset,
 				"yOffset", partypetYOffset,
 				"point", "BOTTOM",
 				"columnAnchorPoint", "LEFT",
-				"oUF-initialConfigFunction", ([[
+				"oUF-initialConfigFunction", string_format([[ 
 					self:SetWidth(%d)
 					self:SetHeight(%d)
-					self:SetAttribute("unitsuffix", "pet")
-				]]):format(60, 34)
+				]], 60, 34)
 			)
 
 			local moverAnchor = { "TOPLEFT", partyMover, "TOPRIGHT", 6, -40 }
 			local petMover = K.Mover(partyPet, "PartyPetFrame", "PartyPetFrame", moverAnchor, partpetMoverWidth, partpetMoverHeight)
+			partyPet.groupType = "pet"
+			tinsert(Module.headers, partyPet)
+			RegisterStateDriver(partyPet, "visibility", Module:GetPartyPetVisibility())
 			partyPet:ClearAllPoints()
 			partyPet:SetPoint("TOPLEFT", petMover)
 		end
@@ -786,26 +1150,17 @@ function Module:CreateUnits()
 		oUF:RegisterStyle("Raid", Module.CreateRaid)
 		oUF:SetActiveStyle("Raid")
 
-		-- Hide Default RaidFrame
-		if CompactPartyFrame then
-			CompactPartyFrame:UnregisterAllEvents()
-		end
-
-		if _G.CompactRaidFrameManager_SetSetting then
-			_G.CompactRaidFrameManager_SetSetting("IsShown", "0")
-			UIParent:UnregisterEvent("GROUP_ROSTER_UPDATE")
-			_G.CompactRaidFrameManager:UnregisterAllEvents()
-			_G.CompactRaidFrameManager:SetParent(K.UIFrameHider)
-		end
+		-- Hide Default RaidFrame via helper
+		DisableBlizzardRaidFrames()
 
 		local raidMover
 		-- stylua: ignore
 		local function CreateGroup(name, i)
 			local group = oUF:SpawnHeader(
-				name, nil, "solo,party,raid",
+				name, nil, nil,
 				"showPlayer", true,
-				"showSolo", not showPartyFrame and C["Raid"].ShowRaidSolo,
-				"showParty", not showPartyFrame,
+				"showSolo", true,
+				"showParty", true,
 				"showRaid", true,
 				"xOffset", 6,
 				"yOffset", -6,
@@ -818,10 +1173,7 @@ function Module:CreateUnits()
 				"columnSpacing", 5,
 				"point", horizonRaid and "LEFT" or "TOP",
 				"columnAnchorPoint", "LEFT",
-				"oUF-initialConfigFunction", ([[
-					self:SetWidth(%d)
-					self:SetHeight(%d)
-				]]):format(raidWidth, raidHeight)
+				"oUF-initialConfigFunction", CreateHeaderInit(raidWidth, raidHeight)
 			)
 
 			return group
@@ -843,6 +1195,9 @@ function Module:CreateUnits()
 		for i = 1, numGroups do
 			groups[i] = CreateGroup("oUF_Raid" .. i, i)
 			groups[i].index = i
+			groups[i].groupType = "raid"
+			tinsert(Module.headers, groups[i])
+			RegisterStateDriver(groups[i], "visibility", Module:GetRaidVisibility())
 
 			if i == 1 then
 				if horizonRaid then
@@ -894,12 +1249,12 @@ function Module:CreateUnits()
 				"yOffset", -6,
 				"groupFilter", "MAINTANK",
 				"point", horizonTankRaid and "LEFT" or "TOP",
-				"columnAnchworPoint", "LEFT",
+				"columnAnchorPoint", "LEFT",
 				"template", C["Raid"].MainTankFrames and "oUF_MainTankTT" or "oUF_MainTank",
-				"oUF-initialConfigFunction", ([[
+				"oUF-initialConfigFunction", string_format([[ 
 					self:SetWidth(%d)
 					self:SetHeight(%d)
-				]]):format(raidTankWidth, raidTankHeight)
+				]], raidTankWidth, raidTankHeight)
 			)
 
 			local raidtankMover = K.Mover(raidtank, "MainTankFrame", "MainTankFrame", { "TOPLEFT", UIParent, "TOPLEFT", 4, -50 }, raidTankWidth, raidTankHeight)
@@ -907,6 +1262,9 @@ function Module:CreateUnits()
 			raidtank:SetPoint("TOPLEFT", raidtankMover)
 		end
 	end
+
+	-- Apply header visibility once after creation
+	Module:UpdateAllHeaders()
 end
 
 function Module:UpdateRaidDebuffIndicator()
@@ -918,72 +1276,31 @@ function Module:UpdateRaidDebuffIndicator()
 		ORD:ResetDebuffData()
 
 		if InstanceType == "party" or InstanceType == "raid" then
-			if C["Raid"].DebuffWatchDefault then
+			if C["Raid"].DebuffWatchDefault or C["SimpleParty"].DebuffWatchDefault then
 				ORD:RegisterDebuffs(C["DebuffsTracking_PvE"].spells)
 			end
 
-			ORD:RegisterDebuffs(KkthnxUIDB.Variables[K.Realm][K.Name].Tracking.PvE)
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			if charDB and charDB.Tracking and charDB.Tracking.PvE then
+				ORD:RegisterDebuffs(charDB.Tracking.PvE)
+			end
 		else
-			if C["Raid"].DebuffWatchDefault then
+			if C["Raid"].DebuffWatchDefault or C["SimpleParty"].DebuffWatchDefault then
 				ORD:RegisterDebuffs(C["DebuffsTracking_PvP"].spells)
 			end
-
-			ORD:RegisterDebuffs(KkthnxUIDB.Variables[K.Realm][K.Name].Tracking.PvP)
+			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+			if charDB and charDB.Tracking and charDB.Tracking.PvP then
+				ORD:RegisterDebuffs(charDB.Tracking.PvP)
+			end
 		end
 	end
-end
-
--- Function that plays a sound when the target or focus changes
-local function CreateTargetSound(_, unit)
-	-- Check if the unit exists
-	if UnitExists(unit) then
-		local soundKit
-		-- Determine the sound kit based on the unit's relation to the player
-		if UnitIsEnemy("player", unit) then
-			soundKit = SOUNDKIT.IG_CREATURE_AGGRO_SELECT
-		elseif UnitIsFriend("player", unit) then
-			soundKit = SOUNDKIT.IG_CHARACTER_NPC_SELECT
-		else
-			soundKit = SOUNDKIT.IG_CREATURE_NEUTRAL_SELECT
-		end
-		PlaySound(soundKit)
-	else
-		PlaySound(SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT)
-	end
-end
-
--- Function that plays a sound when the player changes their focus
-function Module:PLAYER_FOCUS_CHANGED()
-	CreateTargetSound(_, "focus")
-end
-
--- Function that plays a sound when the player changes their target
-function Module:PLAYER_TARGET_CHANGED()
-	CreateTargetSound(_, "target")
-end
-
-function Module:UNIT_FACTION(unit)
-	if unit ~= "player" then
-		return
-	end
-
-	-- Check if player is in a PvP zone
-	local isPvP = not not (UnitIsPVPFreeForAll("player") or UnitIsPVP("player"))
-
-	-- Play sound if player enters a PvP zone and it has not been played yet
-	if isPvP and not lastPvPSound then
-		PlaySound(SOUNDKIT.IG_PVP_UPDATE)
-	end
-
-	-- Update lastPvPSound variable
-	lastPvPSound = isPvP
 end
 
 function Module:OnEnable()
 	-- Register our units / layout
 	self:CreateUnits()
 
-	if C["Raid"].DebuffWatch then
+	if C["Raid"].DebuffWatch or C["SimpleParty"].DebuffWatch then
 		local ORD = K.oUF_RaidDebuffs or oUF_RaidDebuffs
 		local RaidDebuffs = CreateFrame("Frame")
 
@@ -997,5 +1314,79 @@ function Module:OnEnable()
 		end
 
 		self:CreateTracking()
+	end
+end
+
+-- Live update SimpleParty width/height from GUI without reload
+function Module:UpdateSimplePartySize()
+	-- Defer in combat
+	if InCombatLockdown() then
+		self._pendingSimplePartySize = true
+		K:RegisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateSimplePartySize)
+		return
+	elseif self._pendingSimplePartySize then
+		self._pendingSimplePartySize = nil
+		K:UnregisterEvent("PLAYER_REGEN_ENABLED", Module.UpdateSimplePartySize)
+	end
+
+	if not C["Party"].Enable or not C["SimpleParty"].Enable then
+		return
+	end
+
+	local width = C["SimpleParty"].HealthWidth or 70
+	local height = C["SimpleParty"].HealthHeight or 44
+	local horizon = C["SimpleParty"].HorizonParty
+
+	-- Find the SimpleParty header
+	local header
+	for _, h in pairs(self.headers or {}) do
+		if h and h.groupType == "party" and h.GetName and h:GetName() == "oUF_SimpleParty" then
+			header = h
+			break
+		end
+	end
+	-- Fallback: pick the first party header when using SimpleParty
+	if not header then
+		for _, h in pairs(self.headers or {}) do
+			if h and h.groupType == "party" then
+				header = h
+				break
+			end
+		end
+	end
+	if not header then
+		return
+	end
+
+	-- Resize each unit button and adjust dependent elements
+	for i = 1, header:GetNumChildren() do
+		local frame = select(i, header:GetChildren())
+		if frame and frame.SetSize then
+			frame:SetSize(width, height)
+
+			-- Update debuff indicator size if present
+			if frame.RaidDebuffs then
+				local debuffSize = (height >= 32) and (height - 20) or height
+				frame.RaidDebuffs:SetSize(debuffSize, debuffSize)
+			end
+
+			-- Re-run power/health layout logic to respect PowerBarHeight
+			if frame.UpdateSimplePartyPower and (frame.unit or frame.GetAttribute) then
+				local unit = frame.unit or (frame.GetAttribute and (frame:GetAttribute("oUF-guessUnit") or frame:GetAttribute("unit")))
+				if unit then
+					frame:UpdateSimplePartyPower(nil, unit)
+				end
+			end
+		end
+	end
+
+	-- Update mover size to match layout
+	local mover = _G["SimplePartyFrame"]
+	if mover and mover.SetSize then
+		if horizon then
+			mover:SetSize((width + 6) * 5, height)
+		else
+			mover:SetSize(width, (height + 6) * 5)
+		end
 	end
 end

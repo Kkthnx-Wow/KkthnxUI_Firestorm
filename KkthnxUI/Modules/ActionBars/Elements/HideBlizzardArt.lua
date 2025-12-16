@@ -1,60 +1,59 @@
 local K = KkthnxUI[1]
 local Module = K:GetModule("ActionBar")
 
-local next = next
+local _G = _G
+local next, tonumber = next, tonumber
 
-local actionbar = {
-	eventScripts = {
-		"OnShow",
-		"OnHide",
-		"OnEvent",
-		"OnEnter",
-		"OnLeave",
-		"OnUpdate",
-		"OnValueChanged",
-		"OnClick",
-		"OnMouseDown",
-		"OnMouseUp",
-	},
+local scripts = {
+	"OnShow",
+	"OnHide",
+	"OnEvent",
+	"OnEnter",
+	"OnLeave",
+	"OnUpdate",
+	"OnValueChanged",
+	"OnClick",
+	"OnMouseDown",
+	"OnMouseUp",
+}
 
-	framesToHide = {
-		MainMenuBar,
-		MultiBarBottomLeft,
-		MultiBarBottomRight,
-		MultiBarLeft,
-		MultiBarRight,
-		MultiBar5,
-		MultiBar6,
-		MultiBar7,
-		OverrideActionBar,
-		PossessActionBar,
-		PetActionBar,
-	},
+local framesToHide = {
+	MainMenuBar,
+	MultiBarBottomLeft,
+	MultiBarBottomRight,
+	MultiBarLeft,
+	MultiBarRight,
+	MultiBar5,
+	MultiBar6,
+	MultiBar7,
+	OverrideActionBar,
+	PossessActionBar,
+	PetActionBar,
+}
 
-	framesToDisable = {
-		MainMenuBar,
-		MultiBarBottomLeft,
-		MultiBarBottomRight,
-		MultiBarLeft,
-		MultiBarRight,
-		MultiBar5,
-		MultiBar6,
-		MultiBar7,
-		PossessActionBar,
-		PetActionBar,
-		MicroButtonAndBagsBar,
-		StatusTrackingBarManager,
-		MainMenuBarVehicleLeaveButton,
-		OverrideActionBar,
-		OverrideActionBarExpBar,
-		OverrideActionBarHealthBar,
-		OverrideActionBarPowerBar,
-		OverrideActionBarPitchFrame,
-	},
+local framesToDisable = {
+	MainMenuBar,
+	MultiBarBottomLeft,
+	MultiBarBottomRight,
+	MultiBarLeft,
+	MultiBarRight,
+	MultiBar5,
+	MultiBar6,
+	MultiBar7,
+	PossessActionBar,
+	PetActionBar,
+	MicroButtonAndBagsBar,
+	StatusTrackingBarManager,
+	MainMenuBarVehicleLeaveButton,
+	OverrideActionBar,
+	OverrideActionBarExpBar,
+	OverrideActionBarHealthBar,
+	OverrideActionBarPowerBar,
+	OverrideActionBarPitchFrame,
 }
 
 local function DisableAllScripts(frame)
-	for _, script in next, actionbar.eventScripts do
+	for _, script in next, scripts do
 		if frame:HasScript(script) then
 			frame:SetScript(script, nil)
 		end
@@ -79,32 +78,25 @@ local function buttonEventsRegisterFrame(self, added)
 end
 
 local function DisableDefaultBarEvents() -- credit: Simpy
-	-- Spellbook open in combat taint, only happens sometimes
-	_G.MultiActionBar_HideAllGrids = K.Noop
-	_G.MultiActionBar_ShowAllGrids = K.Noop
-
-	-- Shut down some events for things we don't use
+	-- shut down some events for things we dont use
 	_G.ActionBarController:UnregisterAllEvents()
-	_G.ActionBarController:RegisterEvent("SETTINGS_LOADED") -- This is needed for the page controller to spawn properly
-	_G.ActionBarController:RegisterEvent("UPDATE_EXTRA_ACTIONBAR") -- This is needed to let the ExtraActionBar show
-
+	_G.ActionBarController:RegisterEvent("SETTINGS_LOADED") -- this is needed for page controller to spawn properly
+	_G.ActionBarController:RegisterEvent("UPDATE_EXTRA_ACTIONBAR") -- this is needed to let the ExtraActionBar show
 	_G.ActionBarActionEventsFrame:UnregisterAllEvents()
-
-	-- Used for ExtraActionButton and TotemBar (on Wrath)
+	-- used for ExtraActionButton and TotemBar (on wrath)
 	_G.ActionBarButtonEventsFrame:UnregisterAllEvents()
-	_G.ActionBarButtonEventsFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED") -- Needed to let the ExtraActionButton show and Totems to swap
-	_G.ActionBarButtonEventsFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN") -- Needed for cooldowns of both
-
+	_G.ActionBarButtonEventsFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED") -- needed to let the ExtraActionButton show and Totems to swap
+	_G.ActionBarButtonEventsFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN") -- needed for cooldowns of them both
 	hooksecurefunc(_G.ActionBarButtonEventsFrame, "RegisterFrame", buttonEventsRegisterFrame)
 	buttonEventsRegisterFrame(_G.ActionBarButtonEventsFrame)
 end
 
 function Module:HideBlizz()
-	for _, frame in next, actionbar.framesToHide do
+	for _, frame in next, framesToHide do
 		frame:SetParent(K.UIFrameHider)
 	end
 
-	for _, frame in next, actionbar.framesToDisable do
+	for _, frame in next, framesToDisable do
 		frame:UnregisterAllEvents()
 		DisableAllScripts(frame)
 	end
@@ -114,7 +106,6 @@ function Module:HideBlizz()
 	MainMenuBarVehicleLeaveButton:RegisterEvent("PLAYER_ENTERING_WORLD")
 	-- Update token panel, some alts may hide token as default
 	SetCVar("showTokenFrame", 1)
-
 	-- Hide blizzard expbar
 	StatusTrackingBarManager:UnregisterAllEvents()
 	StatusTrackingBarManager:Hide()

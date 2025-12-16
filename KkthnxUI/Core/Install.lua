@@ -4,60 +4,113 @@ local Module = K:NewModule("Installer")
 -- Sourced: NDui (siweia)
 -- Edited: KkthnxUI (Kkthnx)
 
+-- ====================================================
+-- Local Variable Caching - Performance Optimization
+-- ====================================================
+
+-- Basic Lua functions
+local _G = _G
+local pairs = pairs
+local ipairs = ipairs
+local type = type
+local tostring = tostring
+local tonumber = tonumber
+
+-- Table functions
+local tinsert = table.insert
+local tremove = table.remove
+local wipe = wipe
+
+-- String functions
+local format = format or string.format
+
 -- Frame and UI Elements
 local CreateFrame = CreateFrame
 local UIParent = UIParent
-local UIErrorsFrame = UIErrorsFrame
 
 -- Chat Functions and Variables
-local ChangeChatColor = ChangeChatColor
 local ChatConfig_UpdateChatSettings = ChatConfig_UpdateChatSettings
+local ChatFrame_AddChannel = ChatFrame_AddChannel
 local ChatFrame_AddMessageGroup = ChatFrame_AddMessageGroup
 local ChatFrame_RemoveAllMessageGroups = ChatFrame_RemoveAllMessageGroups
 local ChatFrame_RemoveChannel = ChatFrame_RemoveChannel
+local ChatTypeInfo = ChatTypeInfo
 local FCF_DockFrame = FCF_DockFrame
 local FCF_OpenNewWindow = FCF_OpenNewWindow
 local FCF_ResetChatWindows = FCF_ResetChatWindows
+local FCF_SavePositionAndDimensions = FCF_SavePositionAndDimensions
+local FCF_SelectDockFrame = FCF_SelectDockFrame
 local FCF_SetChatWindowFontSize = FCF_SetChatWindowFontSize
 local FCF_SetLocked = FCF_SetLocked
 local FCF_SetWindowName = FCF_SetWindowName
-local ToggleChatColorNamesByClassGroup = ToggleChatColorNamesByClassGroup
+local FCF_StopDragging = FCF_StopDragging
+local CHAT_FRAMES = CHAT_FRAMES
 
 -- Game and System Settings
+local C_Timer = C_Timer
+local GetCVarBool = GetCVarBool
 local InCombatLockdown = InCombatLockdown
 local PlaySound = PlaySound
+local ReloadUI = ReloadUI
 local SetCVar = SetCVar
+local StaticPopup_Show = StaticPopup_Show
+local StopSound = StopSound
+
+-- Tooltips
+local GameTooltip = GameTooltip
 
 -- Constants and Miscellaneous
 local APPLY = APPLY
 local CHAT = CHAT
+local COMPLETE = COMPLETE
+local DECLINE = DECLINE
 local DEFAULT = DEFAULT
 local GENERAL = GENERAL
+local RENOWN_LEVEL_UP_SKIP_BUTTON = RENOWN_LEVEL_UP_SKIP_BUTTON
 local SETTINGS = SETTINGS
+local START = START
 local TRADE = TRADE
 local UI_SCALE = UI_SCALE
 
-function Module:ResetSettings()
-	KkthnxUIDB.Settings[K.Realm][K.Name] = {}
-end
+-- Sound IDs
+local SOUNDKIT_ACHIEVEMENT = 21968
+local SOUNDKIT_UI_BNET_TOAST = 140268
+local SOUNDKIT_READY_CHECK = 166318
 
-function Module:ResetData()
-	KkthnxUIDB.Variables[K.Realm][K.Name] = {}
+-- ====================================================
+-- Reusable Tables - Memory Management
+-- ====================================================
 
-	FCF_ResetChatWindows()
+local chatColorTypes = {}
+local defaultCVarsCache = {}
+local combatCVarsCache = {}
+local developerCVarsCache = {}
 
-	if _G.ChatConfigFrame:IsShown() then
-		ChatConfig_UpdateChatSettings()
+-- ====================================================
+-- Helper Functions
+-- ====================================================
+
+-- Apply CVars from a cached table
+local function ApplyCVars(cvarTable)
+	if not cvarTable or #cvarTable == 0 then
+		return
 	end
 
-	Module:ForceDefaultCVars()
-
-	ReloadUI()
+	for i = 1, #cvarTable do
+		local cvar = cvarTable[i]
+		SetCVar(cvar[1], cvar[2])
+	end
 end
 
--- Tuitorial
-function Module:ForceDefaultCVars()
-	local defaultCVars = {
+-- Initialize CVar caches (called once)
+local function InitializeCVarCaches()
+	-- Only initialize once
+	if #defaultCVarsCache > 0 then
+		return
+	end
+
+	-- Default CVars
+	defaultCVarsCache = {
 		{ "RotateMinimap", 0 },
 		{ "ShowClassColorInNameplate", 1 },
 		{ "UberTooltips", 1 },
@@ -102,7 +155,8 @@ function Module:ForceDefaultCVars()
 		{ "threatWarning", 3 },
 	}
 
-	local combatCVars = {
+	-- Combat CVars
+	combatCVarsCache = {
 		{ "nameplateShowEnemyMinions", 1 },
 		{ "nameplateShowEnemyMinus", 1 },
 		{ "nameplateShowFriendlyMinions", 0 },
@@ -113,39 +167,76 @@ function Module:ForceDefaultCVars()
 		{ "alwaysShowActionBars", 1 },
 	}
 
-	local developerCVars = {
+	-- Developer CVars
+	developerCVarsCache = {
 		{ "ffxGlow", 0 },
 		{ "WorldTextScale", 1 },
 		{ "SpellQueueWindow", 25 },
 	}
+end
+
+-- ====================================================
+-- Module Functions
+-- ====================================================
+
+function Module:ResetSettings()
+	if K.Database and K.Database.SetCurrentProfile then
+		-- Reset the current profile table; Database will rebuild from defaults on next load
+		local db = KkthnxUIDB
+		db.Global = db.Global or {}
+		db.ProfileKeys = db.ProfileKeys or {}
+		db.Profiles = db.Profiles or {}
+
+		local profileName = K.Database:GetCurrentProfileName()
+		db.Profiles[profileName] = {}
+	else
+		-- Fallback: wipe legacy per-character settings if they exist
+		if KkthnxUIDB.Settings and KkthnxUIDB.Settings[K.Realm] then
+			KkthnxUIDB.Settings[K.Realm][K.Name] = {}
+		end
+	end
+end
+
+function Module:ResetData()
+	if not KkthnxUIDB.Global then
+		KkthnxUIDB.Global = {}
+	end
+	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+	KkthnxUIDB.Global.Characters[K.UserKey] = {
+		InstallComplete = false,
+		Tracking = { PvP = {}, PvE = {} },
+	}
+
+	FCF_ResetChatWindows()
+
+	if _G.ChatConfigFrame and _G.ChatConfigFrame:IsShown() then
+		ChatConfig_UpdateChatSettings()
+	end
+
+	Module:ForceDefaultCVars()
+
+	ReloadUI()
+end
+
+function Module:ForceDefaultCVars()
+	-- Initialize caches if needed
+	InitializeCVarCaches()
 
 	-- Apply default CVars
-	for _, cvar in pairs(defaultCVars) do
-		SetCVar(cvar[1], cvar[2])
-		-- print("SetCVar - Default: " .. cvar[1] .. " to " .. tostring(cvar[2]))
-	end
+	ApplyCVars(defaultCVarsCache)
 
 	-- Apply combat-related CVars if not in combat
 	if not InCombatLockdown() then
-		for _, cvar in pairs(combatCVars) do
-			SetCVar(cvar[1], cvar[2])
-			-- print("SetCVar - Combat: " .. cvar[1] .. " to " .. tostring(cvar[2]))
-		end
-	else
-		print("Skipped setting combat CVars due to combat lockdown.")
+		ApplyCVars(combatCVarsCache)
 	end
 
 	-- Apply developer-specific CVars if K.isDeveloper is true
 	if K.isDeveloper then
-		for _, cvar in pairs(developerCVars) do
-			SetCVar(cvar[1], cvar[2])
-			-- print("SetCVar - Developer: " .. cvar[1] .. " to " .. tostring(cvar[2]))
-		end
-	else
-		print("Skipped setting developer CVars as K.isDeveloper is not true.")
+		ApplyCVars(developerCVarsCache)
 	end
 end
 
+-- Reusable raid frame configuration
 local function ForceRaidFrame()
 	if InCombatLockdown() then
 		return
@@ -157,115 +248,199 @@ local function ForceRaidFrame()
 
 	SetCVar("useCompactPartyFrames", 1)
 
-	_G.SetRaidProfileOption(_G.CompactUnitFrameProfiles.selectedProfile, "useClassColors", true)
-	_G.SetRaidProfileOption(_G.CompactUnitFrameProfiles.selectedProfile, "displayPowerBar", true)
-	_G.SetRaidProfileOption(_G.CompactUnitFrameProfiles.selectedProfile, "displayBorder", false)
+	local profile = _G.CompactUnitFrameProfiles.selectedProfile
+	_G.SetRaidProfileOption(profile, "useClassColors", true)
+	_G.SetRaidProfileOption(profile, "displayPowerBar", true)
+	_G.SetRaidProfileOption(profile, "displayBorder", false)
 	_G.CompactUnitFrameProfiles_ApplyCurrentSettings()
 	_G.CompactUnitFrameProfiles_UpdateCurrentPanel()
 end
 
-function Module:ForceChatSettings()
-	local function resetAndConfigureChatFrames()
-		FCF_ResetChatWindows()
+-- General message groups (cached)
+local generalMessageGroups = {
+	"SAY",
+	"EMOTE",
+	"YELL",
+	"GUILD",
+	"OFFICER",
+	"GUILD_ACHIEVEMENT",
+	"MONSTER_SAY",
+	"MONSTER_EMOTE",
+	"MONSTER_YELL",
+	"MONSTER_WHISPER",
+	"MONSTER_BOSS_EMOTE",
+	"MONSTER_BOSS_WHISPER",
+	"PARTY",
+	"PARTY_LEADER",
+	"RAID",
+	"PING",
+	"RAID_LEADER",
+	"RAID_WARNING",
+	"INSTANCE_CHAT",
+	"INSTANCE_CHAT_LEADER",
+	"BG_HORDE",
+	"BG_ALLIANCE",
+	"BG_NEUTRAL",
+	"SYSTEM",
+	"ERRORS",
+	"AFK",
+	"DND",
+	"IGNORED",
+	"ACHIEVEMENT",
+}
 
-		for _, name in ipairs(_G.CHAT_FRAMES) do
-			local frame = _G[name]
+function Module:ForceChatSettings()
+	-- Reset chat windows
+	FCF_ResetChatWindows()
+
+	-- Set positions and fonts for all chat frames
+	for i = 1, #CHAT_FRAMES do
+		local frameName = CHAT_FRAMES[i]
+		local frame = _G[frameName]
+		if frame then
 			local id = frame:GetID()
 
-			-- Configure specific frames based on their IDs
+			-- Set the position for ChatFrame1 (General)
 			if id == 1 then
 				frame:ClearAllPoints()
 				frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 7, 11)
-			elseif id == 2 then
-				FCF_SetWindowName(frame, L["CombatLog"])
-			elseif id == 3 then
-				-- Voice transcription specific settings
-				VoiceTranscriptionFrame_UpdateVisibility(frame)
-				VoiceTranscriptionFrame_UpdateVoiceTab(frame)
-				VoiceTranscriptionFrame_UpdateEditBox(frame)
 			end
 
-			-- Common configuration for all frames
+			-- Common configurations for all frames
 			FCF_SetChatWindowFontSize(nil, frame, 12)
 			FCF_SavePositionAndDimensions(frame)
 			FCF_StopDragging(frame)
 		end
 	end
 
-	local function configureChatFrame(chatFrame, windowName, removeChannels, messageGroups, isDocked)
-		-- Configuration for individual chat frames
-		if isDocked then
-			FCF_DockFrame(chatFrame)
-		else
-			FCF_OpenNewWindow(windowName)
+	-- Configure ChatFrame1 (General)
+	local ChatFrame1 = _G.ChatFrame1
+	FCF_SetLocked(ChatFrame1, true)
+	FCF_SetWindowName(ChatFrame1, L["General"])
+	ChatFrame1:Show()
+
+	-- Remove channels and message groups from ChatFrame1
+	ChatFrame_RemoveAllMessageGroups(ChatFrame1)
+	ChatFrame_RemoveChannel(ChatFrame1, TRADE)
+	ChatFrame_RemoveChannel(ChatFrame1, GENERAL)
+	ChatFrame_RemoveChannel(ChatFrame1, "LocalDefense")
+	ChatFrame_RemoveChannel(ChatFrame1, "GuildRecruitment")
+	ChatFrame_RemoveChannel(ChatFrame1, "LookingForGroup")
+	ChatFrame_RemoveChannel(ChatFrame1, "Services")
+
+	-- Add message groups to ChatFrame1
+	for i = 1, #generalMessageGroups do
+		ChatFrame_AddMessageGroup(ChatFrame1, generalMessageGroups[i])
+	end
+
+	-- Configure ChatFrame2 (Combat Log)
+	local ChatFrame2 = _G.ChatFrame2
+	FCF_DockFrame(ChatFrame2)
+	FCF_SetLocked(ChatFrame2, true)
+	FCF_SetWindowName(ChatFrame2, L["Combat"])
+	ChatFrame2:Show()
+
+	-- Configure Whispers Window
+	local Whispers = FCF_OpenNewWindow("Whispers")
+	FCF_SetLocked(Whispers, true)
+	FCF_DockFrame(Whispers)
+	ChatFrame_RemoveAllMessageGroups(Whispers)
+	ChatFrame_AddMessageGroup(Whispers, "WHISPER")
+	ChatFrame_AddMessageGroup(Whispers, "BN_WHISPER")
+	ChatFrame_AddMessageGroup(Whispers, "BN_CONVERSATION")
+
+	-- Configure Trade Window
+	local Trade = FCF_OpenNewWindow(L["Trade"])
+	FCF_SetLocked(Trade, true)
+	FCF_DockFrame(Trade)
+	ChatFrame_RemoveAllMessageGroups(Trade)
+	ChatFrame_AddChannel(Trade, TRADE)
+	ChatFrame_AddChannel(Trade, GENERAL)
+	ChatFrame_AddChannel(Trade, L["Services"])
+
+	-- Configure Loot Window
+	local Loot = FCF_OpenNewWindow(L["Loot"])
+	FCF_SetLocked(Loot, true)
+	FCF_DockFrame(Loot)
+	ChatFrame_RemoveAllMessageGroups(Loot)
+	ChatFrame_AddMessageGroup(Loot, "COMBAT_XP_GAIN")
+	ChatFrame_AddMessageGroup(Loot, "COMBAT_HONOR_GAIN")
+	ChatFrame_AddMessageGroup(Loot, "COMBAT_FACTION_CHANGE")
+	ChatFrame_AddMessageGroup(Loot, "LOOT")
+	ChatFrame_AddMessageGroup(Loot, "MONEY")
+	ChatFrame_AddMessageGroup(Loot, "SKILL")
+
+	-- Finalize
+	FCF_SelectDockFrame(ChatFrame1)
+
+	-- Build class color chat types table (cached)
+	if #chatColorTypes == 0 then
+		wipe(chatColorTypes)
+		local baseTypes = {
+			"SAY",
+			"YELL",
+			"GUILD",
+			"OFFICER",
+			"WHISPER",
+			"WHISPER_INFORM",
+			"BN_WHISPER",
+			"BN_WHISPER_INFORM",
+			"PARTY",
+			"PARTY_LEADER",
+			"RAID",
+			"RAID_LEADER",
+			"RAID_WARNING",
+			"INSTANCE_CHAT",
+			"INSTANCE_CHAT_LEADER",
+			"EMOTE",
+			"CHANNEL",
+			"GUILD_ACHIEVEMENT",
+		}
+
+		-- Add base types
+		for i = 1, #baseTypes do
+			tinsert(chatColorTypes, baseTypes[i])
 		end
 
-		FCF_SetLocked(chatFrame, 1)
-		FCF_SetWindowName(chatFrame, windowName)
-		chatFrame:Show()
-
-		-- Remove specified channels and add message groups
-		for _, channel in ipairs(removeChannels or {}) do
-			ChatFrame_RemoveChannel(chatFrame, channel)
-		end
-
-		ChatFrame_RemoveAllMessageGroups(chatFrame)
-		for _, group in ipairs(messageGroups) do
-			ChatFrame_AddMessageGroup(chatFrame, group)
+		-- Add channel types
+		for i = 1, 20 do
+			tinsert(chatColorTypes, "CHANNEL" .. i)
 		end
 	end
 
-	local function configureChatColors()
-		-- Set specific colors for chat channels
-		ChangeChatColor("CHANNEL1", 195 / 255, 230 / 255, 232 / 255) -- General
-		ChangeChatColor("CHANNEL2", 232 / 255, 158 / 255, 121 / 255) -- Trade
-		ChangeChatColor("CHANNEL3", 232 / 255, 228 / 255, 121 / 255) -- Local Defense
-	end
-
-	local function enableClassColors(chatGroups)
-		-- Enable class colors for specified chat groups
-		for _, group in ipairs(chatGroups) do
-			ToggleChatColorNamesByClassGroup(true, group)
+	-- Enable class color for chat types
+	for i = 1, #chatColorTypes do
+		local chatType = chatColorTypes[i]
+		if ChatTypeInfo[chatType] then
+			ChatTypeInfo[chatType].colorNameByClass = true
 		end
 	end
-
-	-- Apply configurations
-	resetAndConfigureChatFrames()
-
-	-- Configure specific chat frames
-	configureChatFrame(
-		ChatFrame1,
-		L["General"],
-		{ TRADE, L["Services"], GENERAL, "GuildRecruitment", "LookingForGroup" },
-		{ "ACHIEVEMENT", "AFK", "BG_ALLIANCE", "BG_HORDE", "BG_NEUTRAL", "BN_INLINE_TOAST_ALERT", "CHANNEL", "DND", "EMOTE", "ERRORS", "GUILD", "GUILD_ACHIEVEMENT", "IGNORED", "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER", "MONSTER_BOSS_EMOTE", "MONSTER_BOSS_WHISPER", "MONSTER_EMOTE", "MONSTER_SAY", "MONSTER_WHISPER", "MONSTER_YELL", "OFFICER", "PARTY", "PARTY_LEADER", "PING", "RAID", "RAID_LEADER", "RAID_WARNING", "SAY", "SYSTEM", "YELL" }
-	)
-	configureChatFrame(ChatFrame2, L["CombatLog"], nil, {}, true)
-	configureChatFrame(ChatFrame4, L["Whisper"], nil, { "WHISPER", "BN_WHISPER", "BN_CONVERSATION" }, true)
-	configureChatFrame(ChatFrame5, L["Trade"], nil, {}, true)
-	configureChatFrame(ChatFrame6, L["Loot"], nil, { "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN", "COMBAT_FACTION_CHANGE", "SKILL", "LOOT", "CURRENCY", "MONEY" }, true)
-
-	configureChatColors()
-	local classColorGroups = { "SAY", "EMOTE", "YELL", "WHISPER", "PARTY", "PARTY_LEADER", "RAID", "RAID_LEADER", "RAID_WARNING", "INSTANCE_CHAT", "INSTANCE_CHAT_LEADER", "GUILD", "OFFICER", "ACHIEVEMENT", "GUILD_ACHIEVEMENT", "COMMUNITIES_CHANNEL" }
-	local maxChatChannels = _G.MAX_WOW_CHAT_CHANNELS or 10 -- Fallback in case the global isn't set
-	for i = 1, maxChatChannels do
-		table.insert(classColorGroups, "CHANNEL" .. i)
-	end
-	enableClassColors(classColorGroups)
 end
 
+-- ====================================================
+-- Fake Achievement Popup (Optimized)
+-- ====================================================
+
+local fakeAchievementPopup
+local achievementAnimationGroup
+
 local function CreateFakeAchievementPopup()
+	if fakeAchievementPopup then
+		return fakeAchievementPopup
+	end
+
 	local popup = CreateFrame("Frame", "KKUI_FakeAchievement", UIParent)
-	popup:SetSize(310, 70) -- Size similar to the achievement frame
+	popup:SetSize(310, 70)
 	popup:SetPoint("TOP", UIParent, "TOP", 0, -150)
 	popup:SetFrameStrata("DIALOG")
 	popup:CreateBorder()
-	popup:Hide() -- Hide the frame initially
+	popup:Hide()
 
 	-- Achievement icon
 	popup.icon = popup:CreateTexture(nil, "OVERLAY", nil, 6)
 	popup.icon:SetSize(50, 50)
 	popup.icon:SetPoint("LEFT", 10, 0)
-	popup.icon:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\KkthnxUI_Spell_Icon") -- Placeholder texture
+	popup.icon:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\KkthnxUI_Spell_Icon")
 	popup.icon:SetTexCoord(K.TexCoords[1], K.TexCoords[2], K.TexCoords[3], K.TexCoords[4])
 
 	popup.iconFrame = CreateFrame("Frame", nil, popup)
@@ -278,47 +453,182 @@ local function CreateFakeAchievementPopup()
 
 	-- Description
 	popup.description = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-	popup.description:SetPoint("LEFT", popup.icon, "RIGHT", 14, 0) -- 8 is the padding from the icon, adjust as needed
-	popup.description:SetPoint("RIGHT", popup, "RIGHT", -8, 0) -- -8 is the padding from the right edge, adjust as needed
-	popup.description:SetJustifyH("LEFT") -- Align text to the left
-	popup.description:SetWordWrap(true) -- Enable word wrapping
+	popup.description:SetPoint("LEFT", popup.icon, "RIGHT", 14, 0)
+	popup.description:SetPoint("RIGHT", popup, "RIGHT", -8, 0)
+	popup.description:SetJustifyH("LEFT")
+	popup.description:SetWordWrap(true)
 
-	-- Animation code
-	popup:SetScript("OnShow", function(self)
-		local anim = self:CreateAnimationGroup()
+	-- Create animation group once and reuse
+	achievementAnimationGroup = popup:CreateAnimationGroup()
 
-		-- Move animation
-		local move = anim:CreateAnimation("Translation")
-		move:SetOffset(0, -50)
-		move:SetDuration(0.5)
-		move:SetSmoothing("OUT")
+	-- Move animation
+	local move = achievementAnimationGroup:CreateAnimation("Translation")
+	move:SetOffset(0, -50)
+	move:SetDuration(0.5)
+	move:SetSmoothing("OUT")
 
-		-- Fade animation
-		local fade = anim:CreateAnimation("Alpha")
-		fade:SetFromAlpha(1)
-		fade:SetToAlpha(0)
-		fade:SetStartDelay(1.0) -- Reduced start delay by 1.5 seconds
-		fade:SetDuration(1.5)
-		fade:SetSmoothing("IN")
+	-- Fade animation
+	local fade = achievementAnimationGroup:CreateAnimation("Alpha")
+	fade:SetFromAlpha(1)
+	fade:SetToAlpha(0)
+	fade:SetStartDelay(1.0)
+	fade:SetDuration(1.5)
+	fade:SetSmoothing("IN")
 
-		anim:SetScript("OnFinished", function()
-			self:Hide()
-		end)
-		anim:Play()
+	achievementAnimationGroup:SetScript("OnFinished", function()
+		popup:Hide()
 	end)
 
+	fakeAchievementPopup = popup
 	return popup
 end
-local fakeAchievementPopup = CreateFakeAchievementPopup()
 
 local function ShowFakeAchievement(title, description)
-	fakeAchievementPopup.title:SetText(title)
-	fakeAchievementPopup.description:SetText(description)
-	fakeAchievementPopup:Show()
+	local popup = CreateFakeAchievementPopup()
+
+	-- Stop any running animation
+	if achievementAnimationGroup:IsPlaying() then
+		achievementAnimationGroup:Stop()
+	end
+
+	popup.title:SetText(title)
+	popup.description:SetText(description)
+	popup:Show()
+
+	-- Play animation
+	achievementAnimationGroup:Play()
 end
 
--- Tutorial
+-- ====================================================
+-- Tutorial Frame (Optimized)
+-- ====================================================
+
 local tutor
+local tutorProgressBar
+local tutorTicker
+local currentPage = 0
+
+-- Tutorial page titles (cached)
+local tutorialTitles = {
+	DEFAULT .. " " .. SETTINGS,
+	CHAT,
+	UI_SCALE,
+	"Skins",
+	"Tips",
+}
+
+-- Fallback tutorial text in case localization fails (color-coded, concise)
+local tutorialFallbackText = {
+	"|cff5C8BCFOptimize Game Settings|r\n\nApplies |cff4CAF50recommended settings|r:\n\n|cffFFD700• Nameplates, Camera, Combat Text, Raid Frames|r\n\n|cffFF6B6BNote:|r QoL improvements.\n\nClick |cff4CAF50'Apply'|r or |cffFF6B6B'Decline'|r.",
+	"|cff5C8BCFOrganize Chat|r\n\nCreates |cff4CAF50five windows|r:\n\n|cffFFD700General, Combat, Whispers, Trade, Loot|r\n\n|cff4CAF50Bonus:|r Class colors!\n\nClick |cff4CAF50'Apply'|r or |cffFF6B6B'Decline'|r.",
+	"|cff5C8BCFPerfect UI Scale|r\n\nCalculates |cff4CAF50optimal scale|r:\n\n• Perfect text size\n• Fits your screen\n• Comfortable play\n\nClick |cff4CAF50'Apply'|r or |cffFF6B6B'Decline'|r.",
+	"|cff5C8BCFAddOn Integration|r\n\nOptimizes addons:\n\n|cffFFD700DBM, MaxDps, Hekili, CursorTrail|r\n\n|cff9E9E9EOptional feature|r\n\nClick |cff4CAF50'Apply'|r or |cffFF6B6B'Decline'|r.",
+	"|cff4CAF50Complete!|r\n\n|cffFFD700Congrats!|r UI ready.\n\nType |cffFFD700/gui|r or |cffFFD700/khelp|r\n\nClick |cff4CAF50'Apply'|r to reload!",
+}
+
+local function RefreshTutorText(page)
+	if not tutor or not tutor.title or not tutor.body then
+		return
+	end
+
+	tutor.title:SetText(tutorialTitles[page])
+
+	-- Use localization with fallback
+	local bodyText = L["Tutorial Page" .. page] or tutorialFallbackText[page] or "No description available."
+	tutor.body:SetText(bodyText)
+
+	if tutorProgressBar then
+		tutorProgressBar:SetValue(page * 100)
+		tutorProgressBar:SetStatusBarColor(K.r, K.g, K.b)
+		tutorProgressBar.text:SetText(page .. "/5")
+	end
+end
+
+local function ApplyTutorialStep(page)
+	if page == 1 then
+		Module:ForceDefaultCVars()
+		ForceRaidFrame()
+		ShowFakeAchievement("Achievement Earned", "You have successfully applied the Default CVars.")
+		PlaySound(SOUNDKIT_ACHIEVEMENT)
+	elseif page == 2 then
+		StopSound(SOUNDKIT_ACHIEVEMENT)
+		Module:ForceChatSettings()
+		ShowFakeAchievement("Achievement Earned", "You have successfully applied the Chat Frame Settings.")
+		PlaySound(SOUNDKIT_ACHIEVEMENT)
+	elseif page == 3 then
+		StopSound(SOUNDKIT_ACHIEVEMENT)
+		K:SetupUIScale()
+		ShowFakeAchievement("Achievement Earned", "You have successfully applied the UIScale Settings.")
+		PlaySound(SOUNDKIT_ACHIEVEMENT)
+	elseif page == 4 then
+		StopSound(SOUNDKIT_ACHIEVEMENT)
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		meta.DBMRequest = meta.DBMRequest or true
+		meta.MaxDpsRequest = meta.MaxDpsRequest or true
+		meta.CursorTrailRequest = meta.CursorTrailRequest or true
+		meta.HekiliRequest = meta.HekiliRequest or true
+		KkthnxUIDB.Global.Characters[K.UserKey] = meta
+		if Module.ForceAddonSkins then
+			Module.ForceAddonSkins()
+		end
+		ShowFakeAchievement("Achievement Earned", "You have successfully applied the relevant AddOn Settings.")
+		PlaySound(SOUNDKIT_ACHIEVEMENT)
+	elseif page == 5 then
+		Module:ForceDefaultCVars() -- Set these one more time
+		StopSound(SOUNDKIT_ACHIEVEMENT)
+		StopSound(SOUNDKIT_UI_BNET_TOAST)
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		meta.InstallComplete = true
+		KkthnxUIDB.Global.Characters[K.UserKey] = meta
+		tutor:Hide()
+		if tutorProgressBar then
+			tutorProgressBar:Hide()
+		end
+		currentPage = 0
+		PlaySound(SOUNDKIT_READY_CHECK)
+		StaticPopup_Show("KKUI_CHANGES_RELOAD")
+	end
+end
+
+local function StartCountdown(button, callback)
+	if not button then
+		return
+	end
+
+	-- Cancel any existing ticker
+	if tutorTicker then
+		tutorTicker:Cancel()
+		tutorTicker = nil
+	end
+
+	button:Disable()
+	local countdownTime = 3
+	button.text:SetText(countdownTime)
+	button.text:SetTextColor(1, 0, 0)
+
+	tutorTicker = C_Timer.NewTicker(1, function()
+		countdownTime = countdownTime - 1
+		if countdownTime > 0 then
+			button.text:SetText(countdownTime)
+		else
+			if callback then
+				callback()
+			end
+			button:Enable()
+			tutorTicker:Cancel()
+			tutorTicker = nil
+		end
+	end, 3)
+end
+
 local function YesTutor()
 	if tutor then
 		tutor:Show()
@@ -327,7 +637,7 @@ local function YesTutor()
 
 	tutor = CreateFrame("Frame", nil, UIParent)
 	tutor:SetPoint("CENTER")
-	tutor:SetSize(480, 240)
+	tutor:SetSize(480, 280)
 	tutor:SetFrameStrata("HIGH")
 	K.CreateMoverFrame(tutor)
 	tutor:CreateBorder()
@@ -343,37 +653,38 @@ local function YesTutor()
 	ll:SetPoint("TOP", -40, -32)
 	K.CreateGF(ll, 80, 1, "Horizontal", 0.7, 0.7, 0.7, 0, 0.7)
 	ll:SetFrameStrata("HIGH")
+
 	local lr = CreateFrame("Frame", nil, tutor)
 	lr:SetPoint("TOP", 40, -32)
 	K.CreateGF(lr, 80, 1, "Horizontal", 0.7, 0.7, 0.7, 0.7, 0)
 	lr:SetFrameStrata("HIGH")
 
-	local title = K.CreateFontString(tutor, 13, "", "", true, "TOP", 0, -10)
-	local body = K.CreateFontString(tutor, 13, "", "", false, "TOPLEFT", 20, -50)
+	tutor.title = K.CreateFontString(tutor, 14, "", "", true, "TOP", 0, -10)
+	tutor.body = K.CreateFontString(tutor, 12, "", "", false, "TOPLEFT", 20, -40)
+	tutor.body:SetPoint("BOTTOMRIGHT", -20, 45)
+	tutor.body:SetJustifyV("TOP")
+	tutor.body:SetJustifyH("LEFT")
+	tutor.body:SetWordWrap(true)
+	tutor.body:SetSpacing(2)
 
-	body:SetPoint("BOTTOMRIGHT", -20, 50)
-	body:SetJustifyV("TOP")
-	body:SetJustifyH("LEFT")
-	body:SetWordWrap(true)
+	tutorProgressBar = CreateFrame("StatusBar", nil, tutor)
+	tutorProgressBar:SetMinMaxValues(0, 500)
+	tutorProgressBar:SetValue(0)
+	tutorProgressBar:CreateBorder()
+	tutorProgressBar:SetPoint("TOP", tutor, "BOTTOM", 0, -6)
+	tutorProgressBar:SetSize(480, 22)
+	tutorProgressBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
+	K:SmoothBar(tutorProgressBar)
 
-	local progressBar = CreateFrame("StatusBar", nil, tutor)
-	progressBar:SetMinMaxValues(0, 500)
-	progressBar:SetValue(0)
-	progressBar:CreateBorder()
-	progressBar:SetPoint("TOP", tutor, "BOTTOM", 0, -6)
-	progressBar:SetSize(480, 22)
-	progressBar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
-	K:SmoothBar(progressBar)
+	tutorProgressBar.text = K.CreateFontString(tutorProgressBar, 13, "", "", false, "CENTER", 0, -1)
 
-	progressBar.text = K.CreateFontString(progressBar, 13, "", "", false, "CENTER", 0, -1)
-
-	progressBar.spark = progressBar:CreateTexture(nil, "OVERLAY")
-	progressBar.spark:SetWidth(64)
-	progressBar.spark:SetHeight(progressBar:GetHeight())
-	progressBar.spark:SetTexture(C["Media"].Textures.Spark128Texture)
-	progressBar.spark:SetBlendMode("ADD")
-	progressBar.spark:SetPoint("CENTER", progressBar:GetStatusBarTexture(), "RIGHT", 0, 0)
-	progressBar.spark:SetAlpha(0.6)
+	tutorProgressBar.spark = tutorProgressBar:CreateTexture(nil, "OVERLAY")
+	tutorProgressBar.spark:SetWidth(64)
+	tutorProgressBar.spark:SetHeight(tutorProgressBar:GetHeight())
+	tutorProgressBar.spark:SetTexture(C["Media"].Textures.Spark128Texture)
+	tutorProgressBar.spark:SetBlendMode("ADD")
+	tutorProgressBar.spark:SetPoint("CENTER", tutorProgressBar:GetStatusBarTexture(), "RIGHT", 0, 0)
+	tutorProgressBar.spark:SetAlpha(0.6)
 
 	local pass = CreateFrame("Button", nil, tutor)
 	pass:SetPoint("BOTTOMLEFT", 10, 10)
@@ -397,103 +708,67 @@ local function YesTutor()
 	apply.text:SetText(APPLY)
 	apply.text:SetTextColor(0, 1, 0)
 
-	local titles = { DEFAULT .. " " .. SETTINGS, CHAT, UI_SCALE, "Skins", "Tips" }
+	currentPage = 1
+	RefreshTutorText(currentPage)
 
-	local function RefreshText(page)
-		title:SetText(titles[page])
-		body:SetText(L["Tutorial Page" .. page])
-
-		if progressBar then
-			progressBar:SetValue(page .. "00")
-			progressBar:SetStatusBarColor(K.r, K.g, K.b)
-			progressBar.text:SetText(page .. "/5")
-		end
-	end
-	RefreshText(1)
-
-	local currentPage = 1
 	pass:SetScript("OnClick", function()
 		if currentPage > 3 then
 			pass:Hide()
 		end
 
 		currentPage = currentPage + 1
-		RefreshText(currentPage)
-		StopSound(21968)
-		StopSound(140268)
-		PlaySound(140268)
+		RefreshTutorText(currentPage)
+		StopSound(SOUNDKIT_ACHIEVEMENT)
+		StopSound(SOUNDKIT_UI_BNET_TOAST)
+		PlaySound(SOUNDKIT_UI_BNET_TOAST)
 	end)
 
 	apply:SetScript("OnClick", function()
-		-- Disable the apply button and start the countdown
-		apply:Disable()
-		local countdownTime = 3 -- Give it 1 second so the player can not spam the installer! :D
-		apply.text:SetText(countdownTime)
-		apply.text:SetTextColor(1, 0, 0) -- Set text color to red
-
-		local ticker
-		ticker = C_Timer.NewTicker(1, function()
-			countdownTime = countdownTime - 1
-			if countdownTime > 0 then
-				apply.text:SetText(countdownTime)
+		StartCountdown(apply, function()
+			apply:ClearAllPoints()
+			if currentPage < 5 then
+				apply.text:SetText(APPLY)
+				apply:SetPoint("BOTTOMRIGHT", -10, 10)
+				pass:Show()
 			else
-				apply:ClearAllPoints()
-				if currentPage < 5 then
-					apply.text:SetText(APPLY)
-				else
-					apply:SetPoint("BOTTOM", 0, 10)
-					apply.text:SetText(COMPLETE)
-				end
-				apply.text:SetTextColor(0, 1, 0) -- Set text color back to green
-				apply:Enable()
-				ticker:Cancel()
+				apply:SetPoint("BOTTOM", 0, 10)
+				apply.text:SetText(COMPLETE)
+				pass:Hide()
 			end
-		end, countdownTime)
+			apply.text:SetTextColor(0, 1, 0)
+		end)
 
-		pass:Show()
-		if currentPage == 1 then
-			Module:ForceDefaultCVars()
-			ForceRaidFrame()
-			ShowFakeAchievement("Achievement Earned", "You have successfully applied the Default CVars.")
-			PlaySound(21968)
-		elseif currentPage == 2 then
-			StopSound(21968)
-			Module:ForceChatSettings()
-			ShowFakeAchievement("Achievement Earned", "You have successfully applied the Chat Frame Settings.")
-			PlaySound(21968)
-		elseif currentPage == 3 then
-			StopSound(21968)
-			K.SetupUIScale(true)
-			ShowFakeAchievement("Achievement Earned", "You have successfully applied the UIScale Settings.")
-			PlaySound(21968)
-		elseif currentPage == 4 then
-			StopSound(21968)
-			KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest = KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest or true
-			KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest = KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest or true
-			KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest = KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest or true
-			KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest = KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest or true
-			Module.ForceAddonSkins()
-			ShowFakeAchievement("Achievement Earned", "You have successfully applied the relevant AddOn Settings.")
-			pass:Hide()
-			PlaySound(21968)
-		elseif currentPage == 5 then
-			Module:ForceDefaultCVars() -- Set these one more time
-			StopSound(21968)
-			StopSound(140268)
-			KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete = KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete or true
-			tutor:Hide()
-			progressBar:Hide()
-			currentPage = 0
-			PlaySound(166318)
-			StaticPopup_Show("KKUI_CHANGES_RELOAD")
-		end
+		ApplyTutorialStep(currentPage)
 
 		currentPage = currentPage + 1
-		RefreshText(currentPage)
+		RefreshTutorText(currentPage)
 	end)
 end
 
+-- ====================================================
+-- Welcome Frame (Optimized)
+-- ====================================================
+
 local welcome
+
+local function CreateSocialButton(parent, point, relativePoint, xOffset, yOffset, text, color, link)
+	local button = CreateFrame("Button", nil, parent)
+	button:SetPoint(point, relativePoint, xOffset, yOffset)
+	button:SetSize(90, 22)
+	button:SkinButton()
+
+	button.text = button:CreateFontString(nil, "OVERLAY")
+	button.text:SetFontObject(K.UIFont)
+	button.text:SetPoint("CENTER")
+	button.text:SetText(color .. text .. "|r")
+
+	button:SetScript("OnClick", function()
+		StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, link)
+	end)
+
+	return button
+end
+
 local function HelloWorld()
 	if welcome then
 		welcome:Show()
@@ -502,64 +777,61 @@ local function HelloWorld()
 
 	welcome = CreateFrame("Frame", "KKUI_Tutorial", UIParent)
 	welcome:SetPoint("CENTER")
-	welcome:SetSize(420, 500)
+	welcome:SetSize(470, 430)
 	welcome:SetFrameStrata("HIGH")
 	K.CreateMoverFrame(welcome)
 	welcome:CreateBorder()
-	K.CreateFontString(welcome, 30, K.Title, "", false, "TOPLEFT", 10, 28)
-	K.CreateFontString(welcome, 14, K.Version, "", true, "TOPLEFT", 154, 16)
-	K.CreateFontString(welcome, 16, "Help Info", "", true, "TOP", 0, -10)
 
-	local welcomeLogo = welcome:CreateTexture(nil, "OVERLAY")
-	welcomeLogo:SetSize(512, 256)
-	welcomeLogo:SetBlendMode("ADD")
-	welcomeLogo:SetAlpha(0.04)
-	welcomeLogo:SetTexture(C["Media"].Textures.LogoTexture)
-	welcomeLogo:SetPoint("CENTER", welcome, "CENTER", 0, 0)
-
-	local welcomeBoss = welcome:CreateTexture(nil, "OVERLAY")
-	welcomeBoss:SetSize(128, 64)
-	welcomeBoss:SetTexture("Interface\\ENCOUNTERJOURNAL\\UI-EJ-BOSS-Fyrakk the Burning")
-	welcomeBoss:SetPoint("TOPRIGHT", welcome, "TOPRIGHT", 10, 64)
+	-- Welcome title with player name
+	K.CreateFontString(welcome, 16, format(L["Installer Welcome"], K.Name .. "|r"), "", true, "TOP", 0, -10)
 
 	local ll = CreateFrame("Frame", nil, welcome)
-	ll:SetPoint("TOP", -50, -35)
+	ll:SetPoint("TOP", -50, -38)
 	K.CreateGF(ll, 100, 1, "Horizontal", 0.7, 0.7, 0.7, 0, 0.7)
 	ll:SetFrameStrata("HIGH")
 
 	local lr = CreateFrame("Frame", nil, welcome)
-	lr:SetPoint("TOP", 50, -35)
+	lr:SetPoint("TOP", 50, -38)
 	K.CreateGF(lr, 100, 1, "Horizontal", 0.7, 0.7, 0.7, 0.7, 0)
 	lr:SetFrameStrata("HIGH")
 
-	K.CreateFontString(welcome, 14, "Thank you for choosing |cff669dffKkthnxUI|r, v" .. K.SystemColor .. K.Version .. "|r!", "", false, "TOP", 0, -50)
-	K.CreateFontString(welcome, 13, "|cff669dffKkthnxUI|r is a simplistic user interface that holds", "", false, "TOP", 0, -86)
-	K.CreateFontString(welcome, 13, "onto the information and functionality, while still keeping", "", false, "TOP", 0, -106)
-	K.CreateFontString(welcome, 13, "most of the good looks. It can be used for any class or role.", "", false, "TOP", 0, -126)
+	-- Thank you message with version
+	K.CreateFontString(welcome, 14, format(L["Installer Thank You"], K.SystemColor .. K.Version .. "|r"), "", false, "TOP", 0, -50)
 
-	K.CreateFontString(welcome, 16, "|cff669dffJoin The Community!|r", "", false, "TOP", 0, -160)
-	K.CreateFontString(welcome, 13, "There are thousands of users, but most are content", "", false, "TOP", 0, -180)
+	-- Description lines
+	K.CreateFontString(welcome, 13, L["Installer Description Line 1"], "", false, "TOP", 0, -86)
+	K.CreateFontString(welcome, 13, L["Installer Description Line 2"], "", false, "TOP", 0, -106)
+	K.CreateFontString(welcome, 13, L["Installer Description Line 3"], "", false, "TOP", 0, -126)
 
-	K.CreateFontString(welcome, 13, "to simply download and use the interface without further", "", false, "TOP", 0, -200)
-	K.CreateFontString(welcome, 13, "ado. If you wish to get more involved though,", "", false, "TOP", 0, -220)
-	K.CreateFontString(welcome, 13, "have some questions you can't find answers to", "", false, "TOP", 0, -240)
-	K.CreateFontString(welcome, 13, "anywhere else or simply just wish to stop by,", "", false, "TOP", 0, -260)
-	K.CreateFontString(welcome, 13, "we have both a discord server and a facebook page.", "", false, "TOP", 0, -280)
+	-- Community section
+	K.CreateFontString(welcome, 16, L["Installer Join Community"], "", false, "TOP", 0, -155)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 1"], "", false, "TOP", 0, -178)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 2"], "", false, "TOP", 0, -196)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 3"], "", false, "TOP", 0, -214)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 4"], "", false, "TOP", 0, -232)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 5"], "", false, "TOP", 0, -250)
+	K.CreateFontString(welcome, 12, L["Installer Community Line 6"], "", false, "TOP", 0, -268)
 
-	local ll = CreateFrame("Frame", nil, welcome)
-	ll:SetPoint("TOP", welcome, -90, -326)
-	K.CreateGF(ll, 180, 1, "Horizontal", 0.7, 0.7, 0.7, 0, 0.7)
-	ll:SetFrameStrata("HIGH")
-	local lr = CreateFrame("Frame", nil, welcome)
-	lr:SetPoint("TOP", welcome, 90, -326)
-	K.CreateGF(lr, 180, 1, "Horizontal", 0.7, 0.7, 0.7, 0.7, 0)
-	lr:SetFrameStrata("HIGH")
+	local ll2 = CreateFrame("Frame", nil, welcome)
+	ll2:SetPoint("TOP", welcome, -90, -292)
+	K.CreateGF(ll2, 180, 1, "Horizontal", 0.7, 0.7, 0.7, 0, 0.7)
+	ll2:SetFrameStrata("HIGH")
 
-	K.CreateFontString(welcome, 13, "If this is your first time using |cff669dffKkthnxUI|r,", "", false, "BOTTOM", 0, 130)
-	K.CreateFontString(welcome, 13, "please take a minute to go through the turtoral!", "", false, "BOTTOM", 0, 110)
-	K.CreateFontString(welcome, 13, "if you need help for commands type /khelp", "", false, "BOTTOM", 0, 90)
+	local lr2 = CreateFrame("Frame", nil, welcome)
+	lr2:SetPoint("TOP", welcome, 90, -292)
+	K.CreateGF(lr2, 180, 1, "Horizontal", 0.7, 0.7, 0.7, 0.7, 0)
+	lr2:SetFrameStrata("HIGH")
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete then
+	-- First time user instructions
+	K.CreateFontString(welcome, 12, L["Installer First Time Line 1"], "", false, "BOTTOM", 0, 112)
+	K.CreateFontString(welcome, 12, L["Installer First Time Line 2"], "", false, "BOTTOM", 0, 94)
+
+	local isInstalled = false
+	if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] then
+		isInstalled = KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete and true or false
+	end
+
+	if isInstalled or K.isDeveloper then
 		local close = CreateFrame("Button", nil, welcome)
 		close:SetPoint("TOPRIGHT", 4, 4)
 		close:SetSize(32, 32)
@@ -570,7 +842,7 @@ local function HelloWorld()
 	end
 
 	local goTutor = CreateFrame("Button", nil, welcome)
-	goTutor:SetPoint("BOTTOM", 0, 10)
+	goTutor:SetPoint("BOTTOM", -58, 10)
 	goTutor:SetSize(110, 22)
 	goTutor:SkinButton()
 
@@ -584,74 +856,75 @@ local function HelloWorld()
 		YesTutor()
 	end)
 
-	local goTwitch = CreateFrame("Button", nil, welcome)
-	goTwitch:SetPoint("BOTTOMLEFT", 21, 50)
-	goTwitch:SetSize(90, 20)
-	goTwitch:SkinButton()
+	local goSkip = CreateFrame("Button", nil, welcome)
+	goSkip:SetPoint("BOTTOM", 58, 10)
+	goSkip:SetSize(110, 22)
+	goSkip:SkinButton()
 
-	goTwitch.text = goTwitch:CreateFontString(nil, "OVERLAY")
-	goTwitch.text:SetFontObject(K.UIFont)
-	goTwitch.text:SetPoint("CENTER")
-	goTwitch.text:SetText("|CFF8F76BDTwitch|r")
+	goSkip.text = goSkip:CreateFontString(nil, "OVERLAY")
+	goSkip.text:SetFontObject(K.UIFont)
+	goSkip.text:SetPoint("CENTER", 0, -1)
+	goSkip.text:SetText(K.MyClassColor .. RENOWN_LEVEL_UP_SKIP_BUTTON .. "|r")
 
-	goTwitch:SetScript("OnClick", function()
-		StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, "https://www.twitch.tv/kkthnxtv")
+	goSkip:SetScript("OnClick", function()
+		Module:ForceDefaultCVars()
+		ForceRaidFrame()
+		Module:ForceChatSettings()
+		K:SetupUIScale()
+		if not KkthnxUIDB.Global then
+			KkthnxUIDB.Global = {}
+		end
+		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
+		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
+		meta.DBMRequest = meta.DBMRequest or true
+		meta.MaxDpsRequest = meta.MaxDpsRequest or true
+		meta.CursorTrailRequest = meta.CursorTrailRequest or true
+		meta.HekiliRequest = meta.HekiliRequest or true
+		KkthnxUIDB.Global.Characters[K.UserKey] = meta
+		Module.ForceAddonSkins()
+		KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete = true
+		StaticPopup_Show("SKIP_INSTALLER_CONFIRM")
 	end)
 
-	local goDiscord = CreateFrame("Button", nil, welcome)
-	goDiscord:SetPoint("LEFT", goTwitch, "RIGHT", 6, 0)
-	goDiscord:SetSize(90, 22)
-	goDiscord:SkinButton()
-
-	goDiscord.text = goDiscord:CreateFontString(nil, "OVERLAY")
-	goDiscord.text:SetFontObject(K.UIFont)
-	goDiscord.text:SetPoint("CENTER")
-	goDiscord.text:SetText("|CFF7289daDiscord|r")
-
-	goDiscord:SetScript("OnClick", function()
-		StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, "https://discord.gg/Rc9wcK9cAB")
+	goSkip:HookScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(L["Installer Skip Tooltip Title"], 1, 0.82, 0)
+		GameTooltip:AddLine(L["Installer Skip Tooltip Desc"], 1, 1, 1, true)
+		GameTooltip:Show()
 	end)
 
-	local goPaypal = CreateFrame("Button", nil, welcome)
-	goPaypal:SetPoint("LEFT", goDiscord, "RIGHT", 6, 0)
-	goPaypal:SetSize(90, 22)
-	goPaypal:SkinButton()
-
-	goPaypal.text = goPaypal:CreateFontString(nil, "OVERLAY")
-	goPaypal.text:SetFontObject(K.UIFont)
-	goPaypal.text:SetPoint("CENTER")
-	goPaypal.text:SetText("|CFF0079C1Paypal|r")
-
-	goPaypal:SetScript("OnClick", function()
-		StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, "https://www.paypal.com/paypalme/KkthnxTV")
+	goSkip:HookScript("OnLeave", function()
+		GameTooltip:Hide()
 	end)
 
-	local goPatreon = CreateFrame("Button", nil, welcome)
-	goPatreon:SetPoint("LEFT", goPaypal, "RIGHT", 6, 0)
-	goPatreon:SetSize(90, 22)
-	goPatreon:SkinButton()
-
-	goPatreon.text = goPatreon:CreateFontString(nil, "OVERLAY")
-	goPatreon.text:SetFontObject(K.UIFont)
-	goPatreon.text:SetPoint("CENTER")
-	goPatreon.text:SetText("|CFFf96854Patreon|r")
-
-	goPatreon:SetScript("OnClick", function()
-		StaticPopup_Show("KKUI_POPUP_LINK", nil, nil, "https://www.patreon.com/kkthnx")
-	end)
+	-- Social buttons using helper function
+	local goDiscord = CreateSocialButton(welcome, "TOPLEFT", goTutor, -30, 40, "Discord", "|CFF7289da", "https://discord.gg/Rc9wcK9cAB")
+	local goPaypal = CreateSocialButton(welcome, "LEFT", goDiscord, 96, 0, "Paypal", "|CFF0079C1", "https://www.paypal.com/paypalme/KkthnxTV")
+	local goPatreon = CreateSocialButton(welcome, "LEFT", goPaypal, 96, 0, "Patreon", "|CFFf96854", "https://www.patreon.com/kkthnx")
 end
+
+-- ====================================================
+-- Slash Command and OnEnable
+-- ====================================================
+
 _G.SlashCmdList["KKUI_INSTALLER"] = HelloWorld
 _G.SLASH_KKUI_INSTALLER1 = "/install"
 
 function Module:OnEnable()
 	print(K.Title .. " " .. K.GreyColor .. K.Version .. "|r " .. K.SystemColor .. K.Client .. "|r")
 
+	-- Initialize CVar caches early
+	InitializeCVarCaches()
+
 	-- Tutorial and settings
 	Module.ForceAddonSkins()
-	if not KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete then
+
+	local installed = false
+	if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] then
+		installed = KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete and true or false
+	end
+
+	if not installed then
 		HelloWorld()
-	else
-		K.LibChangeLog:Register(K.Title, K.Changelog, KkthnxUIDB.ChangeLog, "lastReadVersion", "onlyShowWhenNewVersion")
-		K.LibChangeLog:ShowChangelog(K.Title)
 	end
 end

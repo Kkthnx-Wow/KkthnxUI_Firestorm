@@ -19,7 +19,22 @@
 	class-generation, helper-functions and the Blizzard-replacement.
 ]]
 local parent, ns = ...
-local global = C_AddOns.GetAddOnMetadata(parent, "X-cargBags")
+
+-- Cache globals for performance
+local floor = math.floor
+local getmetatable = getmetatable
+local pairs = pairs
+local select = select
+local setmetatable = setmetatable
+local type = type
+
+local BankFrame = BankFrame
+local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
+local CreateFrame = CreateFrame
+local hooksecurefunc = hooksecurefunc
+local IsLoggedIn = IsLoggedIn
+
+local global = C_AddOns_GetAddOnMetadata(parent, "X-cargBags")
 
 --- @class table
 --  @name cargBags
@@ -89,16 +104,17 @@ function cargBags:ReplaceBlizzard(name)
 	local impl = name and cargBags:GetImplementation(name) or self.blizzard
 	self.blizzard = impl
 
-	-- Can we maybe live without hooking ToggleBag(id)?
+	-- Replace Blizzard toggles to forward to our implementation (legacy cargBags behavior)
 	ToggleAllBags = toggleNoForce
 	ToggleBag = toggleNoForce
 	ToggleBackpack = toggleNoForce
 
 	OpenAllBags = toggleBag -- Name is misleading, Blizz-function actually toggles bags
 	OpenBackpack = toggleBag -- Blizz does not provide toggling here
-	CloseAllBags = closeBag
-	CloseBackpack = closeBag
 	OpenBag = toggleBag -- fixed the loot won alert frame
+
+	hooksecurefunc("CloseAllBags", closeBag)
+	hooksecurefunc("CloseBackpack", closeBag)
 
 	BankFrame:UnregisterAllEvents()
 end
@@ -143,7 +159,7 @@ cargBags:SetScript("OnEvent", function(self, event)
 		self.atBank = true
 
 		if impl:IsShown() then
-			impl:OnEvent("BAG_UPDATE")
+			-- impl:OnEvent("BAG_UPDATE")
 		else
 			impl:Show()
 		end

@@ -1,8 +1,9 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:NewModule("ActionBar")
 
--- Global references for convenience and performance
+-- Cache global references
 local _G = _G
+
 local UIParent = UIParent
 local GetVehicleBarIndex = GetVehicleBarIndex
 local UnitExists = UnitExists
@@ -10,6 +11,10 @@ local VehicleExit = VehicleExit
 local PetDismiss = PetDismiss
 local tinsert = table.insert
 local RegisterStateDriver = RegisterStateDriver
+local ceil = math.ceil
+local min = math.min
+local select = select
+local GetCVarBool = GetCVarBool
 
 -- Layout constants
 local margin, padding = 6, 0
@@ -66,13 +71,13 @@ function Module:UpdateActionSize(name)
 		frame.mover:SetSize(frame:GetSize())
 		frame.child:SetSize(frame:GetSize())
 		frame.child.mover:SetSize(frame:GetSize())
-
 		frame.child.mover.isDisable = false
 
 		for i = 1, 12 do
 			local button = frame.buttons[i]
 			button:SetSize(size, size)
 			button:ClearAllPoints()
+
 			if i == 1 then
 				button:SetPoint("TOPLEFT", frame, padding, -padding)
 			elseif i == 7 then
@@ -82,6 +87,7 @@ function Module:UpdateActionSize(name)
 			else
 				button:SetPoint("LEFT", frame.buttons[i - 1], "RIGHT", margin, 0)
 			end
+
 			button:Show()
 			Module:UpdateFontSize(button, fontSize)
 		end
@@ -90,6 +96,7 @@ function Module:UpdateActionSize(name)
 			local button = frame.buttons[i]
 			button:SetSize(size, size)
 			button:ClearAllPoints()
+
 			if i == 1 then
 				button:SetPoint("TOPLEFT", frame, padding, -padding)
 			elseif mod(i - 1, perRow) == 0 then
@@ -97,6 +104,7 @@ function Module:UpdateActionSize(name)
 			else
 				button:SetPoint("LEFT", frame.buttons[i - 1], "RIGHT", margin, 0)
 			end
+
 			button:Show()
 			Module:UpdateFontSize(button, fontSize)
 		end
@@ -114,6 +122,7 @@ function Module:UpdateActionSize(name)
 		frame:SetWidth(column * size + (column - 1) * margin + 2 * padding)
 		frame:SetHeight(size * rows + (rows - 1) * margin + 2 * padding)
 		frame.mover:SetSize(frame:GetSize())
+
 		if frame.child then
 			frame.child.mover.isDisable = true
 		end
@@ -126,24 +135,31 @@ function Module:UpdateButtonConfig(i)
 		self.buttonConfig = {
 			hideElements = {},
 			text = {
-				hotkey = { font = {}, position = {} },
-				count = { font = {}, position = {} },
-				macro = { font = {}, position = {} },
+				hotkey = {
+					font = {},
+					position = {},
+				},
+				count = {
+					font = {},
+					position = {},
+				},
+				macro = {
+					font = {},
+					position = {},
+				},
 			},
 		}
 	end
 
-	self.buttonConfig.clickOnDown = true
-	self.buttonConfig.showGrid = C["ActionBar"]["Grid"]
+	self.buttonConfig.clickOnDown = GetCVarBool("ActionButtonUseKeyDown")
+	self.buttonConfig.showGrid = C["ActionBar"].Grid
 	self.buttonConfig.flyoutDirection = directions[C["ActionBar"]["Bar" .. i .. "Flyout"]]
+	self.buttonConfig.actionButtonUI = true -- rotation highlight
 
-	-- Get the hotkey field of the buttonConfig's text table
 	local hotkey = self.buttonConfig.text.hotkey
-
 	hotkey.font.font = K.UIFont
 	hotkey.font.size = C["ActionBar"]["Bar" .. i .. "Font"]
 	hotkey.font.flags = K.UIFontStyle
-
 	hotkey.position.anchor = "TOPRIGHT"
 	hotkey.position.relAnchor = false
 	hotkey.position.offsetX = 0
@@ -151,49 +167,40 @@ function Module:UpdateButtonConfig(i)
 	hotkey.justifyH = "RIGHT"
 
 	local count = self.buttonConfig.text.count
-	local fontConfig = count.font
-	local positionConfig = count.position
-
-	fontConfig.font = K.UIFont
-	fontConfig.size = C["ActionBar"]["Bar" .. i .. "Font"]
-	fontConfig.flags = K.UIFontStyle
-
-	positionConfig.anchor = "BOTTOMRIGHT"
-	positionConfig.relAnchor = false
-	positionConfig.offsetX = 2
-	positionConfig.offsetY = 0
+	count.font.font = K.UIFont
+	count.font.size = C["ActionBar"]["Bar" .. i .. "Font"]
+	count.font.flags = K.UIFontStyle
+	count.position.anchor = "BOTTOMRIGHT"
+	count.position.relAnchor = false
+	count.position.offsetX = 2
+	count.position.offsetY = 0
 	count.justifyH = "RIGHT"
 
 	local macro = self.buttonConfig.text.macro
-	local fontConfig = macro.font
-	local positionConfig = macro.position
-
-	fontConfig.font = K.UIFont
-	fontConfig.size = C["ActionBar"]["Bar" .. i .. "Font"]
-	fontConfig.flags = K.UIFontStyle
-
-	positionConfig.anchor = "BOTTOM"
-	positionConfig.relAnchor = false
-	positionConfig.offsetX = 0
-	positionConfig.offsetY = 0
+	macro.font.font = K.UIFont
+	macro.font.size = C["ActionBar"]["Bar" .. i .. "Font"]
+	macro.font.flags = K.UIFontStyle
+	macro.position.anchor = "BOTTOM"
+	macro.position.relAnchor = false
+	macro.position.offsetX = 0
+	macro.position.offsetY = 0
 	macro.justifyH = "CENTER"
 
 	local hideElements = self.buttonConfig.hideElements
-	hideElements.hotkey = not C["ActionBar"]["Hotkeys"]
-	hideElements.macro = not C["ActionBar"]["Macro"]
-	hideElements.equipped = not C["ActionBar"]["EquipColor"]
+	hideElements.hotkey = not C["ActionBar"].Hotkeys
+	hideElements.macro = not C["ActionBar"].Macro
+	hideElements.equipped = not C["ActionBar"].EquipColor
 
-	local lockBars = GetCVarBool("lockActionBars")
+	local lockBars = C["ActionBar"].ButtonLock
 	for _, button in next, self.buttons do
 		self.buttonConfig.keyBoundTarget = button.bindName
 		button.keyBoundTarget = self.buttonConfig.keyBoundTarget
 
 		button:SetAttribute("buttonlock", lockBars)
-		button:SetAttribute("unlockedpreventdrag", not lockBars) -- make sure button can drag without being click
 		button:SetAttribute("checkmouseovercast", true)
 		button:SetAttribute("checkfocuscast", true)
 		button:SetAttribute("checkselfcast", true)
-		-- button:SetAttribute("*unit2", "player")
+
 		button:UpdateConfig(self.buttonConfig)
 	end
 end
@@ -218,6 +225,8 @@ function Module:UpdateBarVisibility()
 end
 
 function Module:UpdateBarConfig()
+	SetCVar("ActionButtonUseKeyDown", C["ActionBar"].KeyDown and 1 or 0)
+
 	for i = 1, 8 do
 		local frame = _G["KKUI_ActionBar" .. i]
 		if frame then
@@ -268,10 +277,22 @@ function Module:CreateBars()
 
 	local BAR_DATA = {
 		[1] = { page = 1, bindName = "ACTIONBUTTON", anchor = { "BOTTOM", UIParent, "BOTTOM", 0, 4 } },
-		[2] = { page = 6, bindName = "MULTIACTIONBAR1BUTTON", anchor = { "BOTTOM", _G.KKUI_ActionBar1, "TOP", 0, margin } },
-		[3] = { page = 5, bindName = "MULTIACTIONBAR2BUTTON", anchor = { "BOTTOM", _G.KKUI_ActionBar2, "TOP", 0, margin } },
+		[2] = {
+			page = 6,
+			bindName = "MULTIACTIONBAR1BUTTON",
+			anchor = { "BOTTOM", _G.KKUI_ActionBar1, "TOP", 0, margin },
+		},
+		[3] = {
+			page = 5,
+			bindName = "MULTIACTIONBAR2BUTTON",
+			anchor = { "BOTTOM", _G.KKUI_ActionBar2, "TOP", 0, margin },
+		},
 		[4] = { page = 3, bindName = "MULTIACTIONBAR3BUTTON", anchor = { "RIGHT", UIParent, "RIGHT", -4, 0 } },
-		[5] = { page = 4, bindName = "MULTIACTIONBAR4BUTTON", anchor = { "RIGHT", _G.KKUI_ActionBar4, "LEFT", -margin, 0 } },
+		[5] = {
+			page = 4,
+			bindName = "MULTIACTIONBAR4BUTTON",
+			anchor = { "RIGHT", _G.KKUI_ActionBar4, "LEFT", -margin, 0 },
+		},
 		[6] = { page = 13, bindName = "MULTIACTIONBAR5BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 0 } },
 		[7] = { page = 14, bindName = "MULTIACTIONBAR6BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 40 } },
 		[8] = { page = 15, bindName = "MULTIACTIONBAR7BUTTON", anchor = { "CENTER", UIParent, "CENTER", 0, 80 } },
@@ -337,6 +358,7 @@ function Module:CreateBars()
 		Module:UpdateBarConfig()
 		K:UnregisterEvent("PLAYER_REGEN_ENABLED", delayUpdate)
 	end
+
 	K:RegisterEvent("CVAR_UPDATE", function(_, var)
 		if var == "lockActionBars" then
 			if InCombatLockdown() then
@@ -356,7 +378,7 @@ function Module:OnEnable()
 		return
 	end
 
-	if not C["ActionBar"]["Enable"] then
+	if not C["ActionBar"].Enable then
 		return
 	end
 
@@ -395,6 +417,6 @@ function Module:OnEnable()
 	K:RegisterEvent("PET_BATTLE_OPENING_DONE", Module.ClearBindings)
 
 	if AdiButtonAuras then
-		AdiButtonAuras:RegisterLAB("LibActionButton-1.0-KkthnxUI")
+		AdiButtonAuras:RegisterLAB("LibActionButton-1.0")
 	end
 end

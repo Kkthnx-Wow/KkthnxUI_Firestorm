@@ -243,12 +243,14 @@ local function updateRaid(self, event)
 	end
 end
 
--- boss6-8 exsist in some encounters, but unit event registration seems to be
+-- boss6-10 exsist in some encounters, but unit event registration seems to be
 -- completely broken for them, so instead we use OnUpdate to update them.
 local eventlessUnits = {
 	boss6 = true,
 	boss7 = true,
 	boss8 = true,
+	boss9 = true,
+	boss10 = true,
 }
 
 local function isEventlessUnit(unit)
@@ -620,8 +622,8 @@ do
 	* template     - name of a template to be used for creating the header. Defaults to `'SecureGroupHeaderTemplate'`
 	                 (string?)
 	* visibility   - macro conditional(s) which define when to display the header (string).
-	* ...          - further argument pairs. Consult [Group Headers](http://wowprogramming.com/docs/secure_template/Group_Headers.html)
-	                 for possible values.
+	* ...          - further argument pairs. Consult [Group Headers](https://warcraft.wiki.gg/wiki/SecureGroupHeaderTemplate)
+	                 for possible values. If preferred, the attributes can be an associative table.
 
 	In addition to the standard group headers, oUF implements some of its own attributes. These can be supplied by the
 	layout, but are optional. PingableUnitFrameTemplate is inherited for Ping support.
@@ -640,10 +642,19 @@ do
 		local header = CreateFrame('Frame', name, PetBattleFrameHider, template)
 
 		header:SetAttribute('template', 'SecureUnitButtonTemplate, SecureHandlerStateTemplate, SecureHandlerEnterLeaveTemplate, PingableUnitFrameTemplate, SecureHandlerShowHideTemplate, SecureHandlerMouseUpDownTemplate')
-		for i = 1, select('#', ...), 2 do
-			local att, val = select(i, ...)
-			if(not att) then break end
-			header:SetAttribute(att, val)
+
+		if(...) then
+			if(type(...) == 'table') then
+				for att, val in next, (...) do
+					header:SetAttribute(att, val)
+				end
+			else
+				for i = 1, select('#', ...), 2 do
+					local att, val = select(i, ...)
+					if(not att) then break end
+					header:SetAttribute(att, val)
+				end
+			end
 		end
 
 		header.style = style

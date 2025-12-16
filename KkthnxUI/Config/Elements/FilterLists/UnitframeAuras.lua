@@ -1,565 +1,995 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 
-local function Priority(priorityOverride)
+local function Priority(priorityOverride, stackThreshold)
 	return {
 		enable = true,
 		priority = priorityOverride or 0,
-		stackThreshold = 0,
+		stackThreshold = stackThreshold or 0,
 	}
 end
 
 C.DebuffsTracking_PvE = {
 	["type"] = "Whitelist",
 	["spells"] = {
-		----------------------------------------------------------
-		------------------------- General ------------------------
-		----------------------------------------------------------
-		-- Misc
-		[160029] = Priority(), -- Resurrecting (Pending CR)
-		----------------------------------------------------------
-		-------------------- Mythic+ Specific --------------------
-		----------------------------------------------------------
-		-- General Affixes
-		[226512] = Priority(), -- Sanguine
-		[240559] = Priority(), -- Grievous
-		[240443] = Priority(), -- Bursting
-		[409492] = Priority(), -- Afflicted Cry
-		----------------------------------------------------------
-		----------------- Dragonflight Dungeons ------------------
-		----------------------------------------------------------
-		-- Dawn of the Infinite
-		[413041] = Priority(), -- Sheared Lifespan 1
-		[416716] = Priority(), -- Sheared Lifespan 2
-		[413013] = Priority(), -- Chronoshear
-		[413208] = Priority(), -- Sand Buffeted
-		[408084] = Priority(), -- Necrofrost
-		[413142] = Priority(), -- Eon Shatter
-		[409266] = Priority(), -- Extinction Blast 1
-		[414300] = Priority(), -- Extinction Blast 2
-		[401667] = Priority(), -- Time Stasis
-		[412027] = Priority(), -- Chronal Burn
-		[400681] = Priority(), -- Spark of Tyr
-		[404141] = Priority(), -- Chrono-faded
-		[407147] = Priority(), -- Blight Seep
-		[410497] = Priority(), -- Mortal Wounds
-		[418009] = Priority(), -- Serrated Arrows
-		[407406] = Priority(), -- Corrosion
-		[401420] = Priority(), -- Sand Stomp
-		[403912] = Priority(), -- Accelerating Time
-		[403910] = Priority(), -- Decaying Time
-		-- Brackenhide Hollow
-		[385361] = Priority(), -- Rotting Sickness
-		[378020] = Priority(), -- Gash Frenzy
-		[385356] = Priority(), -- Ensnaring Trap
-		[373917] = Priority(), -- Decaystrike 1
-		[377864] = Priority(), -- Infectious Spit
-		[376933] = Priority(), -- Grasping Vines
-		[384425] = Priority(), -- Smell Like Meat
-		[373912] = Priority(), -- Decaystrike 2
-		[373896] = Priority(), -- Withering Rot
-		[377844] = Priority(), -- Bladestorm 1
-		[378229] = Priority(), -- Marked for Butchery
-		[381835] = Priority(), -- Bladestorm 2
-		[376149] = Priority(), -- Choking Rotcloud
-		[384725] = Priority(), -- Feeding Frenzy
-		[385303] = Priority(), -- Teeth Trap
-		[368299] = Priority(), -- Toxic Trap
-		[384970] = Priority(), -- Scented Meat 1
-		[384974] = Priority(), -- Scented Meat 2
-		[368091] = Priority(), -- Infected Bite
-		[385185] = Priority(), -- Disoriented
-		[387210] = Priority(), -- Decaying Strength
-		[382808] = Priority(), -- Withering Contagion 1
-		[383087] = Priority(), -- Withering Contagion 2
-		[382723] = Priority(), -- Crushing Smash
-		[382787] = Priority(), -- Decay Claws
-		[385058] = Priority(), -- Withering Poison
-		[383399] = Priority(), -- Rotting Surge
-		[367484] = Priority(), -- Vicious Clawmangle
-		[367521] = Priority(), -- Bone Bolt
-		[368081] = Priority(), -- Withering
-		[374245] = Priority(), -- Rotting Creek
-		[367481] = Priority(), -- Bloody Bite
-		-- Halls of Infusion
-		[387571] = Priority(), -- Focused Deluge
-		[383935] = Priority(), -- Spark Volley
-		[385555] = Priority(), -- Gulp
-		[384524] = Priority(), -- Titanic Fist
-		[385963] = Priority(), -- Frost Shock
-		[374389] = Priority(), -- Gulp Swog Toxin
-		[386743] = Priority(), -- Polar Winds
-		[389179] = Priority(), -- Power Overload
-		[389181] = Priority(), -- Power Field
-		[257274] = Priority(), -- Vile Coating
-		[375384] = Priority(), -- Rumbling Earth
-		[374563] = Priority(), -- Dazzle
-		[389446] = Priority(), -- Nullifying Pulse
-		[374615] = Priority(), -- Cheap Shot
-		[391610] = Priority(), -- Blinding Winds
-		[374724] = Priority(), -- Molten Subduction
-		[385168] = Priority(), -- Thunderstorm
-		[387359] = Priority(), -- Waterlogged
-		[391613] = Priority(), -- Creeping Mold
-		[374706] = Priority(), -- Pyretic Burst
-		[389443] = Priority(), -- Purifying Blast
-		[374339] = Priority(), -- Demoralizing Shout
-		[374020] = Priority(), -- Containment Beam
-		[391634] = Priority(), -- Deep Chill
-		[393444] = Priority(), -- Gushing Wound
-		-- Neltharus
-		[374534] = Priority(), -- Heated Swings
-		[373735] = Priority(), -- Dragon Strike
-		[377018] = Priority(), -- Molten Gold
-		[374842] = Priority(), -- Blazing Aegis 1
-		[392666] = Priority(), -- Blazing Aegis 2
-		[375890] = Priority(), -- Magma Eruption
-		[396332] = Priority(), -- Fiery Focus
-		[389059] = Priority(), -- Slag Eruption
-		[376784] = Priority(), -- Flame Vulnerability
-		[377542] = Priority(), -- Burning Ground
-		[374451] = Priority(), -- Burning Chain
-		[372461] = Priority(), -- Imbued Magma
-		[378818] = Priority(), -- Magma Conflagration
-		[377522] = Priority(), -- Burning Pursuit
-		[375204] = Priority(), -- Liquid Hot Magma
-		[374482] = Priority(), -- Grounding Chain
-		[372971] = Priority(), -- Reverberating Slam
-		[384161] = Priority(), -- Mote of Combustion
-		[374854] = Priority(), -- Erupted Ground
-		[373089] = Priority(), -- Scorching Fusillade
-		[372224] = Priority(), -- Dragonbone Axe
-		[372570] = Priority(), -- Bold Ambush
-		[372459] = Priority(), -- Burning
-		[372208] = Priority(), -- Djaradin Lava
-		[414585] = Priority(), -- Fiery Demise
-		-- Uldaman: Legacy of Tyr
-		[368996] = Priority(), -- Purging Flames
-		[369792] = Priority(), -- Skullcracker
-		[372718] = Priority(), -- Earthen Shards
-		[382071] = Priority(), -- Resonating Orb
-		[377405] = Priority(), -- Time Sink
-		[369006] = Priority(), -- Burning Heat
-		[369110] = Priority(), -- Unstable Embers
-		[375286] = Priority(), -- Searing Cannonfire
-		[372652] = Priority(), -- Resonating Orb
-		[377825] = Priority(), -- Burning Pitch
-		[369411] = Priority(), -- Sonic Burst
-		[382576] = Priority(), -- Scorn of Tyr
-		[369366] = Priority(), -- Trapped in Stone
-		[369365] = Priority(), -- Curse of Stone
-		[369419] = Priority(), -- Venomous Fangs
-		[377486] = Priority(), -- Time Blade
-		[369818] = Priority(), -- Diseased Bite
-		[377732] = Priority(), -- Jagged Bite
-		[369828] = Priority(), -- Chomp
-		[369811] = Priority(), -- Brutal Slam
-		[376325] = Priority(), -- Eternity Zone
-		[369337] = Priority(), -- Difficult Terrain
-		[376333] = Priority(), -- Temporal Zone
-		[377510] = Priority(), -- Stolen Time
-		-- Ruby Life Pools
-		[392406] = Priority(), -- Thunderclap
-		[372820] = Priority(), -- Scorched Earth
-		[384823] = Priority(), -- Inferno 1
-		[373692] = Priority(), -- Inferno 2
-		[381862] = Priority(), -- Infernocore
-		[372860] = Priority(), -- Searing Wounds
-		[373869] = Priority(), -- Burning Touch
-		[385536] = Priority(), -- Flame Dance
-		[381518] = Priority(), -- Winds of Change
-		[372858] = Priority(), -- Searing Blows
-		[372682] = Priority(), -- Primal Chill 1
-		[373589] = Priority(), -- Primal Chill 2
-		[373693] = Priority(), -- Living Bomb
-		[392924] = Priority(), -- Shock Blast
-		[381515] = Priority(), -- Stormslam
-		[396411] = Priority(), -- Primal Overload
-		[384773] = Priority(), -- Flaming Embers
-		[392451] = Priority(), -- Flashfire
-		[372697] = Priority(), -- Jagged Earth
-		[372047] = Priority(), -- Flurry
-		[372963] = Priority(), -- Chillstorm
-		-- The Nokhud Offensive
-		[382628] = Priority(), -- Surge of Power
-		[386025] = Priority(), -- Tempest
-		[381692] = Priority(), -- Swift Stab
-		[387615] = Priority(), -- Grasp of the Dead
-		[387629] = Priority(), -- Rotting Wind
-		[386912] = Priority(), -- Stormsurge Cloud
-		[395669] = Priority(), -- Aftershock
-		[384134] = Priority(), -- Pierce
-		[388451] = Priority(), -- Stormcaller's Fury 1
-		[388446] = Priority(), -- Stormcaller's Fury 2
-		[395035] = Priority(), -- Shatter Soul
-		[376899] = Priority(), -- Crackling Cloud
-		[384492] = Priority(), -- Hunter's Mark
-		[376730] = Priority(), -- Stormwinds
-		[376894] = Priority(), -- Crackling Upheaval
-		[388801] = Priority(), -- Mortal Strike
-		[376827] = Priority(), -- Conductive Strike
-		[376864] = Priority(), -- Static Spear
-		[375937] = Priority(), -- Rending Strike
-		[376634] = Priority(), -- Iron Spear
-		-- The Azure Vault
-		[388777] = Priority(), -- Oppressive Miasma
-		[386881] = Priority(), -- Frost Bomb
-		[387150] = Priority(), -- Frozen Ground
-		[387564] = Priority(), -- Mystic Vapors
-		[385267] = Priority(), -- Crackling Vortex
-		[386640] = Priority(), -- Tear Flesh
-		[374567] = Priority(), -- Explosive Brand
-		[374523] = Priority(), -- Arcane Roots
-		[375596] = Priority(), -- Erratic Growth Channel
-		[375602] = Priority(), -- Erratic Growth
-		[370764] = Priority(), -- Piercing Shards
-		[384978] = Priority(), -- Dragon Strike
-		[375649] = Priority(), -- Infused Ground
-		[387151] = Priority(), -- Icy Devastator
-		[377488] = Priority(), -- Icy Bindings
-		[374789] = Priority(), -- Infused Strike
-		[371007] = Priority(), -- Splintering Shards
-		[375591] = Priority(), -- Sappy Burst
-		[385409] = Priority(), -- Ouch, ouch, ouch!
-		[386549] = Priority(), -- Waking Bane
-		-- Algeth'ar Academy
-		[389033] = Priority(), -- Lasher Toxin
-		[391977] = Priority(), -- Oversurge
-		[386201] = Priority(), -- Corrupted Mana
-		[389011] = Priority(), -- Overwhelming Power
-		[387932] = Priority(), -- Astral Whirlwind
-		[396716] = Priority(), -- Splinterbark
-		[388866] = Priority(), -- Mana Void
-		[386181] = Priority(), -- Mana Bomb
-		[388912] = Priority(), -- Severing Slash
-		[377344] = Priority(), -- Peck
-		[376997] = Priority(), -- Savage Peck
-		[388984] = Priority(), -- Vicious Ambush
-		[388544] = Priority(), -- Barkbreaker
-		[377008] = Priority(), -- Deafening Screech
-		----------------------------------------------------------
-		---------------- Dragonflight (Season 3) -----------------
-		----------------------------------------------------------
-		-- Darkheart Thicket
-		[198408] = Priority(), -- Nightfall
-		[196376] = Priority(), -- Grievous Tear
-		[200182] = Priority(), -- Festering Rip
-		[200238] = Priority(), -- Feed on the Weak
-		[200289] = Priority(), -- Growing Paranoia
-		[204667] = Priority(), -- Nightmare Breath
-		[204611] = Priority(), -- Crushing Grip
-		[199460] = Priority(), -- Falling Rocks
-		[200329] = Priority(), -- Overwhelming Terror
-		[191326] = Priority(), -- Breath of Corruption
-		[204243] = Priority(), -- Tormenting Eye
-		[225484] = Priority(), -- Grievous Rip
-		[200642] = Priority(), -- Despair
-		[199063] = Priority(), -- Strangling Roots
-		[198477] = Priority(), -- Fixate
-		[204246] = Priority(), -- Tormenting Fear
-		[198904] = Priority(), -- Poison Spear
-		[200684] = Priority(), -- Nightmare Toxin
-		[200243] = Priority(), -- Waking Nightmare
-		[200580] = Priority(), -- Maddening Roar
-		[200771] = Priority(), -- Propelling Charge
-		[200273] = Priority(), -- Cowardice
-		[201365] = Priority(), -- Darksoul Drain
-		[201839] = Priority(), -- Curse of Isolation
-		[201902] = Priority(), -- Scorching Shot
+		-- Manaforge Omega
+		-- Plexus Sentinel
+		[1219459] = Priority(3), -- Manifest Matrices
+		[1219607] = Priority(3), -- Eradicating Salvo
+		[1218625] = Priority(3), -- Displacement Matrix
+		-- Loom'ithar
+		[1226311] = Priority(5), -- Infusion Tether
+		[1237212] = Priority(4), -- Piercing Strand
+		[1226721] = Priority(6), -- Silken Snare
+		[1247045] = Priority(3), -- Hyper Infusion
+		[1237307] = Priority(3), -- Lair Weaving
+		-- Soulbinder Naazindhri
+		[1227276] = Priority(3), -- Soulfray Annihilation
+		[1226827] = Priority(3), -- Soulrend Orb
+		[1227052] = Priority(3), -- Void Burst
+		-- Forgeweaver Araz
+		[1234324] = Priority(3), -- Photon Blast
+		[1228214] = Priority(3), -- Astral Harvest
+		[1243901] = Priority(3), -- Void Harvest
+		-- The Soul Hunters
+		[1227847] = Priority(3), -- The Hunt
+		[1241946] = Priority(3), -- Frailty
+		-- Fractillus
+		[1233411] = Priority(3), -- Crystalline Shockwave
+		-- Nexus-King Salhadaar
+		[1227549] = Priority(3), -- Banishment
+		[1226362] = Priority(3), -- Twilight Scar
+		[1228056] = Priority(3), -- Reap
+		-- Dimensius, the All-Devouring
+		[1239270] = Priority(3), -- Voidwarding
+		[1250055] = Priority(3), -- Voidgrasp
+		[1243699] = Priority(3), -- Spatial Fragment
+		[1249425] = Priority(3), -- Mass Destruction
+
+		-- Liberation of Undermine
+		-- Vexie and the Geargrinders
+		[465865] = Priority(3), -- Tank Buster
+		[459669] = Priority(3), -- Spew Oil
+		-- Cauldron of Carnage
+		[1213690] = Priority(3), -- Molten Phlegm
+		[1214009] = Priority(3), -- Voltaic Image
+		-- Rik Reverb
+		[1217122] = Priority(3), -- Lingering Voltage
+		[468119] = Priority(3), -- Resonant Echoes
+		[467044] = Priority(3), -- Faulty Zap
+		-- Stix Bunkjunker
+		[461536] = Priority(3), -- Rolling Rubbish
+		[1217954] = Priority(3), -- Meltdown
+		[465346] = Priority(3), -- Sorted
+		[466748] = Priority(3), -- Infected Bite
+		-- Sprocketmonger Lockenstock
+		[1218342] = Priority(3), -- Unstable Shrapnel
+		[465917] = Priority(3), -- Gravi-Gunk
+		[471308] = Priority(3), -- Blisterizer Mk. II
+		-- The One-Armed Bandit
+		[471927] = Priority(3), -- Withering Flames
+		[460420] = Priority(3), -- Crushed!
+		-- Mug'Zee, Heads of Security
+		[466476] = Priority(3), -- Frostshatter Boots
+		[466509] = Priority(3), -- Stormfury Finger Gun
+		[1215488] = Priority(3), -- Disintegration Beam
+		-- Chrome King Gallywix
+		[466154] = Priority(3), -- Blast Burns
+		[466834] = Priority(4), -- Shock Barrage
+		[469362] = Priority(4), -- Charged Giga Bomb
+
+		-- Nerub'ar Palace
+		-- Ulgrax the Devourer
+		[434705] = Priority(3), -- Tenderized
+		[435138] = Priority(3), -- Digestive Acid
+		[439037] = Priority(3), -- Disembowel
+		[439419] = Priority(3), -- Stalker Netting
+		[434778] = Priority(3), -- Brutal Lashings
+		[435136] = Priority(3), -- Venomous Lash
+		[438012] = Priority(3), -- Hungering Bellows
+		-- The Bloodbound Horror
+		[442604] = Priority(3), -- Goresplatter
+		[445570] = Priority(3), -- Unseeming Blight
+		[443612] = Priority(3), -- Baneful Shift
+		[443042] = Priority(3), -- Grasp From Beyond
+		-- Sikran
+		[435410] = Priority(3), -- Phase Lunge
+		[458277] = Priority(3), -- Shattering Sweep
+		[438845] = Priority(3), -- Expose
+		[433517] = Priority(3), -- Phase Blades
+		[459785] = Priority(3), -- Cosmic Residue
+		[459273] = Priority(3), -- Cosmic Shards
+		-- Rasha'nan
+		[439785] = Priority(3), -- Corrosion
+		[439786] = Priority(3), -- Rolling Acid
+		[439787] = Priority(3), -- Acidic Stupor
+		[458067] = Priority(3), -- Savage Wound
+		[456170] = Priority(3), -- Spinneret's Strands
+		[439780] = Priority(3), -- Sticky Webs
+		[439776] = Priority(3), -- Acid Pool
+		[455287] = Priority(3), -- Infested Bite
+		-- Eggtender Ovi'nax
+		[442257] = Priority(3), -- Infest
+		[442799] = Priority(3), -- Sanguine Overflow
+		[441362] = Priority(3), -- Volatile Concotion
+		[442660] = Priority(3), -- Rupture
+		[440421] = Priority(3), -- Experimental Dosage
+		[442250] = Priority(3), -- Fixate
+		[442437] = Priority(3), -- Violent Discharge
+		[443274] = Priority(3), -- Reverberation
+		-- Nexus-Princess Ky'veza
+		[440377] = Priority(3), -- Void Shredders
+		[436870] = Priority(3), -- Assassination
+		[440576] = Priority(3), -- Chasmal Gash
+		[437343] = Priority(3), -- Queensbane
+		[436664] = Priority(3), -- Regicide
+		-- The Silken Court
+		[450129] = Priority(3), -- Entropic Desolation
+		[449857] = Priority(3), -- Impaled
+		[438749] = Priority(3), -- Scarab Fixation
+		[438708] = Priority(3), -- Stinging Swarm
+		[454311] = Priority(3), -- Barbed Webs
+		[438773] = Priority(3), -- Shattered Shell
+		[438355] = Priority(3), -- Cataclysmic Entropy
+		[438656] = Priority(3), -- Venomous Rain
+		[441772] = Priority(3), -- Void Bolt
+		[441788] = Priority(3), -- Web Vortex
+		[440001] = Priority(3), -- Binding Webs
+		[438218] = Priority(3), -- Piercing Strike
+		-- Queen Ansurek
+		[441865] = Priority(3), -- Royal Shackles
+		[436800] = Priority(3), -- Liquefy
+		[455404] = Priority(3), -- Feast
+		[439829] = Priority(3), -- Silken Tomb
+		[437586] = Priority(3), -- Reactive Toxin
+
+		-- Dungeon Debuffs
+		-- The War Within Season 1
+		[440313] = Priority(6), -- Void Rift
+
+		-- The Rookery (Season 2)
+		[429493] = Priority(3), -- Unstable Corruption
+		[424739] = Priority(3), -- Chaotic Corruption
+		[426160] = Priority(3), -- Dark Gravity
+		[1214324] = Priority(3), -- Crashing Thunder
+		[424966] = Priority(3), -- Lingering Void
+		[467907] = Priority(3), -- Festering Void
+		[458082] = Priority(3), -- Stormrider's Charge
+		[472764] = Priority(3), -- Void Extraction
+		[427616] = Priority(3), -- Energized Barrage
+		[430814] = Priority(3), -- Attracting Shadows
+		[430179] = Priority(3), -- Seeping Corruption
+		[1214523] = Priority(3), -- Feasting Void
+
+		-- Priory of the Sacred Flame (Season 2)
+		[424414] = Priority(3), -- Pierce Armor
+		[423015] = Priority(3), -- Castigator's Shield
+		[447439] = Priority(3), -- Savage Mauling
+		[425556] = Priority(3), -- Sanctified Ground
+		[428170] = Priority(3), -- Blinding Light
+		[448492] = Priority(3), -- Thunderclap
+		[427621] = Priority(3), -- Impale
+		[446403] = Priority(3), -- Sacrificial Flame
+		[451764] = Priority(3), -- Radiant Flame
+		[424426] = Priority(3), -- Lunging Strike
+		[448787] = Priority(3), -- Purification
+		[435165] = Priority(3), -- Blazing Strike
+		[448515] = Priority(3), -- Divine Judgment
+		[427635] = Priority(3), -- Grievous Rip
+		[427897] = Priority(3), -- Heat Wave
+		[424430] = Priority(3), -- Consecration
+		[453461] = Priority(3), -- Caltrops
+		[427900] = Priority(3), -- Molten Pool
+
+		-- Cinderbrew Meadery (Season 2)
+		[441397] = Priority(3), -- Bee Venom
+		[431897] = Priority(3), -- Rowdy Yell
+		[442995] = Priority(3), -- Swarming Surprise
+		[437956] = Priority(3), -- Erupting Inferno
+		[434773] = Priority(3), -- Mean Mug
+		[438975] = Priority(3), -- Shredding Sting
+		[463220] = Priority(3), -- Volatile Keg
+		[449090] = Priority(3), -- Reckless Delivery
+		[437721] = Priority(3), -- Boiling Flames
+		[441179] = Priority(3), -- Oozing Honey
+		[434707] = Priority(3), -- Cinderbrew Toss
+		[445180] = Priority(3), -- Crawling Brawl
+		[442589] = Priority(3), -- Beeswax
+		[435789] = Priority(3), -- Cindering Wounds
+		[432182] = Priority(3), -- Throw Cinderbrew
+		[436644] = Priority(3), -- Burning Ricochet
+		[436624] = Priority(3), -- Cash Cannon
+		[439325] = Priority(3), -- Burning Fermentation
+		[432196] = Priority(3), -- Hot Honey
+		[439586] = Priority(3), -- Fluttering Wing
+		[440141] = Priority(3), -- Honey Marinade
+
+		-- Darkflame Cleft (Season 2)
+		[426943] = Priority(3), -- Rising Gloom
+		[427015] = Priority(3), -- Shadowblast
+		[422648] = Priority(3), -- Darkflame Pickaxe
+		[1218308] = Priority(3), -- Enkindling Inferno
+		[422245] = Priority(3), -- Rock Buster
+		[423693] = Priority(3), -- Luring Candleflame
+		[421638] = Priority(3), -- Wicklighter Barrage
+		[424223] = Priority(3), -- Incite Flames
+		[421146] = Priority(3), -- Throw Darkflame
+		[427180] = Priority(3), -- Fear of the Gloom
+		[424322] = Priority(3), -- Explosive Flame
+		[420307] = Priority(3), -- Candlelight
+		[422806] = Priority(3), -- Smothering Shadows
+		[469620] = Priority(3), -- Creeping Shadow
+		[443694] = Priority(3), -- Crude Weapons
+		[428019] = Priority(3), -- Flashpoint
+		[423501] = Priority(3), -- Wild Wallop
+		[426277] = Priority(3), -- One-Hand Headlock
+		[423654] = Priority(3), -- Ouch!
+		[421653] = Priority(3), -- Cursed Wax
+		[421067] = Priority(3), -- Molten Wax
+		[426883] = Priority(3), -- Bonk!
+		[440653] = Priority(3), -- Surging Flamethrower
+
+		-- Operation: Floodgate (Season 2)
+		[462737] = Priority(3), -- Black Blood Wound
+		[1213803] = Priority(3), -- Nailed
+		[468672] = Priority(3), -- Pinch
+		[468616] = Priority(3), -- Leaping Spark
+		[469799] = Priority(3), -- Overcharge
+		[469811] = Priority(3), -- Backwash
+		[468680] = Priority(3), -- Crabsplosion
+		[473051] = Priority(3), -- Rushing Tide
+		[474351] = Priority(3), -- Shreddation Sawblade
+		[465830] = Priority(3), -- Warp Blood
+		[468723] = Priority(3), -- Shock Water
+		[474388] = Priority(3), -- Flamethrower
+		[472338] = Priority(3), -- Surveyed Ground
+		[462771] = Priority(3), -- Surveying Beam
+		[473836] = Priority(3), -- Electrocrush
+		[470038] = Priority(3), -- Razorchoke Vines
+		[473713] = Priority(3), -- Kinetic Explosive Gel
+		[468811] = Priority(3), -- Gigazap
+		[466188] = Priority(3), -- Thunder Punch
+		[460965] = Priority(3), -- Barreling Charge
+		[472878] = Priority(3), -- Sludge Claws
+		[473224] = Priority(3), -- Sonic Boom
+
+		-- The Stonevault (Season 1)
+		[427329] = Priority(3), -- Void Corruption
+		[435813] = Priority(3), -- Void Empowerment
+		[423572] = Priority(3), -- Void Empowerment
+		[424889] = Priority(3), -- Seismic Reverberation
+		[424795] = Priority(3), -- Refracting Beam
+		[457465] = Priority(3), -- Entropy
+		[425974] = Priority(3), -- Ground Pound
+		[445207] = Priority(3), -- Piercing Wail
+		[428887] = Priority(3), -- Smashed
+		[427382] = Priority(3), -- Concussive Smash
+		[449154] = Priority(3), -- Molten Mortar
+		[427361] = Priority(3), -- Fracture
+		[443494] = Priority(3), -- Crystalline Eruption
+		[424913] = Priority(3), -- Volatile Explosion
+		[443954] = Priority(3), -- Exhaust Vents
+		[426308] = Priority(3), -- Void Infection
+		[429999] = Priority(3), -- Flaming Scrap
+		[429545] = Priority(3), -- Censoring Gear
+		[428819] = Priority(3), -- Exhaust Vents
+
+		-- City of Threads (Season 1)
+		[434722] = Priority(3), -- Subjugate
+		[439341] = Priority(3), -- Splice
+		[440437] = Priority(3), -- Shadow Shunpo
+		[448561] = Priority(3), -- Shadows of Doubt
+		[440107] = Priority(3), -- Knife Throw
+		[439324] = Priority(3), -- Umbral Weave
+		[442285] = Priority(3), -- Corrupted Coating
+		[440238] = Priority(3), -- Ice Sickles
+		[461842] = Priority(3), -- Oozing Smash
+		[434926] = Priority(3), -- Lingering Influence
+		[440310] = Priority(3), -- Chains of Oppression
+		[439646] = Priority(3), -- Process of Elimination
+		[448562] = Priority(3), -- Doubt
+		[441391] = Priority(3), -- Dark Paranoia
+		[461989] = Priority(3), -- Oozing Smash
+		[441298] = Priority(3), -- Freezing Blood
+		[441286] = Priority(3), -- Dark Paranoia
+		[452151] = Priority(3), -- Rigorous Jab
+		[451239] = Priority(3), -- Brutal Jab
+		[443509] = Priority(3), -- Ravenous Swarm
+		[443437] = Priority(3), -- Shadows of Doubt
+		[451295] = Priority(3), -- Void Rush
+		[443427] = Priority(3), -- Web Bolt
+		[461630] = Priority(3), -- Venomous Spray
+		[445435] = Priority(3), -- Black Blood
+		[443401] = Priority(3), -- Venom Strike
+		[443430] = Priority(3), -- Silk Binding
+		[443438] = Priority(3), -- Doubt
+		[443435] = Priority(3), -- Twist Thoughts
+		[443432] = Priority(3), -- Silk Binding
+		[448047] = Priority(3), -- Web Wrap
+		[451426] = Priority(3), -- Gossamer Barrage
+		[446718] = Priority(3), -- Umbral Weave
+		[450055] = Priority(3), -- Gutburst
+		[450783] = Priority(3), -- Perfume Toss
+
+		-- The Dawnbreaker (Season 1)
+		[463428] = Priority(3), -- Lingering Erosion
+		[426736] = Priority(3), -- Shadow Shroud
+		[434096] = Priority(3), -- Sticky Webs
+		[453173] = Priority(3), -- Collapsing Night
+		[426865] = Priority(3), -- Dark Orb
+		[434090] = Priority(3), -- Spinneret's Strands
+		[434579] = Priority(3), -- Corrosion
+		[426735] = Priority(3), -- Burning Shadows
+		[434576] = Priority(3), -- Acidic Stupor
+		[452127] = Priority(3), -- Animate Shadows
+		[438957] = Priority(3), -- Acid Pools
+		[434441] = Priority(3), -- Rolling Acid
+		[451119] = Priority(3), -- Abyssal Blast
+		[453345] = Priority(3), -- Abyssal Rot
+		[449332] = Priority(3), -- Encroaching Shadows
+		[431333] = Priority(3), -- Tormenting Beam
+		[431309] = Priority(3), -- Ensnaring Shadows
+		[451107] = Priority(3), -- Bursting Cocoon
+		[434406] = Priority(3), -- Rolling Acid
+		[431491] = Priority(3), -- Tainted Slash
+		[434113] = Priority(3), -- Spinneret's Strands
+		[431350] = Priority(3), -- Tormenting Eruption
+		[431365] = Priority(3), -- Tormenting Ray
+		[434668] = Priority(3), -- Sparking Arathi Bomb
+		[460135] = Priority(3), -- Dark Scars
+		[451098] = Priority(3), -- Tacky Nova
+		[450855] = Priority(3), -- Dark Orb
+		[431494] = Priority(3), -- Black Edge
+		[451115] = Priority(3), -- Terrifying Slam
+		[432448] = Priority(3), -- Stygian Seed
+
+		-- Ara-Kara, City of Echoes (Season 1)
+		[461487] = Priority(3), -- Cultivated Poisons
+		[432227] = Priority(3), -- Venom Volley
+		[432119] = Priority(3), -- Faded
+		[433740] = Priority(3), -- Infestation
+		[439200] = Priority(3), -- Voracious Bite
+		[433781] = Priority(3), -- Ceaseless Swarm
+		[432132] = Priority(3), -- Erupting Webs
+		[434252] = Priority(3), -- Massive Slam
+		[432031] = Priority(3), -- Grasping Blood
+		[438599] = Priority(3), -- Bleeding Jab
+		[438618] = Priority(3), -- Venomous Spit
+		[436401] = Priority(3), -- AUGH!
+		[434830] = Priority(3), -- Vile Webbing
+		[436322] = Priority(3), -- Poison Bolt
+		[434083] = Priority(3), -- Ambush
+		[433843] = Priority(3), -- Erupting Webs
+
+		-- Previous Expansion Dungeons (Season 2)
+		-- Theater of Pain
+		[333299] = Priority(3), -- Curse of Desolation
+		[319539] = Priority(3), -- Soulless
+		[326892] = Priority(3), -- Fixate
+		[321768] = Priority(3), -- On the Hook
+		[323825] = Priority(3), -- Grasping Rift
+		[342675] = Priority(3), -- Bone Spear
+		[323831] = Priority(3), -- Death Grasp
+		[330608] = Priority(3), -- Vile Eruption
+		[330868] = Priority(3), -- Necrotic Bolt Volley
+		[323750] = Priority(3), -- Vile Gas
+		[323406] = Priority(3), -- Jagged Gash
+		[330700] = Priority(3), -- Decaying Blight
+		[319626] = Priority(3), -- Phantasmal Parasite
+		[324449] = Priority(3), -- Manifest Death
+		[341949] = Priority(3), -- Withering Blight
+		[333861] = Priority(3), -- Ricocheting Blade
+		[1223804] = Priority(3), -- Well of Darkness
+
+		-- The MOTHERLODE!!
+		[263074] = Priority(4), -- Festering Bite
+		[280605] = Priority(4), -- Brain Freeze
+		[257337] = Priority(4), -- Shocking Claw
+		[270882] = Priority(5), -- Blazing Azerite
+		[268797] = Priority(4), -- Transmute: Enemy to Goo
+		[259856] = Priority(4), -- Chemical Burn
+		[269302] = Priority(3), -- Toxic Blades
+		[280604] = Priority(3), -- Iced Spritzer
+		[257371] = Priority(4), -- Tear Gas
+		[257544] = Priority(4), -- Jagged Cut
+		[268846] = Priority(4), -- Echo Blade
+		[262794] = Priority(5), -- Energy Lash
+		[262513] = Priority(5), -- Azerite Heartseeker
+		[260838] = Priority(5), -- Homing Missle
+		[263637] = Priority(4), -- Clothesline
+
+		-- Operation: Mechagon
+		[291928] = Priority(3), -- Giga-Zap
+		[302274] = Priority(3), -- Fulminating Zap
+		[298669] = Priority(3), -- Taze
+		[295445] = Priority(3), -- Wreck
+		[294929] = Priority(3), -- Blazing Chomp
+		[297257] = Priority(3), -- Electrical Charge
+		[294855] = Priority(3), -- Blossom Blast
+		[291972] = Priority(3), -- Explosive Leap
+		[285443] = Priority(3), -- "Hidden" Flame Cannon
+		[291974] = Priority(3), -- Obnoxious Monologue
+		[296150] = Priority(3), -- Vent Blast
+		[298602] = Priority(3), -- Smoke Cloud
+		[296560] = Priority(3), -- Clinging Static
+		[297283] = Priority(3), -- Cave In
+		[291914] = Priority(3), -- Cutting Beam
+		[302384] = Priority(3), -- Static Discharge
+
+		-- Previous Expansion Dungeons (Season 1)
+		-- Mists of Tirna Scithe
+		[325027] = Priority(3), -- Bramble Burst
+		[323043] = Priority(3), -- Bloodletting
+		[322557] = Priority(3), -- Soul Split
+		[331172] = Priority(3), -- Mind Link
+		[322563] = Priority(3), -- Marked Prey
+		[322487] = Priority(3), -- Overgrowth
+		[328756] = Priority(3), -- Repulsive Visage
+		[325021] = Priority(3), -- Mistveil Tear
+		[321891] = Priority(3), -- Freeze Tag Fixation
+		[325224] = Priority(3), -- Anima Injection
+		[326092] = Priority(3), -- Debilitating Poison
+		[325418] = Priority(3), -- Volatile Acid
+
+		-- The Necrotic Wake
+		[321821] = Priority(3), -- Disgusting Guts
+		[323365] = Priority(3), -- Clinging Darkness
+		[338353] = Priority(3), -- Goresplatter
+		[333485] = Priority(3), -- Disease Cloud
+		[338357] = Priority(3), -- Tenderize
+		[328181] = Priority(3), -- Frigid Cold
+		[320170] = Priority(3), -- Necrotic Bolt
+		[323464] = Priority(3), -- Dark Ichor
+		[323198] = Priority(3), -- Dark Exile
+		[343504] = Priority(3), -- Dark Grasp
+		[343556] = Priority(3), -- Morbid Fixation
+		[324381] = Priority(3), -- Chill Scythe
+		[320573] = Priority(3), -- Shadow Well
+		[333492] = Priority(3), -- Necrotic Ichor
+		[334748] = Priority(3), -- Drain Fluids
+		[333489] = Priority(3), -- Necrotic Breath
+		[320717] = Priority(3), -- Blood Hunger
+
+		-- Siege of Boralus
+		[257168] = Priority(3), -- Cursed Slash
+		[272588] = Priority(3), -- Rotting Wounds
+		[272571] = Priority(3), -- Choking Waters
+		[274991] = Priority(3), -- Putrid Waters
+		[275835] = Priority(3), -- Stinging Venom Coating
+		[273930] = Priority(3), -- Hindering Cut
+		[257292] = Priority(3), -- Heavy Slash
+		[261428] = Priority(3), -- Hangman's Noose
+		[256897] = Priority(3), -- Clamping Jaws
+		[272874] = Priority(3), -- Trample
+		[273470] = Priority(3), -- Gut Shot
+		[272834] = Priority(3), -- Viscous Slobber
+		[257169] = Priority(3), -- Terrifying Roar
+		[272713] = Priority(3), -- Crushing Slam
+
+		-- Grim Batol
+		[449885] = Priority(3), -- Shadow Gale
+		[449474] = Priority(3), -- Molten Spark
+		[456773] = Priority(3), -- Twilight Wind
+		[448953] = Priority(3), -- Rumbling Earth
+		[447268] = Priority(3), -- Skullsplitter
+		[449536] = Priority(3), -- Molten Pool
+		[450095] = Priority(3), -- Curse of Entropy
+		[448057] = Priority(3), -- Abyssal Corruption
+		[451871] = Priority(3), -- Mass Temor
+		[451613] = Priority(3), -- Twilight Flame
+		[451378] = Priority(3), -- Rive
+		[76711] = Priority(3), -- Sear Mind
+		[462220] = Priority(3), -- Blazing Shadowflame
+		[451395] = Priority(3), -- Corrupt
+		[82850] = Priority(3), -- Flaming Fixate
+		[451241] = Priority(3), -- Shadowflame Slash
+		[451965] = Priority(3), -- Molten Wake
+		[451224] = Priority(3), -- Enveloping Shadowflame
+
+		-- Others
+		[87023] = Priority(4), -- Cauterize
+		[94794] = Priority(4), -- Rocket Fuel Leak
+		[116888] = Priority(4), -- Shroud of Purgatory
+		[121175] = Priority(2), -- Orb of Power (PvP)
+		[160029] = Priority(3), -- Resurrecting (Pending CR)
+		[225080] = Priority(3), -- Reincarnation (Ankh ready)
+		[255234] = Priority(3), -- Totemic Revival
+
+		-- Legion Raid
+		-- Antorus, the Burning Throne
+		-- Garothi Worldbreaker
+		[244590] = Priority(3), -- Molten Hot Fel
+		[244761] = Priority(3), -- Annihilation
+		[246920] = Priority(3), -- Haywire Decimation
+		[246369] = Priority(3), -- Searing Barrage
+		[246848] = Priority(3), -- Luring Destruction
+		[246220] = Priority(3), -- Fel Bombardment
+		[247159] = Priority(3), -- Luring Destruction
+		[244122] = Priority(3), -- Carnage
+		[244410] = Priority(3), -- Decimation
+		[245294] = Priority(3), -- Empowered Decimation
+		[246368] = Priority(3), -- Searing Barrage
+
+		-- Felhounds of Sargeras
+		[245022] = Priority(3), -- Burning Remnant
+		[251445] = Priority(3), -- Smouldering
+		[251448] = Priority(3), -- Burning Maw
+		[244086] = Priority(5), -- Molten Touch
+		[244091] = Priority(3), -- Singed
+		[244768] = Priority(3), -- Desolate Gaze
+		[244767] = Priority(3), -- Desolate Path
+		[244471] = Priority(4), -- Enflame Corruption
+		[248815] = Priority(4), -- Enflamed
+		[244517] = Priority(3), -- Lingering Flames
+		[245098] = Priority(3), -- Decay
+		[251447] = Priority(3), -- Corrupting Maw
+		[244131] = Priority(3), -- Consuming Sphere
+		[245024] = Priority(3), -- Consumed
+		[244071] = Priority(3), -- Weight of Darkness
+		[244578] = Priority(3), -- Siphon Corruption
+		[248819] = Priority(3), -- Siphoned
+		[254429] = Priority(3), -- Weight of Darkness
+		[244072] = Priority(3), -- Molten Touch
+
+		-- Antoran High Command
+		[245121] = Priority(3), -- Entropic Blast
+		[244748] = Priority(3), -- Shocked
+		[244824] = Priority(3), -- Warp Field
+		[244892] = Priority(3), -- Exploit Weakness
+		[244172] = Priority(3), -- Psychic Assault
+		[244388] = Priority(3), -- Psychic Scarring
+		[244420] = Priority(3), -- Chaos Pulse
+		[254771] = Priority(3), -- Disruption Field
+		[257974] = Priority(5), -- Chaos Pulse
+		[244910] = Priority(3), -- Felshield
+		[244737] = Priority(6), -- Shock Grenade
+
+		-- Portal Keeper Hasabel
+		[244016] = Priority(3), -- Reality Tear
+		[245157] = Priority(3), -- Everburning Light
+		[245075] = Priority(3), -- Hungering Gloom
+		[245240] = Priority(3), -- Oppressive Gloom
+		[244709] = Priority(3), -- Fiery Detonation
+		[246208] = Priority(3), -- Acidic Web
+		[246075] = Priority(3), -- Catastrophic Implosion
+		[244826] = Priority(3), -- Fel Miasma
+		[246316] = Priority(3), -- Poison Essence
+		[244849] = Priority(3), -- Caustic Slime
+		[245118] = Priority(3), -- Cloying Shadows
+		[245050] = Priority(3), -- Delusions
+		[245040] = Priority(3), -- Corrupt
+		[244607] = Priority(3), -- Flames of Xoroth
+		[244915] = Priority(3), -- Leech Essence
+		[244926] = Priority(3), -- Felsilk Wrap
+		[244949] = Priority(3), -- Felsilk Wrap
+		[244613] = Priority(3), -- Everburning Flames
+
+		-- Eonar the Life-Binder
+		[248326] = Priority(3), -- Rain of Fel
+		[248861] = Priority(5), -- Spear of Doom
+		[249016] = Priority(3), -- Feedback - Targeted
+		[249015] = Priority(3), -- Feedback - Burning Embers
+		[249014] = Priority(3), -- Feedback - Foul Steps
+		[249017] = Priority(3), -- Feedback - Arcane Singularity
+		[250693] = Priority(3), -- Arcane Buildup
+		[250691] = Priority(3), -- Burning Embers
+		[248795] = Priority(3), -- Fel Wake
+		[248332] = Priority(4), -- Rain of Fel
+		[250140] = Priority(3), -- Foul Steps
+
+		-- Imonar the Soulhunter
+		[248424] = Priority(3), -- Gathering Power
+		[247552] = Priority(5), -- Sleep Canister
+		[247565] = Priority(5), -- Slumber Gas
+		[250224] = Priority(3), -- Shocked
+		[248252] = Priority(3), -- Infernal Rockets
+		[247687] = Priority(3), -- Sever
+		[247716] = Priority(3), -- Charged Blasts
+		[247367] = Priority(4), -- Shock Lance
+		[250255] = Priority(3), -- Empowered Shock Lance
+		[247641] = Priority(4), -- Stasis Trap
+		[255029] = Priority(5), -- Sleep Canister
+		[248321] = Priority(3), -- Conflagration
+		[247932] = Priority(3), -- Shrapnel Blast
+		[248070] = Priority(3), -- Empowered Shrapnel Blast
+		[254183] = Priority(5), -- Seared Skin
+
+		-- Kin'garoth
+		[233062] = Priority(3), -- Infernal Burning
+		[230345] = Priority(3), -- Crashing Comet
+		[244312] = Priority(5), -- Forging Strike
+		[246840] = Priority(3), -- Ruiner
+		[248061] = Priority(3), -- Purging Protocol
+		[249686] = Priority(3), -- Reverberating Decimation
+		[246706] = Priority(6), -- Demolish
+		[246698] = Priority(6), -- Demolish
+		[245919] = Priority(3), -- Meteor Swarm
+		[245770] = Priority(3), -- Decimation
+
+		-- Varimathras
+		[244042] = Priority(5), -- Marked Prey
+		[243961] = Priority(5), -- Misery
+		[248732] = Priority(3), -- Echoes of Doom
+		[243973] = Priority(3), -- Torment of Shadows
+		[244005] = Priority(3), -- Dark Fissure
+		[244093] = Priority(6), -- Necrotic Embrace
+		[244094] = Priority(6), -- Necrotic Embrace
+
+		-- The Coven of Shivarra
+		[244899] = Priority(4), -- Fiery Strike
+		[245518] = Priority(4), -- Flashfreeze
+		[245586] = Priority(5), -- Chilled Blood
+		[246763] = Priority(3), -- Fury of Golganneth
+		[245674] = Priority(3), -- Flames of Khaz'goroth
+		[245671] = Priority(3), -- Flames of Khaz'goroth
+		[245910] = Priority(3), -- Spectral Army of Norgannon
+		[253520] = Priority(3), -- Fulminating Pulse
+		[245634] = Priority(3), -- Whirling Saber
+		[253020] = Priority(3), -- Storm of Darkness
+		[245921] = Priority(3), -- Spectral Army of Norgannon
+		[250757] = Priority(3), -- Cosmic Glare
+
+		-- Aggramar
+		[244291] = Priority(3), -- Foe Breaker
+		[255060] = Priority(3), -- Empowered Foe Breaker
+		[245995] = Priority(4), -- Scorching Blaze
+		[246014] = Priority(3), -- Searing Tempest
+		[244912] = Priority(3), -- Blazing Eruption
+		[247135] = Priority(3), -- Scorched Earth
+		[247091] = Priority(3), -- Catalyzed
+		[245631] = Priority(3), -- Unchecked Flame
+		[245916] = Priority(3), -- Molten Remnants
+		[245990] = Priority(4), -- Taeshalach's Reach
+		[254452] = Priority(3), -- Ravenous Blaze
+		[244736] = Priority(3), -- Wake of Flame
+		[247079] = Priority(3), -- Empowered Flame Rend
+
+		-- Argus the Unmaker
+		[251815] = Priority(3), -- Edge of Obliteration
+		[248499] = Priority(4), -- Sweeping Scythe
+		[250669] = Priority(5), -- Soulburst
+		[251570] = Priority(6), -- Soulbomb
+		[248396] = Priority(6), -- Soulblight
+		[258039] = Priority(3), -- Deadly Scythe
+		[252729] = Priority(3), -- Cosmic Ray
+		[256899] = Priority(4), -- Soul Detonation
+		[252634] = Priority(4), -- Cosmic Smash
+		[252616] = Priority(4), -- Cosmic Beacon
+		[255200] = Priority(3), -- Aggramar's Boon
+		[255199] = Priority(4), -- Avatar of Aggramar
+		[258647] = Priority(3), -- Gift of the Sea
+		[253901] = Priority(3), -- Strength of the Sea
+		[257299] = Priority(4), -- Ember of Rage
+		[248167] = Priority(3), -- Death Fog
+		[258646] = Priority(3), -- Gift of the Sky
+		[253903] = Priority(3), -- Strength of the Sky
+
+		-- Tomb of Sargeras
+		-- Goroth
+		[231363] = Priority(3), -- Burning Armor
+		[233279] = Priority(3), -- Shattering Star
+		[230345] = Priority(3), -- Crashing Comet
+		[234346] = Priority(4), -- Fel Eruption
+		-- Demonic Inquisition
+		[233983] = Priority(3), -- Echoing Anguish
+		[233895] = Priority(3), -- Suffocating Dark
+		[233430] = Priority(3), -- Unbearable Torment
+		-- Harjatan
+		[231998] = Priority(3), -- Jagged Abrasion
+		[231770] = Priority(4), -- Drenched
+		[231729] = Priority(3), -- Aqueous Burst
+		[231768] = Priority(3), -- Drenching Waters
+		-- Sisters of the Moon
+		[236516] = Priority(3), -- Twilight Volley
+		[236519] = Priority(3), -- Moon Burn
+		[239264] = Priority(3), -- Lunar Fire
+		[236712] = Priority(3), -- Lunar Beacon
+		[236550] = Priority(3), -- Discorporate
+		[237561] = Priority(4), -- Twilight Glaive
+		[233263] = Priority(4), -- Embrace of the Eclipse
+		[236596] = Priority(5), -- Rapid Shot
+		-- Mistress Sassz'ine
+		[230201] = Priority(3), -- Burden of Pain
+		[230139] = Priority(3), -- Hydra Shot
+		[230358] = Priority(3), -- Thundering Shock
+		[232913] = Priority(3), -- Befouling Ink
+		[230920] = Priority(3), -- Consuming Hunger
+		[232732] = Priority(3), -- Slicing Tornado
+		-- The Desolate Host
+		[235907] = Priority(3), -- Collapsing Fissure
+		[235989] = Priority(3), -- Tormented Cries
+		[235933] = Priority(3), -- Spear of Anguish
+		[235968] = Priority(3), -- Grasping Darkness
+		[236340] = Priority(3), -- Crush Mind
+		[236449] = Priority(3), -- Soulbind
+		[236515] = Priority(3), -- Shattering Scream
+		[236241] = Priority(3), -- Soul Rot
+		-- Maiden of Vigilance
+		-- [235213] = Priority(4),	-- Light Infusion
+		-- [235240] = Priority(4),	-- Fel Infusion
+		[240209] = Priority(3), -- Unstable Soul
+		-- Fallen Avatar
+		[236494] = Priority(3), -- Desolate
+		[236604] = Priority(3), -- Shadowy Blades
+		[234059] = Priority(3), -- Unbound Chaos
+		[239058] = Priority(3), -- Touch of Sargeras
+		[239739] = Priority(3), -- Dark Mark
+		[242017] = Priority(3), -- Black Winds
+		[240728] = Priority(3), -- Tainted Essence
+		-- Kil'Jaeden
+		[236710] = Priority(3), -- Shadow Reflection: Erupting
+		[236378] = Priority(3), -- Shadow Reflection: Wailing
+		[238429] = Priority(3), -- Bursting Dreadflame
+		[238505] = Priority(3), -- Focused Dreadflame
+		[239155] = Priority(3), -- Gravity Squeeze
+		[239253] = Priority(3), -- Flaming Orb
+		[239130] = Priority(3), -- Tear Rift
+		-- The Nighthold
+		-- Skorpyron
+		[211659] = Priority(3), -- Arcane Tether
+		[204483] = Priority(3), -- Focused Blast
+		-- Chronomatic Anomaly
+		[206609] = Priority(3), -- Time Release
+		[206607] = Priority(3), -- Chronometric Particles
+		-- Trilliax
+		[206788] = Priority(3), -- Toxic Slice
+		[206641] = Priority(3), -- Arcane Slash
+		-- Spellblade Aluriel
+		[212492] = Priority(3), -- Annihilate
+		[212494] = Priority(3), -- Annihilated
+		[212587] = Priority(3), -- Mark of Frost
+		-- Tichondrius
+		[206480] = Priority(3), -- Carrion Plague
+		[216040] = Priority(3), -- Burning Soul
+		[208230] = Priority(3), -- Feast of Blood
+		-- Krosus
+		[206677] = Priority(3), -- Searing Brand
+		-- High Botanist Tel'arn
+		[218304] = Priority(3), -- Parasitic Fetter
+		[218503] = Priority(3), -- Recursive Strikes
+		-- Star Augur Etraeus
+		[206936] = Priority(3), -- Icy Ejection
+		-- Gul'dan
+		[206222] = Priority(3), -- Bonds of Fel
+		[212568] = Priority(3), -- Drain
+		[206875] = Priority(3), -- Fel Obelisk
+		-- Trial of Valor
+		-- Odyn
+		[198088] = Priority(3), -- Glowing Fragment
+		[228915] = Priority(3), -- Stormforged Spear
+		[227959] = Priority(3), -- Storm of Justice
+		[227475] = Priority(3), -- Cleansing Flame
+		-- Guarm
+		[227570] = Priority(3), -- Dark Discharge
+		[227566] = Priority(3), -- Salty Spittle
+		[227539] = Priority(3), -- Fiery Phlegm
+		[228250] = Priority(4), -- Shadow Lick
+		[228246] = Priority(4), -- Frost Lick
+		[228226] = Priority(4), -- Flame Lick
+		-- Helya
+		[228054] = Priority(3), -- Taint of the Sea
+		[227982] = Priority(3), -- Bilewater Redox
+		[193367] = Priority(3), -- Fetid Rot
+		[227903] = Priority(3), -- Orb of Corruption
+		[228058] = Priority(3), -- Orb of Corrosion
+		[228519] = Priority(3), -- Anchor Slam
+		[202476] = Priority(3), -- Rabid
+		[232450] = Priority(3), -- Corrupted Axion
+		-- The Emerald Nightmare
+		-- Nythendra
+		[204504] = Priority(5), -- Infested
+		[203096] = Priority(3), -- Rot
+		[204463] = Priority(3), -- Volatile Rot
+		[203646] = Priority(4), -- Burst of Corruption
+		-- Il'gynoth, Heart of Corruption
+		[215845] = Priority(3), -- Dispersed Spores
+		[210099] = Priority(6), -- Fixate
+		[209469] = Priority(5), -- Touch of Corruption
+		[210984] = Priority(3), -- Eye of Fate
+		[208697] = Priority(4), -- Mind Flay
+		[208929] = Priority(3), -- Spew Corruption
+		[215128] = Priority(3), -- Cursed Blood
+		-- Erethe Renferal
+		[215582] = Priority(4), -- Raking Talons
+		[218519] = Priority(4), -- Wind Burn
+		[215307] = Priority(4), -- Web of Pain
+		[215449] = Priority(3), -- Necrotic Venom
+		[215460] = Priority(3), -- Necrotic Venom
+		[210850] = Priority(4), -- Twisting Shadows
+		-- Ursoc
+		[197943] = Priority(3), -- Overwhelm
+		[204859] = Priority(4), -- Rend Flesh
+		[198006] = Priority(3), -- Focused Gaze
+		[198108] = Priority(3), -- Momentum
+		-- Dragons of Nightmare
+		[207681] = Priority(4), -- Nightmare Bloom
+		[203770] = Priority(3), -- Defiled Vines
+		[203787] = Priority(3), -- Volatile Infection
+		[204044] = Priority(3), -- Shadow Burst
+		[205341] = Priority(3), -- Seeping Fog
+		[204078] = Priority(3), -- Bellowing Roar
+		-- Cenarius
+		[210315] = Priority(3), -- Nightmare Brambles
+		[226821] = Priority(3), -- Desiccating Stomp
+		[211507] = Priority(3), -- Nightmare Javelin
+		[211471] = Priority(3), -- Scorned Touch
+		[214529] = Priority(3), -- Spear of Nightmares
+		[210279] = Priority(3), -- Creeping Nightmare
+		-- Xavius
+		[208431] = Priority(3), -- Descent into Madness
+		[206651] = Priority(3), -- Darkening Soul
+		[209158] = Priority(3), -- Blackening Soul
+		[211802] = Priority(3), -- Nightmare Blades
+		[205771] = Priority(3), -- Tormenting Fixation
+		[210451] = Priority(3), -- Bonds of Terror
+		[224508] = Priority(3), -- Corruption Meteor
+
+		-- Legion Dungeon
+		-- Mythic+ Affixes
+		[221772] = Priority(5), -- Overflowing
+		[209858] = Priority(5), -- Necrotic
+		[226512] = Priority(5), -- Sanguine
 		-- Black Rook Hold
-		[202019] = Priority(), -- Shadow Bolt Volley
-		[197521] = Priority(), -- Blazing Trail
-		[197478] = Priority(), -- Dark Rush
-		[197546] = Priority(), -- Brutal Glaive
-		[198079] = Priority(), -- Hateful Gaze
-		[224188] = Priority(), -- Hateful Charge
-		[201733] = Priority(), -- Stinging Swarm
-		[194966] = Priority(), -- Soul Echoes
-		[198635] = Priority(), -- Unerring Shear
-		[225909] = Priority(), -- Soul Venom
-		[198501] = Priority(), -- Fel Vomitus
-		[198446] = Priority(), -- Fel Vomit
-		[200084] = Priority(), -- Soul Blade
-		[197821] = Priority(), -- Felblazed Ground
-		[203163] = Priority(), -- Sic Bats!
-		[199368] = Priority(), -- Legacy of the Ravencrest
-		[225732] = Priority(), -- Strike Down
-		[199168] = Priority(), -- Itchy!
-		[225963] = Priority(), -- Bloodthirsty Leap
-		[214002] = Priority(), -- Raven's Dive
-		[197974] = Priority(), -- Bonecrushing Strike I
-		[200261] = Priority(), -- Bonecrushing Strike II
-		[204896] = Priority(), -- Drain Life
-		[199097] = Priority(), -- Cloud of Hypnosis
-		-- Waycrest Manor
-		[260703] = Priority(), -- Unstable Runic Mark
-		[261438] = Priority(), -- Wasting Strike
-		[261140] = Priority(), -- Virulent Pathogen
-		[260900] = Priority(), -- Soul Manipulation I
-		[260926] = Priority(), -- Soul Manipulation II
-		[260741] = Priority(), -- Jagged Nettles
-		[268086] = Priority(), -- Aura of Dread
-		[264712] = Priority(), -- Rotten Expulsion
-		[271178] = Priority(), -- Ravaging Leap
-		[264040] = Priority(), -- Uprooted Thorns
-		[265407] = Priority(), -- Dinner Bell
-		[265761] = Priority(), -- Thorned Barrage
-		[268125] = Priority(), -- Aura of Thorns
-		[268080] = Priority(), -- Aura of Apathy
-		[264050] = Priority(), -- Infected Thorn
-		[260569] = Priority(), -- Wildfire
-		[263943] = Priority(), -- Etch
-		[264378] = Priority(), -- Fragment Soul
-		[267907] = Priority(), -- Soul Thorns
-		[264520] = Priority(), -- Severing Serpent
-		[264105] = Priority(), -- Runic Mark
-		[265881] = Priority(), -- Decaying Touch
-		[265882] = Priority(), -- Lingering Dread
-		[278456] = Priority(), -- Infest I
-		[278444] = Priority(), -- Infest II
-		[265880] = Priority(), -- Dread Mark
-		-- Atal'Dazar
-		[250585] = Priority(), -- Toxic Pool
-		[258723] = Priority(), -- Grotesque Pool
-		[260668] = Priority(), -- Transfusion I
-		[260666] = Priority(), -- Transfusion II
-		[255558] = Priority(), -- Tainted Blood
-		[250036] = Priority(), -- Shadowy Remains
-		[257483] = Priority(), -- Pile of Bones
-		[253562] = Priority(), -- Wildfire
-		[254959] = Priority(), -- Soulburn
-		[255814] = Priority(), -- Rending Maul
-		[255582] = Priority(), -- Molten Gold
-		[252687] = Priority(), -- Venomfang Strike
-		[255041] = Priority(), -- Terrifying Screech
-		[255567] = Priority(), -- Frenzied Charge
-		[255836] = Priority(), -- Transfusion Boss I
-		[255835] = Priority(), -- Transfusion Boss II
-		[250372] = Priority(), -- Lingering Nausea
-		[257407] = Priority(), -- Pursuit
-		[255434] = Priority(), -- Serrated Teeth
-		[255371] = Priority(), -- Terrifying Visage
-		-- Everbloom
-		[427513] = Priority(), -- Noxious Discharge
-		[428834] = Priority(), -- Verdant Eruption
-		[427510] = Priority(), -- Noxious Charge
-		[427863] = Priority(), -- Frostbolt I
-		[169840] = Priority(), -- Frostbolt II
-		[428084] = Priority(), -- Glacial Fusion
-		[426991] = Priority(), -- Blazing Cinders
-		[169179] = Priority(), -- Colossal Blow
-		[164886] = Priority(), -- Dreadpetal Pollen
-		[169445] = Priority(), -- Noxious Eruption
-		[164294] = Priority(), -- Unchecked Growth I
-		[164302] = Priority(), -- Unchecked Growth II
-		[165123] = Priority(), -- Venom Burst
-		[169658] = Priority(), -- Poisonous Claws
-		[169839] = Priority(), -- Pyroblast
-		[164965] = Priority(), -- Choking Vines
-		-- Throne of the Tides
-		[429048] = Priority(), -- Flame Shock
-		[427668] = Priority(), -- Festering Shockwave
-		[427670] = Priority(), -- Crushing Claw
-		[76363] = Priority(), -- Wave of Corruption
-		[426660] = Priority(), -- Razor Jaws
-		[426727] = Priority(), -- Acid Barrage
-		[428404] = Priority(), -- Blotting Darkness
-		[428403] = Priority(), -- Grimy
-		[426663] = Priority(), -- Ravenous Pursuit
-		[426783] = Priority(), -- Mind Flay
-		[75992] = Priority(), -- Lightning Surge
-		[428868] = Priority(), -- Putrid Roar
-		[428407] = Priority(), -- Blotting Barrage
-		[427559] = Priority(), -- Bubbling Ooze
-		[76516] = Priority(), -- Poisoned Spear
-		[428542] = Priority(), -- Crushing Depths
-		[426741] = Priority(), -- Shellbreaker
-		[76820] = Priority(), -- Hex
-		[426608] = Priority(), -- Null Blast
-		[426688] = Priority(), -- Volatile Acid
-		[428103] = Priority(), -- Frostbolt
-		---------------------------------------------------------
-		------------ Amirdrassil: The Dream's Hope --------------
-		---------------------------------------------------------
-		-- Gnarlroot
-		[421972] = Priority(), -- Controlled Burn
-		[424734] = Priority(), -- Uprooted Agony
-		[426106] = Priority(), -- Dreadfire Barrage
-		[425002] = Priority(), -- Ember-Charred I
-		[421038] = Priority(), -- Ember-Charred II
-		-- Igira the Cruel
-		[414367] = Priority(), -- Gathering Torment
-		[424065] = Priority(), -- Wracking Skewer I
-		[416056] = Priority(), -- Wracking Skever II
-		[414888] = Priority(), -- Blistering Spear
-		-- Volcoross
-		[419054] = Priority(), -- Molten Venom
-		[421207] = Priority(), -- Coiling Flames
-		[423494] = Priority(), -- Tidal Blaze
-		[423759] = Priority(), -- Serpent's Crucible
-		-- Council of Dreams
-		[420948] = Priority(), -- Barreling Charge
-		[421032] = Priority(), -- Captivating Finale
-		[420858] = Priority(), -- Poisonous Javelin
-		[418589] = Priority(), -- Polymorph Bomb
-		[421031] = Priority(6), -- Song of the Dragon
-		[426390] = Priority(), -- Corrosive Pollen
-		-- Larodar, Keeper of the Flame
-		[425888] = Priority(), -- Igniting Growth
-		[426249] = Priority(), -- Blazing Coalescence
-		[421594] = Priority(), -- Smoldering Suffocation
-		[427299] = Priority(), -- Flash Fire
-		[428901] = Priority(), -- Ashen Devastation
-		-- Nymue, Weaver of the Cycle
-		[427137] = Priority(), -- Threads of Life I
-		[427138] = Priority(), -- Threads of Life II
-		[426520] = Priority(), -- Weaver's Burden
-		[428273] = Priority(), -- Woven Resonance
-		-- Smolderon
-		[426018] = Priority(), -- Seeking Inferno
-		[421455] = Priority(), -- Overheated
-		[421643] = Priority(5), -- Emberscar's Mark
-		[421656] = Priority(), -- Cauterizing Wound
-		[425574] = Priority(), -- Lingering Burn
-		-- Tindral Sageswift, Seer of the Flame
-		[427297] = Priority(), -- Flame Surge
-		[424581] = Priority(), -- Fiery Growth
-		[424580] = Priority(), -- Falling Stars
-		[424578] = Priority(), -- Blazing Mushroom
-		[424579] = Priority(6), -- Suppressive Ember
-		[424495] = Priority(), -- Mass Entanblement
-		[424665] = Priority(), -- Seed of Flame
-		-- Fyrakk the Blazing
-		---------------------------------------------------------
-		------------ Aberrus, the Shadowed Crucible -------------
-		---------------------------------------------------------
-		-- Kazzara
-		[406530] = Priority(), -- Riftburn
-		[402420] = Priority(), -- Molten Scar
-		[402253] = Priority(), -- Ray of Anguish
-		[406525] = Priority(), -- Dread Rift
-		[404743] = Priority(), -- Terror Claws
-		-- Molgoth
-		[405084] = Priority(), -- Lingering Umbra
-		[405645] = Priority(), -- Engulfing Heat
-		[405642] = Priority(), -- Blistering Twilight
-		[402617] = Priority(), -- Blazing Heat
-		[401809] = Priority(), -- Corrupting Shadow
-		[405394] = Priority(), -- Shadowflame
-		[405914] = Priority(), -- Withering Vulnerability 1
-		[413597] = Priority(), -- Withering Vulnerability 2
-		-- Experimentation of Dracthyr
-		[406317] = Priority(), -- Mutilation 1
-		[406365] = Priority(), -- Mutilation 2
-		[405392] = Priority(), -- Disintegrate 1
-		[405423] = Priority(), -- Disintegrate 2
-		[406233] = Priority(), -- Deep Breath
-		[407327] = Priority(), -- Unstable Essence
-		[406313] = Priority(), -- Infused Strikes
-		[407302] = Priority(), -- Infused Explosion
-		-- Zaqali Invasion
-		[408873] = Priority(), -- Heavy Cudgel
-		[410353] = Priority(), -- Flaming Cudgel
-		[407017] = Priority(), -- Vigorous Gale
-		[401407] = Priority(), -- Blazing Spear 1
-		[401452] = Priority(), -- Blazing Spear 2
-		[409275] = Priority(), -- Magma Flow
-		-- Rashok
-		[407547] = Priority(), -- Flaming Upsurge
-		[407597] = Priority(), -- Earthen Crush
-		[405819] = Priority(), -- Searing Slam
-		[408857] = Priority(), -- Doom Flame
-		-- Zskarn
-		[404955] = Priority(), -- Shrapnel Bomb
-		[404010] = Priority(), -- Unstable Embers
-		[404942] = Priority(), -- Searing Claws
-		[403978] = Priority(), -- Blast Wave
-		[405592] = Priority(), -- Salvage Parts
-		[405462] = Priority(), -- Dragonfire Traps
-		[409942] = Priority(), -- Elimination Protocol
-		-- Magmorax
-		[404846] = Priority(), -- Incinerating Maws 1
-		[408955] = Priority(), -- Incinerating Maws 2
-		[402994] = Priority(), -- Molten Spittle
-		-- Echo of Neltharion
-		[409373] = Priority(), -- Disrupt Earth
-		[407220] = Priority(), -- Rushing Shadows 1
-		[407182] = Priority(), -- Rushing Shadows 2
-		[405484] = Priority(), -- Surrendering to Corruption
-		[409058] = Priority(), -- Seeping Lava
-		[402120] = Priority(), -- Collapsed Earth
-		[407728] = Priority(), -- Sundered Shadow
-		[401998] = Priority(), -- Calamitous Strike
-		[408160] = Priority(), -- Shadow Strike
-		[403846] = Priority(), -- Sweeping Shadows
-		[401133] = Priority(), -- Wildshift (Druid)
-		[401131] = Priority(), -- Wild Summoning (Warlock)
-		[401130] = Priority(), -- Wild Magic (Mage)
-		[401135] = Priority(), -- Wild Breath (Evoker)
-		[408071] = Priority(), -- Shapeshifter's Fervor
-		-- Scalecommander Sarkareth
-		[403520] = Priority(), -- Embrace of Nothingness
-		[401383] = Priority(), -- Oppressing Howl
-		[401951] = Priority(), -- Oblivion
-		[407496] = Priority(), -- Infinite Duress
-		---------------------------------------------------------
-		---------------- Vault of the Incarnates ----------------
-		---------------------------------------------------------
-		-- Eranog
-		[370648] = Priority(5), -- Primal Flow
-		[390715] = Priority(6), -- Primal Rifts
-		[370597] = Priority(6), -- Kill Order
-		-- Terros
-		[382776] = Priority(5), -- Awakened Earth 1
-		[381253] = Priority(5), -- Awakened Earth 2
-		[386352] = Priority(3), -- Rock Blast
-		[382458] = Priority(6), -- Resonant Aftermath
-		-- The Primal Council
-		[371624] = Priority(5), -- Conductive Mark
-		[372027] = Priority(4), -- Slashing Blaze
-		[374039] = Priority(4), -- Meteor Axe
-		-- Sennarth, the Cold Breath
-		[371976] = Priority(4), -- Chilling Blast
-		[372082] = Priority(5), -- Enveloping Webs
-		[374659] = Priority(4), -- Rush
-		[374104] = Priority(5), -- Wrapped in Webs Slow
-		[374503] = Priority(6), -- Wrapped in Webs Stun
-		[373048] = Priority(3), -- Suffocating Webs
-		-- Dathea, Ascended
-		[391686] = Priority(5), -- Conductive Mark
-		[388290] = Priority(4), -- Cyclone
-		-- Kurog Grimtotem
-		[377780] = Priority(5), -- Skeletal Fractures
-		[372514] = Priority(5), -- Frost Bite
-		[374554] = Priority(4), -- Lava Pool
-		[374023] = Priority(6), -- Searing Carnage
-		[374427] = Priority(6), -- Ground Shatter
-		[390920] = Priority(5), -- Shocking Burst
-		[372458] = Priority(6), -- Below Zero
-		-- Broodkeeper Diurna
-		[388920] = Priority(6), -- Frozen Shroud
-		[378782] = Priority(5), -- Mortal Wounds
-		[378787] = Priority(5), -- Crushing Stoneclaws
-		[375620] = Priority(6), -- Ionizing Charge
-		[375578] = Priority(4), -- Flame Sentry
-		-- Raszageth the Storm-Eater
-		[381615] = Priority(6), -- Static Charge
-		[399713] = Priority(6), -- Magnetic Charge
-		[385073] = Priority(5), -- Ball Lightning
-		[377467] = Priority(6), -- Fulminating Charge
+		-- Trash Mobs
+		[194969] = Priority(3), -- Soul Echoes
+		[225962] = Priority(3), -- Bloodthirsty Leap
+		[200261] = Priority(3), -- Bonebreaking Strike
+		[222397] = Priority(3), -- Boulder Crush
+		[214001] = Priority(3), -- Raven's Dive
+		-- Illysanna Ravencrest
+		[197546] = Priority(3), -- Brutal Glaive
+		[197484] = Priority(3), -- Dark Rush
+		[197687] = Priority(4), -- Eye Beams
+		-- Smashspite
+		[198446] = Priority(3), -- Fel Vomit
+		[198245] = Priority(3), -- Brutal Haymaker
+		-- Lord Ravencrest
+		[201733] = Priority(3), -- Stinging Swarm
+		-- Court of Stars
+		-- Trash Mobs
+		[209413] = Priority(3), -- Suppress
+		[209512] = Priority(3), -- Disrupting Energy
+		[211473] = Priority(3), -- Shadow Slash
+		[211464] = Priority(3), -- Fel Detonation
+		[207980] = Priority(3), -- Disintegration Beam
+		[207979] = Priority(3), -- Shockwave
+		-- Advisor Melandrus
+		[209602] = Priority(3), -- Blade Surge
+		[224333] = Priority(4), -- Enveloping Winds
+		-- Darkheart Thicket
+		-- Trash Mobs
+		[200620] = Priority(3), -- Frantic Rip
+		[225484] = Priority(3), -- Grievous Rip
+		[200631] = Priority(4), -- Unnerving Screech
+		[201400] = Priority(3), -- Dread Inferno
+		[201361] = Priority(4), -- Darksoul Bite
+		-- Archdruid Glaidalis
+		[198408] = Priority(4), -- Nightfall
+		[196376] = Priority(3), -- Grievous Tear
+		-- Shade of Xavius
+		[200289] = Priority(4), -- Growing Paranoia
+		[200329] = Priority(4), -- Overwhelming Terror
+		[200238] = Priority(3), -- Feed on the Weak
+		-- Eye of Azshara
+		-- Trash Mobs
+		[196111] = Priority(4), -- Jagged Claws
+		[195561] = Priority(3), -- Blinding Peck
+		-- Warlord Parjesh
+		[192094] = Priority(3), -- Impaling Spear
+		-- Serpentrix
+		[191855] = Priority(3), -- Toxic Wound
+		[191858] = Priority(4), -- Toxic Puddle
+		-- King Deepbeard
+		[193018] = Priority(3), -- Gaseous Bubbles
+		-- Halls of Valor
+		-- Trash Mobs
+		[198605] = Priority(3), -- Thunderstrike
+		[199805] = Priority(3), -- Crackle
+		[199050] = Priority(3), -- Mortal Hew
+		[199341] = Priority(3), -- Bear Trap
+		[196194] = Priority(3), -- Raven's Dive
+		[199674] = Priority(3), -- Wicked Dagger
+		-- Hymdall
+		[193092] = Priority(3), -- Bloodletting Sweep
+		-- Hyrja
+		[192048] = Priority(3), -- Expel Light
+		-- Fenryr
+		[197556] = Priority(4), -- Ravenous Leap
+		[196838] = Priority(3), -- Scent of Blood
+		[196497] = Priority(4), -- Ravenous Leap
+		-- Odyn
+		[198088] = Priority(4), -- Glowing Fragment
+		-- Maw of Souls
+		-- Trash Mobs
+		[201566] = Priority(3), -- Swirling Muck
+		[191960] = Priority(5), -- Barbed Spear
+		[199061] = Priority(4), -- Hew Soul
+		[222397] = Priority(4), -- Breach Armor
+		[201397] = Priority(4), -- Brackwater Blast
+		[194102] = Priority(4), -- Poisonous Sludge
+		-- Harbaron
+		[194325] = Priority(3), -- Fragment
+		[194235] = Priority(4), -- Nether Rip
+		-- Helya
+		[185539] = Priority(3), -- Rapid Rupture
+		-- Neltharion's Lair
+		-- Trash Mobs
+		[226296] = Priority(3), -- Piercing Shards
+		[193639] = Priority(4), -- Bone Chomp
+		[202181] = Priority(3), -- Stone Gaze
+		[186616] = Priority(3), -- Petrified
+		[202231] = Priority(3), -- Leech
+		[200154] = Priority(4), -- Burning Hatred
+		[193585] = Priority(3), -- Bound
+		-- Rokmora
+		[192799] = Priority(3), -- Choking Dust
+		-- Naraxas
+		[205549] = Priority(3), -- Rancid Maw
+		-- The Arcway
+		-- Trash Mobs
+		[202156] = Priority(4), -- Corrosion
+		[210688] = Priority(3), -- Collapsing Rift
+		[226269] = Priority(3), -- Torment
+		[211756] = Priority(3), -- Searing Wound
+		[211217] = Priority(3), -- Arcane Slicer
+		[211543] = Priority(3), -- Devour
+		-- Corstilax
+		[195791] = Priority(3), -- Quarantine
+		-- Ivanyr
+		[196804] = Priority(3), -- Nether Link
+		[196562] = Priority(3), -- Volatile Magic
+		-- Nal'tira
+		[200040] = Priority(4), -- Nether Venom
+		[200227] = Priority(3), -- Tangled Web
+		-- Advisor Vandros
+		[220871] = Priority(3), -- Unstable Mana
+		-- Vault of the Wardens
+		-- Trash Mobs
+		[191735] = Priority(3), -- Deafening Screech
+		[210202] = Priority(4), -- Foul Stench
+		[202658] = Priority(3), -- Drain
+		[193164] = Priority(3), -- Gift of the Doomsayer
+		[202615] = Priority(3), -- Torment
+		[193969] = Priority(3), -- Razors
+		-- Inquisitor Tormentorum
+		[201488] = Priority(3), -- Frightening Shout
+		[225416] = Priority(3), -- Intercept
+		[214804] = Priority(3), -- Seed of Corruption
+		[201488] = Priority(3), -- Frightening Shout
+		-- Glazer
+		[194945] = Priority(3), -- Lingering Gaze
+		-- Ash'Golm
+		[192519] = Priority(3), -- Lava
+		-- Cordana Felsong
+		[197541] = Priority(3), -- Detonation
+		[213583] = Priority(4), -- Deepening Shadows
+		-- Violet Hold
+		-- Trash Mobs
+		[204608] = Priority(3), -- Fel Prison
+		[204901] = Priority(3), -- Carrion Swarm
+		[205097] = Priority(3), -- Fel Blind
+		[205096] = Priority(3), -- Fel Poison
+		-- Anub'esset
+		[202217] = Priority(3), -- Mandible Strike
+		-- Blood-Princess Thal'ena
+		[202779] = Priority(3), -- Essence of the Blood Princess
+		-- Millificent Manastorm
+		[201159] = Priority(3), -- Delta Finger Laser X-treme
+		-- Mindflayer Kaahrj
+		[197783] = Priority(3), -- Shadow Crash
+		-- Shivermaw
+		[201960] = Priority(3), -- Ice Bomb
+		[202062] = Priority(3), -- Frigid Winds
+		-- Lord Malgath
+		[204962] = Priority(3), -- Shadow Bomb
 	},
 }
 
 C.DebuffsTracking_PvP = {
 	["type"] = "Whitelist",
 	["spells"] = {
-		-- Evoker
-		[355689] = Priority(2), -- Landslide
-		[370898] = Priority(1), -- Permeating Chill
-		[360806] = Priority(3), -- Sleep Walk
 		-- Death Knight
 		[47476] = Priority(2), -- Strangulate
-		[108194] = Priority(4), -- Asphyxiate UH
-		[221562] = Priority(4), -- Asphyxiate Blood
+		[108194] = Priority(4), -- Asphyxiate
 		[207171] = Priority(4), -- Winter is Coming
 		[206961] = Priority(3), -- Tremble Before Me
 		[207167] = Priority(4), -- Blinding Sleet
@@ -575,14 +1005,11 @@ C.DebuffsTracking_PvP = {
 		-- Demon Hunter
 		[207685] = Priority(4), -- Sigil of Misery
 		[217832] = Priority(3), -- Imprison
-		[221527] = Priority(5), -- Imprison (Banished version)
-		[204490] = Priority(2), -- Sigil of Silence
+		[204490] = Priority(4), -- Sigil of Silence
 		[179057] = Priority(3), -- Chaos Nova
 		[211881] = Priority(4), -- Fel Eruption
 		[205630] = Priority(3), -- Illidan's Grasp
-		[208618] = Priority(3), -- Illidan's Grasp (Afterward)
-		[213491] = Priority(4), -- Demonic Trample 1
-		[208645] = Priority(4), -- Demonic Trample 2
+		[213491] = Priority(4), -- Demonic Trample
 		-- Druid
 		[81261] = Priority(2), -- Solar Beam
 		[5211] = Priority(4), -- Mighty Bash
@@ -596,13 +1023,15 @@ C.DebuffsTracking_PvP = {
 		[339] = Priority(1), -- Entangling Roots
 		[2637] = Priority(1), -- Hibernate
 		[102793] = Priority(1), -- Ursol's Vortex
+		-- Evoker
+		[355689] = Priority(4), -- Landslide
+		[370898] = Priority(1), -- Permeating Chill
+		[360806] = Priority(3), -- Sleep Walk
 		-- Hunter
-		[202933] = Priority(2), -- Spider Sting 1
-		[233022] = Priority(2), -- Spider Sting 2
+		[202933] = Priority(4), -- Spider Sting
 		[213691] = Priority(4), -- Scatter Shot
 		[19386] = Priority(3), -- Wyvern Sting
 		[3355] = Priority(3), -- Freezing Trap
-		[203337] = Priority(5), -- Freezing Trap (PvP Talent)
 		[209790] = Priority(3), -- Freezing Arrow
 		[24394] = Priority(4), -- Intimidation
 		[117526] = Priority(4), -- Binding Shot
@@ -612,18 +1041,6 @@ C.DebuffsTracking_PvP = {
 		[212638] = Priority(1), -- Tracker's Net
 		[200108] = Priority(1), -- Ranger's Net
 		-- Mage
-		[61721] = Priority(3), -- Rabbit
-		[61305] = Priority(3), -- Black Cat
-		[28272] = Priority(3), -- Pig
-		[28271] = Priority(3), -- Turtle
-		[126819] = Priority(3), -- Porcupine
-		[161354] = Priority(3), -- Monkey
-		[161353] = Priority(3), -- Polar Bear
-		[61780] = Priority(3), -- Turkey
-		[161355] = Priority(3), -- Penguin
-		[161372] = Priority(3), -- Peacock
-		[277787] = Priority(3), -- Direhorn
-		[277792] = Priority(3), -- Bumblebee
 		[118] = Priority(3), -- Polymorph
 		[82691] = Priority(3), -- Ring of Frost
 		[31661] = Priority(3), -- Dragon's Breath
@@ -638,7 +1055,7 @@ C.DebuffsTracking_PvP = {
 		[115078] = Priority(4), -- Paralysis
 		[198909] = Priority(3), -- Song of Chi-Ji
 		[202274] = Priority(3), -- Incendiary Brew
-		[233759] = Priority(2), -- Grapple Weapon
+		[233759] = Priority(4), -- Grapple Weapon
 		[123407] = Priority(1), -- Spinning Fire Blossom
 		[116706] = Priority(1), -- Disable
 		[232055] = Priority(4), -- Fists of Fury
@@ -647,13 +1064,11 @@ C.DebuffsTracking_PvP = {
 		[20066] = Priority(3), -- Repentance
 		[105421] = Priority(3), -- Blinding Light
 		[31935] = Priority(2), -- Avenger's Shield
-		[217824] = Priority(2), -- Shield of Virtue
+		[217824] = Priority(4), -- Shield of Virtue
 		[205290] = Priority(3), -- Wake of Ashes
 		-- Priest
 		[9484] = Priority(3), -- Shackle Undead
 		[200196] = Priority(4), -- Holy Word: Chastise
-		[200200] = Priority(4), -- Holy Word: Chastise
-		[226943] = Priority(3), -- Mind Bomb
 		[605] = Priority(5), -- Mind Control
 		[8122] = Priority(3), -- Psychic Scream
 		[15487] = Priority(2), -- Silence
@@ -664,21 +1079,13 @@ C.DebuffsTracking_PvP = {
 		[6770] = Priority(4), -- Sap
 		[1776] = Priority(4), -- Gouge
 		[1330] = Priority(2), -- Garrote - Silence
-		[207777] = Priority(2), -- Dismantle
+		[207777] = Priority(4), -- Dismantle
 		[408] = Priority(4), -- Kidney Shot
 		[1833] = Priority(4), -- Cheap Shot
 		[207736] = Priority(5), -- Shadowy Duel (Smoke effect)
 		[212182] = Priority(5), -- Smoke Bomb
 		-- Shaman
 		[51514] = Priority(3), -- Hex
-		[211015] = Priority(3), -- Hex (Cockroach)
-		[211010] = Priority(3), -- Hex (Snake)
-		[211004] = Priority(3), -- Hex (Spider)
-		[210873] = Priority(3), -- Hex (Compy)
-		[196942] = Priority(3), -- Hex (Voodoo Totem)
-		[269352] = Priority(3), -- Hex (Skeletal Hatchling)
-		[277778] = Priority(3), -- Hex (Zandalari Tendonripper)
-		[277784] = Priority(3), -- Hex (Wicker Mongrel)
 		[118905] = Priority(3), -- Static Charge
 		[77505] = Priority(4), -- Earthquake (Knocking down)
 		[118345] = Priority(4), -- Pulverize (Pet)
@@ -703,7 +1110,7 @@ C.DebuffsTracking_PvP = {
 		[199085] = Priority(4), -- Warpath
 		[105771] = Priority(1), -- Charge
 		[199042] = Priority(1), -- Thunderstruck
-		[236077] = Priority(2), -- Disarm
+		[236077] = Priority(4), -- Disarm
 		-- Racial
 		[20549] = Priority(4), -- War Stomp
 		[107079] = Priority(4), -- Quaking Palm
