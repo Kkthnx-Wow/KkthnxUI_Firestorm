@@ -359,17 +359,28 @@ local function UpdatePixelScale(event)
 	isScaling = false
 end
 
+-- Expose UpdatePixelScale globally to prevent nil errors
+K.UpdatePixelScale = UpdatePixelScale
+
 --------------------------------------------------------------------------------
 -- Initialization
 --------------------------------------------------------------------------------
 K:RegisterEvent("PLAYER_LOGIN", function()
-	-- Set CVars safely
+	-- 1. Initialize Database (Merges Defaults + SavedVars)
+	-- This MUST happen first so 'C' is populated with settings
+	if K.Database and K.Database.Initialize then
+		K.Database:Initialize()
+	end
+
+	-- 2. Set CVars safely
 	if not InCombatLockdown() then
 		SetCVar("ActionButtonUseKeyDown", 1)
 	end
 
+	-- 3. Setup UI Scale (Now uses the loaded C.General.UIScale)
 	K:SetupUIScale()
 
+	-- 4. Register Scaling Events
 	K:RegisterEvent("UI_SCALE_CHANGED", UpdatePixelScale)
 	K:RegisterEvent("PLAYER_ENTERING_WORLD", UpdatePixelScale)
 
