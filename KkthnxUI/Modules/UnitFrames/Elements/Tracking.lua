@@ -120,11 +120,7 @@ local function CreateTrackingDialog(category)
 				return
 			end
 
-			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-			if not charDB or not charDB.Tracking or not charDB.Tracking[category] then
-				return
-			end
-			local db = charDB.Tracking[category]
+			local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
 			local name, _, icon = Module.GetSpellInfo(spellID)
 
 			local trackingTitle = COLOR_GREEN .. L["DEBUFF TRACKING"] .. " " .. COLOR_END
@@ -186,11 +182,7 @@ Tracking.__index = Tracking
 function Tracking:GetSpell(button, category)
 	local count = 0
 	local id = button.ID
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if not charDB or not charDB.Tracking or not charDB.Tracking[category] then
-		return
-	end
-	local db = charDB.Tracking[category]
+	local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
 
 	for spellID in pairs(db) do
 		count = count + 1
@@ -211,11 +203,7 @@ function Tracking:RemoveSpell()
 
 	local category = self.Cat
 	local spellID = self.SpellID
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if not charDB or not charDB.Tracking or not charDB.Tracking[category] then
-		return
-	end
-	local db = charDB.Tracking[category]
+	local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
 
 	if spellID and db[spellID] then
 		db[spellID] = nil

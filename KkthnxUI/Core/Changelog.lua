@@ -241,10 +241,7 @@ local function CreateChangelogFrame()
 
 	-- Function to refresh changelog display
 	local function RefreshChangelog()
-		local highlightLatest = false
-		if KkthnxUIDB.Global and KkthnxUIDB.Global.ChangelogHighlightLatest ~= nil then
-			highlightLatest = KkthnxUIDB.Global.ChangelogHighlightLatest
-		end
+		local highlightLatest = KkthnxUIDB.ChangelogHighlightLatest or false
 		changelogText:SetText(BuildChangelogText(highlightLatest))
 		local textHeight = changelogText:GetStringHeight() + 20
 		scrollChild:SetHeight(textHeight)
@@ -270,12 +267,9 @@ local function CreateChangelogFrame()
 	checkbox:SetScript("OnClick", function(self)
 		local currentVersion = K.Version or "0.0.0"
 		if self:GetChecked() then
-			KkthnxUIDB.Global = KkthnxUIDB.Global or {}
-			KkthnxUIDB.Global.ChangelogVersion = currentVersion
+			KkthnxUIDB.ChangelogVersion = currentVersion
 		else
-			if KkthnxUIDB.Global then
-				KkthnxUIDB.Global.ChangelogVersion = nil
-			end
+			KkthnxUIDB.ChangelogVersion = nil
 		end
 	end)
 
@@ -292,17 +286,12 @@ local function CreateChangelogFrame()
 	highlightLabel:SetText("Focus on latest version")
 
 	highlightCheckbox:SetScript("OnClick", function(self)
-		KkthnxUIDB.Global = KkthnxUIDB.Global or {}
-		KkthnxUIDB.Global.ChangelogHighlightLatest = self:GetChecked()
+		KkthnxUIDB.ChangelogHighlightLatest = self:GetChecked()
 		RefreshChangelog()
 	end)
 
 	-- Set initial state
-	local initialHighlight = false
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.ChangelogHighlightLatest ~= nil then
-		initialHighlight = KkthnxUIDB.Global.ChangelogHighlightLatest
-	end
-	highlightCheckbox:SetChecked(initialHighlight or false)
+	highlightCheckbox:SetChecked(KkthnxUIDB.ChangelogHighlightLatest or false)
 
 	frame.highlightCheckbox = highlightCheckbox
 
@@ -366,10 +355,9 @@ function K:ShowChangelog(force)
 	if not KkthnxUIDB then
 		KkthnxUIDB = {}
 	end
-	KkthnxUIDB.Global = KkthnxUIDB.Global or {}
 
 	local currentVersion = K.Version or "0.0.0"
-	local lastSeenVersion = KkthnxUIDB.Global.ChangelogVersion
+	local lastSeenVersion = KkthnxUIDB.ChangelogVersion
 
 	-- Show if forced, or if version changed and user hasn't suppressed
 	if force or (currentVersion ~= lastSeenVersion) then

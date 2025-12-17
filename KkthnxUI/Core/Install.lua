@@ -180,32 +180,11 @@ end
 -- ====================================================
 
 function Module:ResetSettings()
-	if K.Database and K.Database.SetCurrentProfile then
-		-- Reset the current profile table; Database will rebuild from defaults on next load
-		local db = KkthnxUIDB
-		db.Global = db.Global or {}
-		db.ProfileKeys = db.ProfileKeys or {}
-		db.Profiles = db.Profiles or {}
-
-		local profileName = K.Database:GetCurrentProfileName()
-		db.Profiles[profileName] = {}
-	else
-		-- Fallback: wipe legacy per-character settings if they exist
-		if KkthnxUIDB.Settings and KkthnxUIDB.Settings[K.Realm] then
-			KkthnxUIDB.Settings[K.Realm][K.Name] = {}
-		end
-	end
+	KkthnxUIDB.Settings[K.Realm][K.Name] = {}
 end
 
 function Module:ResetData()
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	KkthnxUIDB.Global.Characters[K.UserKey] = {
-		InstallComplete = false,
-		Tracking = { PvP = {}, PvE = {} },
-	}
+	KkthnxUIDB.Variables[K.Realm][K.Name] = {}
 
 	FCF_ResetChatWindows()
 
@@ -562,32 +541,19 @@ local function ApplyTutorialStep(page)
 		PlaySound(SOUNDKIT_ACHIEVEMENT)
 	elseif page == 4 then
 		StopSound(SOUNDKIT_ACHIEVEMENT)
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		meta.DBMRequest = meta.DBMRequest or true
-		meta.MaxDpsRequest = meta.MaxDpsRequest or true
-		meta.CursorTrailRequest = meta.CursorTrailRequest or true
-		meta.HekiliRequest = meta.HekiliRequest or true
-		KkthnxUIDB.Global.Characters[K.UserKey] = meta
-		if Module.ForceAddonSkins then
-			Module.ForceAddonSkins()
-		end
+		local vars = KkthnxUIDB.Variables[K.Realm][K.Name]
+		vars.DBMRequest = vars.DBMRequest or true
+		vars.MaxDpsRequest = vars.MaxDpsRequest or true
+		vars.CursorTrailRequest = vars.CursorTrailRequest or true
+		vars.HekiliRequest = vars.HekiliRequest or true
+		Module.ForceAddonSkins()
 		ShowFakeAchievement("Achievement Earned", "You have successfully applied the relevant AddOn Settings.")
 		PlaySound(SOUNDKIT_ACHIEVEMENT)
 	elseif page == 5 then
 		Module:ForceDefaultCVars() -- Set these one more time
 		StopSound(SOUNDKIT_ACHIEVEMENT)
 		StopSound(SOUNDKIT_UI_BNET_TOAST)
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		meta.InstallComplete = true
-		KkthnxUIDB.Global.Characters[K.UserKey] = meta
+		KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete = true
 		tutor:Hide()
 		if tutorProgressBar then
 			tutorProgressBar:Hide()
@@ -826,12 +792,7 @@ local function HelloWorld()
 	K.CreateFontString(welcome, 12, L["Installer First Time Line 1"], "", false, "BOTTOM", 0, 112)
 	K.CreateFontString(welcome, 12, L["Installer First Time Line 2"], "", false, "BOTTOM", 0, 94)
 
-	local isInstalled = false
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] then
-		isInstalled = KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete and true or false
-	end
-
-	if isInstalled or K.isDeveloper then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete or K.isDeveloper then
 		local close = CreateFrame("Button", nil, welcome)
 		close:SetPoint("TOPRIGHT", 4, 4)
 		close:SetSize(32, 32)
@@ -871,18 +832,13 @@ local function HelloWorld()
 		ForceRaidFrame()
 		Module:ForceChatSettings()
 		K:SetupUIScale()
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		meta.DBMRequest = meta.DBMRequest or true
-		meta.MaxDpsRequest = meta.MaxDpsRequest or true
-		meta.CursorTrailRequest = meta.CursorTrailRequest or true
-		meta.HekiliRequest = meta.HekiliRequest or true
-		KkthnxUIDB.Global.Characters[K.UserKey] = meta
+		local vars = KkthnxUIDB.Variables[K.Realm][K.Name]
+		vars.DBMRequest = vars.DBMRequest or true
+		vars.MaxDpsRequest = vars.MaxDpsRequest or true
+		vars.CursorTrailRequest = vars.CursorTrailRequest or true
+		vars.HekiliRequest = vars.HekiliRequest or true
 		Module.ForceAddonSkins()
-		KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete = true
+		vars.InstallComplete = true
 		StaticPopup_Show("SKIP_INSTALLER_CONFIRM")
 	end)
 
@@ -919,12 +875,7 @@ function Module:OnEnable()
 	-- Tutorial and settings
 	Module.ForceAddonSkins()
 
-	local installed = false
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] then
-		installed = KkthnxUIDB.Global.Characters[K.UserKey].InstallComplete and true or false
-	end
-
-	if not installed then
+	if not KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete then
 		HelloWorld()
 	end
 end

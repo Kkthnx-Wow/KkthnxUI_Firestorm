@@ -2,10 +2,6 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Skins")
 
 function Module:ReskinHekili()
-	if not C["Skins"].Hekili or not C_AddOns.IsAddOnLoaded("Hekili") then
-		return
-	end
-
 	local Hekili = _G.Hekili
 	if not Hekili then
 		return
@@ -24,4 +20,4 @@ function Module:ReskinHekili()
 	end
 end
 
-Module:RegisterSkin("Hekili", Module.ReskinHekili)
+Module:RegisterSkin("Hekili", Module.ReskinHekili, true)

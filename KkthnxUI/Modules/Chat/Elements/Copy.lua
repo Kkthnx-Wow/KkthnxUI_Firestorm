@@ -141,10 +141,7 @@ if C_AddOns_IsAddOnLoaded("Details") then
 						return
 					end
 
-					if not _G.KkthnxUIDB.Global then
-						_G.KkthnxUIDB.Global = {}
-					end
-					_G.KkthnxUIDB.Global.ResetDetails = true
+					_G.KkthnxUIDB.Variables["ResetDetails"] = true
 					StaticPopup_Show("KKUI_CHANGES_RELOAD")
 				end,
 			},

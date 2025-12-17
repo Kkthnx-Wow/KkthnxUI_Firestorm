@@ -122,9 +122,19 @@ local function SetExtraConfigValue(configPath, value, settingName)
 	-- Set in runtime config
 	SetValueByPath(C, configPath, value)
 
-	-- Save to active profile via Database module (profile-centric storage)
-	if K.Database and K.Database.SetConfigPath then
-		K.Database:SetConfigPath(configPath, value)
+	-- Save to database (with safety check)
+	if KkthnxUIDB then
+		if not KkthnxUIDB.Settings then
+			KkthnxUIDB.Settings = {}
+		end
+		if not KkthnxUIDB.Settings[K.Realm] then
+			KkthnxUIDB.Settings[K.Realm] = {}
+		end
+		if not KkthnxUIDB.Settings[K.Realm][K.Name] then
+			KkthnxUIDB.Settings[K.Realm][K.Name] = {}
+		end
+
+		SetValueByPath(KkthnxUIDB.Settings[K.Realm][K.Name], configPath, value)
 	end
 
 	-- Execute real-time update hooks (if available from main GUI)
@@ -3182,14 +3192,10 @@ function ExtraGUI:RegisterExampleConfigs()
 		end
 
 		local function getStore()
-			if not KkthnxUIDB.Global then
-				KkthnxUIDB.Global = {}
-			end
-			KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-			local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-			charDB.AutoQuestIgnoreNPC = charDB.AutoQuestIgnoreNPC or {}
-			KkthnxUIDB.Global.Characters[K.UserKey] = charDB
-			return charDB.AutoQuestIgnoreNPC
+			KkthnxUIDB.Variables[K.Realm] = KkthnxUIDB.Variables[K.Realm] or {}
+			KkthnxUIDB.Variables[K.Realm][K.Name] = KkthnxUIDB.Variables[K.Realm][K.Name] or {}
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC = KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC or {}
+			return KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC
 		end
 
 		local function trySetPortrait(texture, npcID)

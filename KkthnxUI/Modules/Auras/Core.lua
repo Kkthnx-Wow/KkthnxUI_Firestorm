@@ -309,15 +309,9 @@ function Module:CreateAuraHeader(filter)
 end
 
 function Module:RemoveSpellFromIgnoreList()
-	if IsAltKeyDown() and IsControlKeyDown() and self.spellID then
-		if not KkthnxUIDB.Global or not KkthnxUIDB.Global.Characters or not KkthnxUIDB.Global.Characters[K.UserKey] then
-			return
-		end
-		local charDB = KkthnxUIDB.Global.Characters[K.UserKey]
-		if charDB.AuraWatchList and charDB.AuraWatchList.IgnoreSpells and charDB.AuraWatchList.IgnoreSpells[self.spellID] then
-			charDB.AuraWatchList.IgnoreSpells[self.spellID] = nil
-			K.Print(string_format(L["RemoveFromIgnoreList"], "", self.spellID))
-		end
+	if IsAltKeyDown() and IsControlKeyDown() and self.spellID and KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[self.spellID] then
+		KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[self.spellID] = nil
+		K.Print(string_format(L["RemoveFromIgnoreList"], "", self.spellID))
 	end
 end
 

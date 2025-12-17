@@ -15,8 +15,7 @@ local CreateFrame, EnumerateFrames = CreateFrame, EnumerateFrames
 local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
 local RegisterStateDriver, UIParent = RegisterStateDriver, UIParent
 
-local Media = C.Media
-local CustomCloseButton = Media.Textures.CloseButton32
+local CustomCloseButton = "Interface\\AddOns\\KkthnxUI\\Media\\Textures\\CloseButton_32"
 
 -- Utility Functions
 local function rad(degrees)
@@ -109,20 +108,7 @@ local function CreateBorder(bFrame, ...)
 		return nil, "Failed to create border"
 	end
 
-	-- Resolve the border texture from configured media instead of hardcoded paths
-	local borderTextures = Media.Borders
-	local resolvedTexture
-	if BorderValue == "KkthnxUI" then
-		resolvedTexture = borderTextures.KkthnxUIBorder
-	elseif BorderValue == "AzeriteUI" then
-		resolvedTexture = borderTextures.AzeriteUIBorder
-	elseif BorderValue == "KkthnxUI_Blank" then
-		resolvedTexture = borderTextures.KkthnxUI_BlankBorder
-	elseif BorderValue == "KkthnxUI_Pixel" then
-		resolvedTexture = borderTextures.KkthnxUI_PixelBorder
-	end
-
-	local BorderTexture = bTexture or resolvedTexture or borderTextures.KkthnxUIBorder
+	local BorderTexture = bTexture or ("Interface\\AddOns\\KkthnxUI\\Media\\Border\\" .. BorderValue .. "\\Border.tga")
 	local BorderOffset = bOffset or -4
 	local BorderColor = bColor or Media.Borders.ColorBorder
 

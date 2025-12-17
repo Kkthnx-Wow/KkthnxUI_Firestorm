@@ -84,10 +84,7 @@ local function saveChatHistory(event, ...)
 		table.remove(chatHistory, #chatHistory)
 	end
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.ChatHistory = chatHistory
+	KkthnxUIDB.ChatHistory = chatHistory
 end
 
 local function registerChatEvents()
@@ -117,9 +114,7 @@ function Module:ClearChatHistory()
 	else
 		chatHistory = {}
 	end
-	if KkthnxUIDB.Global then
-		KkthnxUIDB.Global.ChatHistory = nil
-	end
+	KkthnxUIDB.ChatHistory = nil
 	hasRestored = false
 	print("|cff99ccff[KkthnxUI]|r Cleared saved chat history.")
 end
@@ -134,9 +129,7 @@ function Module:onLogMaxChanged(newValue)
 		else
 			chatHistory = {}
 		end
-		if KkthnxUIDB.Global then
-			KkthnxUIDB.Global.ChatHistory = nil
-		end
+		KkthnxUIDB.ChatHistory = nil
 		return
 	end
 
@@ -146,20 +139,14 @@ function Module:onLogMaxChanged(newValue)
 	while #chatHistory > maxEntries do
 		table.remove(chatHistory, #chatHistory)
 	end
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.ChatHistory = chatHistory
+	KkthnxUIDB.ChatHistory = chatHistory
 end
 
 function Module:CreateChatHistory()
 	local maxEntries = getMaxLogEntries()
 
 	if maxEntries ~= 0 then
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		chatHistory = KkthnxUIDB.Global.ChatHistory or {}
+		chatHistory = KkthnxUIDB.ChatHistory or {}
 		registerChatEvents()
 		printChatHistory()
 	else
@@ -169,8 +156,6 @@ function Module:CreateChatHistory()
 		else
 			chatHistory = {}
 		end
-		if KkthnxUIDB.Global then
-			KkthnxUIDB.Global.ChatHistory = nil
-		end
+		KkthnxUIDB.ChatHistory = nil
 	end
 end

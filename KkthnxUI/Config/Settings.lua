@@ -1,380 +1,9 @@
-local K, C = KkthnxUI[1], KkthnxUI[2]
+local C = KkthnxUI[2]
 
--- ============================================================================
--- DATABASE ENGINE
--- ============================================================================
--- This is the heart of the new database system. It handles profile management,
--- merging defaults, and saving per-character settings.
--- ============================================================================
-
-local Database = {}
-K.Database = Database
-
-local type = type
-local pairs = pairs
-local next = next
-local setmetatable = setmetatable
-local time = time
-local strsplit = strsplit
-
--- Convenience locals
-local DB
-
--- Metadata keys that should not be treated as config groups
-local META_GROUP_KEYS = {
-	LastModified = true,
-	CreatedAt = true,
-	CreatedBy = true,
-	ImportedAt = true,
-	ImportedBy = true,
-	ImportedFrom = true,
-	ResetAt = true,
-	ResetBy = true,
-	RenamedFrom = true,
-	RenamedAt = true,
-	LastSwitched = true,
-	SwitchedFrom = true,
-}
-
--- Core function to ensure the DB exists
-local function EnsureRoot()
-	KkthnxUIDB = KkthnxUIDB or {}
-	DB = KkthnxUIDB
-
-	DB.Global = DB.Global or {}
-	DB.ProfileKeys = DB.ProfileKeys or {}
-	DB.Profiles = DB.Profiles or {}
-
-	local Global = DB.Global
-
-	-- Move legacy top-level persistent data into Global on first run
-	if DB.Gold and not Global.Gold then
-		Global.Gold = DB.Gold
-		DB.Gold = nil
-	end
-
-	if DB.ChatHistory and not Global.ChatHistory then
-		Global.ChatHistory = DB.ChatHistory
-		DB.ChatHistory = nil
-	end
-
-	if DB.KeystoneInfo and not Global.KeystoneInfo then
-		Global.KeystoneInfo = DB.KeystoneInfo
-		DB.KeystoneInfo = nil
-	end
-
-	if DB.ProfilePortraits and not Global.ProfilePortraits then
-		Global.ProfilePortraits = DB.ProfilePortraits
-		DB.ProfilePortraits = nil
-	end
-
-	if DB.ShowSlots ~= nil and Global.ShowSlots == nil then
-		Global.ShowSlots = DB.ShowSlots
-		DB.ShowSlots = nil
-	end
-
-	if DB.DisabledAddOns and not Global.DisabledAddOns then
-		Global.DisabledAddOns = DB.DisabledAddOns
-		DB.DisabledAddOns = nil
-	end
-
-	if DB.ChangelogVersion and not Global.ChangelogVersion then
-		Global.ChangelogVersion = DB.ChangelogVersion
-		DB.ChangelogVersion = nil
-	end
-
-	if DB.ChangelogHighlightLatest ~= nil and Global.ChangelogHighlightLatest == nil then
-		Global.ChangelogHighlightLatest = DB.ChangelogHighlightLatest
-		DB.ChangelogHighlightLatest = nil
-	end
-
-	if DB.DetectedVersion and not Global.DetectedVersion then
-		Global.DetectedVersion = DB.DetectedVersion
-		DB.DetectedVersion = nil
-	end
-
-	Global.Gold = Global.Gold or {}
-	Global.ChatHistory = Global.ChatHistory or {}
-	Global.KeystoneInfo = Global.KeystoneInfo or {}
-	Global.ProfilePortraits = Global.ProfilePortraits or {}
-	Global.Characters = Global.Characters or {}
-	Global.DisabledAddOns = Global.DisabledAddOns or {}
-	Global.ShowSlots = Global.ShowSlots or false
-
-	-- User Key for per-character data
-	K.UserKey = K.UserKey or (K.Name .. " - " .. K.Realm)
-
-	if not Global.Characters[K.UserKey] then
-		Global.Characters[K.UserKey] = {
-			InstallComplete = false,
-			Tracking = { PvP = {}, PvE = {} },
-			-- Default structures for complex modules
-			AuraWatchList = {
-				Switcher = {},
-				IgnoreSpells = {},
-			},
-		}
-	end
-
-	-- Double check AuraWatchList exists (for older saves)
-	if not Global.Characters[K.UserKey].AuraWatchList then
-		Global.Characters[K.UserKey].AuraWatchList = { Switcher = {}, IgnoreSpells = {} }
-	end
-end
-
-function Database:GetProfile()
-	EnsureRoot()
-
-	-- ISOLATION LOGIC: If this character has no profile key, give them a unique one.
-	-- This ensures new alts get fresh settings by default.
-	if not DB.ProfileKeys[K.UserKey] then
-		DB.ProfileKeys[K.UserKey] = K.UserKey
-	end
-
-	local key = DB.ProfileKeys[K.UserKey]
-
-	-- Create profile if missing (empty table = 100% defaults)
-	if not DB.Profiles[key] then
-		DB.Profiles[key] = {}
-	end
-
-	K.ActiveProfile = key
-	return DB.Profiles[key]
-end
-
-function Database:GetCurrentProfileName()
-	EnsureRoot()
-	local profile = self:GetProfile()
-	return K.ActiveProfile
-end
-
-function Database:GetCurrentProfileTable()
-	EnsureRoot()
-	local profileName = self:GetCurrentProfileName()
-	return DB.Profiles[profileName], profileName
-end
-
-function Database:SetCurrentProfile(profileName)
-	if not profileName or profileName == "" then
-		return
-	end
-
-	EnsureRoot()
-
-	DB.Profiles[profileName] = DB.Profiles[profileName] or {}
-	DB.ProfileKeys[K.UserKey] = profileName
-	K.ActiveProfile = profileName
-end
-
--- Merges Defaults + User Profile into 'C'
-local function MergeConfig(defaults, profile, target)
-	-- Note: Defaults are already in 'C' from the pre-population at the end of this file.
-	-- This function only needs to apply saved profile overrides.
-
-	-- Apply User Profile Overrides
-	if profile then
-		for group, options in pairs(profile) do
-			if not META_GROUP_KEYS[group] and target[group] and type(options) == "table" then
-				for key, value in pairs(options) do
-					target[group][key] = value
-				end
-			end
-		end
-	end
-
-	-- Apply metatables so missing keys fall back to defaults
-	for group, defaults in pairs(defaults) do
-		if type(defaults) == "table" and type(target[group]) == "table" then
-			setmetatable(target[group], { __index = defaults })
-		end
-	end
-end
-
--- Migration from old Settings/Variables layout into Profiles/Global.*
-function Database:Migrate()
-	EnsureRoot()
-	local Global = DB.Global
-
-	if Global.Migrated then
-		return
-	end
-
-	-- 1. Try to create an imported profile from the old per-character settings
-	if DB.Settings then
-		local oldSettings = DB.Settings[K.Realm] and DB.Settings[K.Realm][K.Name]
-		local oldVariables = DB.Variables and DB.Variables[K.Realm] and DB.Variables[K.Realm][K.Name]
-
-		if oldSettings then
-			local profileName = K.Name .. " (Import)"
-			DB.Profiles[profileName] = K.CopyTable(oldSettings)
-
-			-- Merge old Variables (Movers, etc) into the new Profile
-			if oldVariables then
-				if oldVariables.Mover then
-					DB.Profiles[profileName].Movers = K.CopyTable(oldVariables.Mover)
-				end
-
-				-- World map reveal flag -> WorldMap.RevealWorldMap
-				if oldVariables.RevealWorldMap ~= nil then
-					DB.Profiles[profileName].WorldMap = DB.Profiles[profileName].WorldMap or {}
-					DB.Profiles[profileName].WorldMap.RevealWorldMap = oldVariables.RevealWorldMap and true or false
-				end
-
-				-- Automation.AutoQuest flag
-				if oldVariables.AutoQuest ~= nil then
-					DB.Profiles[profileName].Automation = DB.Profiles[profileName].Automation or {}
-					DB.Profiles[profileName].Automation.AutoQuest = oldVariables.AutoQuest and true or false
-				end
-
-				-- Per-profile AuraWatch mover positions
-				if oldVariables.AuraWatchMover then
-					DB.Profiles[profileName].AuraWatchMover = K.CopyTable(oldVariables.AuraWatchMover)
-				end
-			end
-
-			-- Track per-character metadata
-			local charMeta = Global.Characters[K.UserKey] or {}
-			if oldVariables then
-				if oldVariables.Tracking then
-					charMeta.Tracking = K.CopyTable(oldVariables.Tracking)
-				end
-				if oldVariables.InstallComplete ~= nil then
-					charMeta.InstallComplete = oldVariables.InstallComplete and true or false
-				end
-			end
-			Global.Characters[K.UserKey] = charMeta
-
-			-- Link this character to the imported profile
-			DB.ProfileKeys[K.UserKey] = profileName
-
-			print("KkthnxUI: Migration successful. Profile '" .. profileName .. "' created.")
-		end
-	end
-
-	-- 2. Mark as migrated so this doesn't run again
-	Global.Migrated = true
-end
-
-function Database:Initialize()
-	EnsureRoot()
-
-	-- Run one-time migration from legacy layout
-	self:Migrate()
-
-	-- Get or create the active profile
-	local profile = self:GetProfile()
-
-	-- Ensure K.Defaults exists (populated below in this file)
-	K.Defaults = K.Defaults or {}
-
-	-- Merge everything into 'C' (The runtime config table)
-	MergeConfig(K.Defaults, profile, C)
-
-	-- Fire a callback for modules waiting on DB
-	if K.OnDatabaseLoaded then
-		K:OnDatabaseLoaded()
-	end
-end
-
--- Helper to save a setting
-function Database:Set(group, option, value)
-	local profile = self:GetProfile()
-
-	if not profile[group] then
-		profile[group] = {}
-	end
-
-	-- If value matches default, nil it out to save space
-	local default = K.Defaults[group] and K.Defaults[group][option]
-	if value == default then
-		profile[group][option] = nil
-		-- Clean up empty groups
-		if not next(profile[group]) then
-			profile[group] = nil
-		end
-	else
-		profile[group][option] = value
-	end
-
-	-- Update Runtime C immediately
-	if C[group] then
-		C[group][option] = value
-	end
-
-	profile.LastModified = time()
-end
-
--- Path-based helper for GUI and modules to write into the active profile.
--- Expects paths like "Group.Option" (e.g., "WorldMap.RevealWorldMap").
-function Database:SetConfigPath(path, value)
-	if not path or type(path) ~= "string" then
-		return
-	end
-
-	EnsureRoot()
-	local profile, profileName = self:GetCurrentProfileTable()
-	if not profile then
-		profile = {}
-		DB.Profiles[profileName] = profile
-	end
-
-	local keys = { strsplit(".", path) }
-	if #keys < 2 then
-		return
-	end
-
-	local group = keys[1]
-	local option = keys[2]
-
-	-- Update runtime config table (allow options that don't exist in defaults)
-	if not C[group] then
-		C[group] = {}
-	end
-	C[group][option] = value
-
-	-- Ensure profile group container
-	profile[group] = profile[group] or {}
-	local groupTable = profile[group]
-
-	local defaults = (K.Defaults and K.Defaults[group]) or {}
-	local defaultValue = defaults[option]
-
-	if value == defaultValue then
-		-- Value matches default, do not store in profile
-		groupTable[option] = nil
-	else
-		groupTable[option] = value
-	end
-
-	-- Clean empty group tables
-	if not next(groupTable) then
-		profile[group] = nil
-	end
-
-	-- Touch metadata
-	profile.LastModified = time()
-end
-
--- Public helper used by Profile switching
-function Database:ApplyCurrentProfile()
-	local profileTable, profileName = self:GetCurrentProfileTable()
-	K.Defaults = K.Defaults or {}
-	MergeConfig(K.Defaults, profileTable, C)
-	K.ActiveProfile = profileName
-end
-
--- ============================================================================
--- CONFIGURATION DEFAULTS
--- ============================================================================
--- All default settings are defined here. The Database engine above will
--- merge these with saved profile data to populate the runtime C table.
--- ============================================================================
-
-K.Defaults = K.Defaults or {}
-local Defaults = K.Defaults
+local DISABLE = DISABLE
 
 -- Actionbar
-Defaults["ActionBar"] = {
+C["ActionBar"] = {
 	Enable = true,
 	Hotkeys = true,
 	Macro = true,
@@ -476,7 +105,7 @@ Defaults["ActionBar"] = {
 }
 
 -- Announcements
-Defaults["Announcements"] = {
+C["Announcements"] = {
 	AlertInChat = false,
 	AlertInWild = false,
 	KeystoneAlert = false,
@@ -503,7 +132,7 @@ Defaults["Announcements"] = {
 }
 
 -- Automation
-Defaults["Automation"] = {
+C["Automation"] = {
 	AutoKeystone = false,
 	-- AutoCollapse = false,
 	AutoDeclineDuels = false,
@@ -525,7 +154,7 @@ Defaults["Automation"] = {
 	WhisperInviteRestriction = true, -- Testing
 }
 
-Defaults["Inventory"] = {
+C["Inventory"] = {
 	AutoSell = true,
 	BagBar = true,
 	BagBarMouseover = false,
@@ -571,7 +200,7 @@ Defaults["Inventory"] = {
 }
 
 -- Buffs & Debuffs
-Defaults["Auras"] = {
+C["Auras"] = {
 	BuffSize = 32,
 	BuffsPerRow = 16,
 	DebuffSize = 34,
@@ -587,7 +216,7 @@ Defaults["Auras"] = {
 }
 
 -- Chat
-Defaults["Chat"] = {
+C["Chat"] = {
 	Background = true,
 	ChatItemLevel = true,
 	ChatMenu = true,
@@ -610,7 +239,7 @@ Defaults["Chat"] = {
 }
 
 -- Datatext
-Defaults["DataText"] = {
+C["DataText"] = {
 	Coords = false,
 	Friends = false,
 	Gold = false,
@@ -626,7 +255,7 @@ Defaults["DataText"] = {
 	Time = true,
 }
 
-Defaults["AuraWatch"] = {
+C["AuraWatch"] = {
 	Enable = true,
 	ClickThrough = false,
 	IconScale = 1,
@@ -634,7 +263,7 @@ Defaults["AuraWatch"] = {
 }
 
 -- General
-Defaults["General"] = {
+C["General"] = {
 	AutoScale = true,
 	ColorTextures = false,
 	MinimapIcon = false,
@@ -654,7 +283,7 @@ Defaults["General"] = {
 }
 
 -- Loot
-Defaults["Loot"] = {
+C["Loot"] = {
 	AutoConfirm = false,
 	AutoGreed = false,
 	Enable = true,
@@ -663,7 +292,7 @@ Defaults["Loot"] = {
 }
 
 -- Minimap
-Defaults["Minimap"] = {
+C["Minimap"] = {
 	Calendar = true,
 	EasyVolume = false,
 	Enable = true,
@@ -676,7 +305,7 @@ Defaults["Minimap"] = {
 }
 
 -- Miscellaneous
-Defaults["Misc"] = {
+C["Misc"] = {
 	RaidTool = true,
 	RMRune = false,
 	DBMCount = "10",
@@ -712,7 +341,7 @@ Defaults["Misc"] = {
 	ShowMarkerBar = 4,
 }
 
-Defaults["Nameplate"] = {
+C["Nameplate"] = {
 	ColorByDot = false, -- This is not ready
 	DotColor = { 1, 0.5, 0.2 },
 	DotSpellList = {
@@ -780,7 +409,7 @@ Defaults["Nameplate"] = {
 }
 
 -- Skins
-Defaults["Skins"] = {
+C["Skins"] = {
 	Bartender4 = false,
 	BigWigs = false,
 	BlizzardFrames = true,
@@ -804,7 +433,7 @@ Defaults["Skins"] = {
 }
 
 -- Tooltip
-Defaults["Tooltip"] = {
+C["Tooltip"] = {
 	ClassColor = false,
 	CombatHide = false,
 	Cursor = false,
@@ -826,7 +455,7 @@ Defaults["Tooltip"] = {
 }
 
 -- Unitframe
-Defaults["Unitframe"] = {
+C["Unitframe"] = {
 	AdditionalPower = false,
 	AllTextScale = 1, -- Testing
 	AutoAttack = true,
@@ -922,7 +551,7 @@ Defaults["Unitframe"] = {
 	PortraitStyle = 1,
 }
 
-Defaults["Party"] = {
+C["Party"] = {
 	CastbarIcon = false,
 	Castbars = false,
 	Enable = true,
@@ -941,7 +570,7 @@ Defaults["Party"] = {
 }
 
 -- SimpleParty (Raid-style compact party frames)
-Defaults["SimpleParty"] = {
+C["SimpleParty"] = {
 	Enable = false,
 	HealthbarColor = 1,
 	HealthHeight = 44,
@@ -962,7 +591,7 @@ Defaults["SimpleParty"] = {
 	DebuffWatchDefault = true,
 }
 
-Defaults["Boss"] = {
+C["Boss"] = {
 	CastbarIcon = true,
 	Castbars = true,
 	Enable = true,
@@ -974,7 +603,7 @@ Defaults["Boss"] = {
 	HealthbarColor = 1,
 }
 
-Defaults["Arena"] = {
+C["Arena"] = {
 	CastbarIcon = true,
 	Castbars = true,
 	Enable = true,
@@ -987,7 +616,7 @@ Defaults["Arena"] = {
 }
 
 -- Raidframe
-Defaults["Raid"] = {
+C["Raid"] = {
 	DebuffWatch = true,
 	DebuffWatchDefault = true,
 	DesaturateBuffs = false,
@@ -1019,7 +648,7 @@ Defaults["Raid"] = {
 }
 
 -- Worldmap
-Defaults["WorldMap"] = {
+C["WorldMap"] = {
 	AlphaWhenMoving = 0.35,
 	Coordinates = true,
 	FadeWhenMoving = true,
@@ -1028,24 +657,3 @@ Defaults["WorldMap"] = {
 	-- Waypoint options
 	AutoOpenWaypoint = true,
 }
-
--- ============================================================================
--- CRITICAL FIX: Pre-populate C immediately during file loading
--- ============================================================================
--- This ensures 'C' has data immediately during file loading (for Border.lua, etc.)
--- The Database will overwrite/merge this again at PLAYER_LOGIN with saved variables.
--- This prevents nil errors when files like Border.lua try to access C["General"]
--- during the loading screen, before PLAYER_LOGIN fires.
--- ============================================================================
-do
-	for group, options in pairs(Defaults) do
-		if type(options) == "table" then
-			C[group] = C[group] or {}
-			for key, value in pairs(options) do
-				C[group][key] = value
-			end
-		else
-			C[group] = options
-		end
-	end
-end

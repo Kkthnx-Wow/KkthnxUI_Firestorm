@@ -212,56 +212,31 @@ end
 
 -- Profile Data Management
 function ProfileGUI:GetCurrentProfileKey()
-	if K.Database and K.Database.GetCurrentProfileName then
-		return K.Database:GetCurrentProfileName()
-	end
-
-	-- Fallback to legacy character-based key
 	return K.Realm .. "-" .. K.Name
 end
 
 function ProfileGUI:GetAllProfiles()
 	local profiles = {}
 
-	if not KkthnxUIDB or not KkthnxUIDB.Profiles then
+	if not KkthnxUIDB or not KkthnxUIDB.Settings then
 		return profiles
 	end
 
-	-- Map characters to profiles using ProfileKeys to provide some context
-	local characterForProfile = {}
-	if KkthnxUIDB.ProfileKeys then
-		for charKey, profileName in pairs(KkthnxUIDB.ProfileKeys) do
-			if not characterForProfile[profileName] then
-				characterForProfile[profileName] = charKey
-			end
+	for realm, realmData in pairs(KkthnxUIDB.Settings) do
+		for name, profileData in pairs(realmData) do
+			local profileKey = realm .. "-" .. name
+			local displayName = name .. " (" .. realm .. ")"
+
+			profiles[profileKey] = {
+				key = profileKey,
+				name = name,
+				realm = realm,
+				displayName = displayName,
+				data = profileData,
+				isCurrent = (profileKey == self:GetCurrentProfileKey()),
+				lastModified = profileData.LastModified or 0,
+			}
 		end
-	end
-
-	local currentProfileName = self:GetCurrentProfileKey()
-
-	for profileName, profileData in pairs(KkthnxUIDB.Profiles) do
-		local charKey = characterForProfile[profileName]
-		local charName, realm = nil, nil
-		if charKey then
-			charName, realm = string.match(charKey, "^(.-) %- (.+)$")
-		end
-
-		local displayName = profileName
-		if charName and realm then
-			displayName = profileName .. " (" .. charName .. " - " .. realm .. ")"
-		end
-
-		profiles[profileName] = {
-			key = profileName, -- profile identifier
-			name = profileName, -- profile display name
-			realm = realm or "", -- realm of the character associated with this profile (if any)
-			charName = charName, -- character name owning/using this profile
-			charRealm = realm or "", -- character realm
-			displayName = displayName,
-			data = profileData,
-			isCurrent = (profileName == currentProfileName),
-			lastModified = profileData.LastModified or 0,
-		}
 	end
 
 	return profiles
@@ -428,10 +403,13 @@ function ProfileGUI:ExportProfile(profileKey)
 	end
 
 	-- Snapshot settings and prune to only differences from defaults
-	local settingsSnapshot = K.CopyTable(KkthnxUIDB.Profiles[profile.name] or {})
+	local settingsSnapshot = K.CopyTable(KkthnxUIDB.Settings[profile.realm][profile.name] or {})
 	if K.Defaults and type(K.Defaults) == "table" then
 		settingsSnapshot = KKUI_PruneSettingsByDefaults(settingsSnapshot, K.Defaults)
 	end
+
+	-- Snapshot Variables
+	local variablesSnapshot = K.CopyTable(KkthnxUIDB.Variables[profile.realm] and KkthnxUIDB.Variables[profile.realm][profile.name] or {})
 
 	-- Prepare the export data structure
 	local exportData = {
@@ -439,6 +417,7 @@ function ProfileGUI:ExportProfile(profileKey)
 		ExportedAt = time(),
 		ExportedBy = K.Name .. "@" .. K.Realm,
 		Settings = settingsSnapshot,
+		Variables = variablesSnapshot,
 	}
 
 	-- Debug: Validate export data before serialization
@@ -548,24 +527,23 @@ function ProfileGUI:ImportProfile(profileString, applyToCurrent)
 	end
 
 	if applyToCurrent then
-		-- Apply to current active profile
-		local currentProfileName = self:GetCurrentProfileKey()
+		-- Apply to current character's profile
+		local currentProfileName = K.Name
 
-		KkthnxUIDB.Profiles[currentProfileName] = K.CopyTable(data.Settings)
+		-- Deep copy the imported data to current character
+		KkthnxUIDB.Settings[K.Realm][currentProfileName] = K.CopyTable(data.Settings)
+		KkthnxUIDB.Variables[K.Realm][currentProfileName] = K.CopyTable(data.Variables or {})
+
+		-- Ensure installer is marked complete for the current character
+		KkthnxUIDB.Variables[K.Realm][currentProfileName].InstallComplete = true
 
 		-- Add import metadata
-		local profileData = KkthnxUIDB.Profiles[currentProfileName]
-		profileData.ImportedAt = time()
-		profileData.ImportedBy = K.Name
-		profileData.ImportedFrom = data.ProfileName or "Unknown"
-		profileData.LastModified = time()
+		KkthnxUIDB.Settings[K.Realm][currentProfileName].ImportedAt = time()
+		KkthnxUIDB.Settings[K.Realm][currentProfileName].ImportedBy = K.Name
+		KkthnxUIDB.Settings[K.Realm][currentProfileName].ImportedFrom = data.ProfileName or "Unknown"
+		KkthnxUIDB.Settings[K.Realm][currentProfileName].LastModified = time()
 
-		-- Re-apply to live config
-		if K.Database and K.Database.ApplyCurrentProfile then
-			K.Database:ApplyCurrentProfile()
-		end
-
-		return true, "Profile applied to active profile '" .. currentProfileName .. "' successfully"
+		return true, "Profile applied to " .. currentProfileName .. " successfully"
 	else
 		-- Create new profile entry
 		local profileName = data.ProfileName or "Imported Profile"
@@ -575,35 +553,55 @@ function ProfileGUI:ImportProfile(profileString, applyToCurrent)
 		end
 
 		-- Check if profile already exists
-		local profiles = self:GetAllProfiles()
-		if profiles[profileName] then
+		local currentKey = K.Realm .. "-" .. profileName
+		local existingProfiles = self:GetAllProfiles()
+		if existingProfiles[currentKey] then
 			return false, "Profile '" .. profileName .. "' already exists"
 		end
 
 		-- Deep copy the imported data
-		KkthnxUIDB.Profiles[profileName] = K.CopyTable(data.Settings)
+		KkthnxUIDB.Settings[K.Realm][profileName] = K.CopyTable(data.Settings)
+		KkthnxUIDB.Variables[K.Realm][profileName] = K.CopyTable(data.Variables or {})
+
+		-- Mark imported profile as installed to skip tutorial on future activation
+		if KkthnxUIDB.Variables[K.Realm][profileName] then
+			KkthnxUIDB.Variables[K.Realm][profileName].InstallComplete = true
+		end
 
 		-- Add import metadata
-		local profileData = KkthnxUIDB.Profiles[profileName]
-		profileData.ImportedAt = time()
-		profileData.ImportedBy = K.Name
-		profileData.ImportedFrom = data.ProfileName or "Unknown"
-		profileData.LastModified = time()
+		KkthnxUIDB.Settings[K.Realm][profileName].ImportedAt = time()
+		KkthnxUIDB.Settings[K.Realm][profileName].ImportedBy = K.Name
+		KkthnxUIDB.Settings[K.Realm][profileName].ImportedFrom = data.ProfileName or "Unknown"
+		KkthnxUIDB.Settings[K.Realm][profileName].LastModified = time()
 
 		return true, "Profile created as '" .. profileName .. "' successfully"
 	end
 end
 
 function ProfileGUI:CreateProfile(profileName, sourceProfile)
+	-- Ensure database integrity
+	if not self:EnsureDatabaseIntegrity() then
+		return false, "Database not available"
+	end
+
 	local valid, error = self:ValidateProfileName(profileName)
 	if not valid then
 		return false, error
 	end
 
 	-- Check if profile already exists
+	local profileKey = K.Realm .. "-" .. profileName
 	local existingProfiles = self:GetAllProfiles()
-	if existingProfiles[profileName] then
+	if existingProfiles[profileKey] then
 		return false, "Profile '" .. profileName .. "' already exists"
+	end
+
+	-- Create profile structure
+	if not KkthnxUIDB.Settings[K.Realm] then
+		KkthnxUIDB.Settings[K.Realm] = {}
+	end
+	if not KkthnxUIDB.Variables[K.Realm] then
+		KkthnxUIDB.Variables[K.Realm] = {}
 	end
 
 	if sourceProfile then
@@ -611,29 +609,38 @@ function ProfileGUI:CreateProfile(profileName, sourceProfile)
 		local profiles = self:GetAllProfiles()
 		local source = profiles[sourceProfile]
 
-		if source and KkthnxUIDB.Profiles[source.name] then
-			KkthnxUIDB.Profiles[profileName] = K.CopyTable(KkthnxUIDB.Profiles[source.name])
+		if source then
+			KkthnxUIDB.Settings[K.Realm][profileName] = K.CopyTable(KkthnxUIDB.Settings[source.realm][source.name] or {})
+			KkthnxUIDB.Variables[K.Realm][profileName] = K.CopyTable(KkthnxUIDB.Variables[source.realm][source.name] or {})
 		else
 			return false, "Source profile not found"
 		end
 	else
-		-- Create with current active profile as base
-		local currentProfileName = self:GetCurrentProfileKey()
-		local currentProfile = KkthnxUIDB.Profiles[currentProfileName] or {}
+		-- Create with current character settings as base
+		local currentSettings = KkthnxUIDB.Settings[K.Realm][K.Name] or {}
+		local currentVariables = KkthnxUIDB.Variables[K.Realm][K.Name] or {}
 
-		KkthnxUIDB.Profiles[profileName] = K.CopyTable(currentProfile)
+		KkthnxUIDB.Settings[K.Realm][profileName] = K.CopyTable(currentSettings)
+		KkthnxUIDB.Variables[K.Realm][profileName] = K.CopyTable(currentVariables)
 	end
 
 	-- Add metadata
-	local profileData = KkthnxUIDB.Profiles[profileName]
-	profileData.CreatedAt = time()
-	profileData.CreatedBy = K.Name
-	profileData.LastModified = time()
+	KkthnxUIDB.Settings[K.Realm][profileName].CreatedAt = time()
+	KkthnxUIDB.Settings[K.Realm][profileName].CreatedBy = K.Name
+	KkthnxUIDB.Settings[K.Realm][profileName].LastModified = time()
+
+	-- Ensure current character metadata is stored
+	self:StoreCharacterMetadata(K.Name, K.Realm)
 
 	return true, "Profile created successfully"
 end
 
 function ProfileGUI:RenameProfile(profileKey, newName)
+	-- Ensure database integrity
+	if not self:EnsureDatabaseIntegrity() then
+		return false, "Database not available"
+	end
+
 	local valid, error = self:ValidateProfileName(newName)
 	if not valid then
 		return false, error
@@ -652,39 +659,39 @@ function ProfileGUI:RenameProfile(profileKey, newName)
 	end
 
 	-- Check if new name already exists
-	if profiles[newName] then
+	local newProfileKey = profile.realm .. "-" .. newName
+	if profiles[newProfileKey] then
 		return false, "Profile '" .. newName .. "' already exists"
 	end
 
 	-- Get the actual data from the database
-	if not KkthnxUIDB.Profiles or not KkthnxUIDB.Profiles[profile.name] then
+	local oldSettings = KkthnxUIDB.Settings[profile.realm][profile.name]
+	local oldVariables = KkthnxUIDB.Variables[profile.realm][profile.name]
+
+	if not oldSettings then
 		return false, "Profile data not found"
 	end
 
 	-- Create new profile with copied data
-	KkthnxUIDB.Profiles[newName] = K.CopyTable(KkthnxUIDB.Profiles[profile.name])
+	KkthnxUIDB.Settings[profile.realm][newName] = K.CopyTable(oldSettings)
+	if oldVariables then
+		KkthnxUIDB.Variables[profile.realm][newName] = K.CopyTable(oldVariables)
+	end
 
 	-- Update metadata for the renamed profile
-	local newData = KkthnxUIDB.Profiles[newName]
-	newData.LastModified = time()
-	newData.RenamedFrom = profile.name
-	newData.RenamedAt = time()
+	KkthnxUIDB.Settings[profile.realm][newName].LastModified = time()
+	KkthnxUIDB.Settings[profile.realm][newName].RenamedFrom = profile.name
+	KkthnxUIDB.Settings[profile.realm][newName].RenamedAt = time()
 
 	-- Remove old profile data
-	KkthnxUIDB.Profiles[profile.name] = nil
-
-	-- Update character mappings
-	if KkthnxUIDB.ProfileKeys then
-		for charKey, pName in pairs(KkthnxUIDB.ProfileKeys) do
-			if pName == profile.name then
-				KkthnxUIDB.ProfileKeys[charKey] = newName
-			end
-		end
+	KkthnxUIDB.Settings[profile.realm][profile.name] = nil
+	if KkthnxUIDB.Variables[profile.realm] then
+		KkthnxUIDB.Variables[profile.realm][profile.name] = nil
 	end
 
 	-- Update selected profile if it was the renamed one
 	if self.SelectedProfile == profileKey then
-		self.SelectedProfile = newName
+		self.SelectedProfile = newProfileKey
 	end
 
 	return true, "Profile renamed successfully"
@@ -703,23 +710,22 @@ function ProfileGUI:DeleteProfile(profileKey)
 	end
 
 	-- Delete from database
-	if KkthnxUIDB.Profiles then
-		KkthnxUIDB.Profiles[profile.name] = nil
+	if KkthnxUIDB.Settings[profile.realm] then
+		KkthnxUIDB.Settings[profile.realm][profile.name] = nil
 	end
-
-	-- Clear any character mappings pointing to this profile
-	if KkthnxUIDB.ProfileKeys then
-		for charKey, pName in pairs(KkthnxUIDB.ProfileKeys) do
-			if pName == profile.name then
-				KkthnxUIDB.ProfileKeys[charKey] = nil
-			end
-		end
+	if KkthnxUIDB.Variables[profile.realm] then
+		KkthnxUIDB.Variables[profile.realm][profile.name] = nil
 	end
 
 	return true, "Profile deleted successfully"
 end
 
 function ProfileGUI:SwitchProfile(profileKey)
+	-- Ensure database integrity
+	if not self:EnsureDatabaseIntegrity() then
+		return false, "Database not available"
+	end
+
 	if profileKey == self:GetCurrentProfileKey() then
 		return false, "Already using this profile"
 	end
@@ -727,47 +733,64 @@ function ProfileGUI:SwitchProfile(profileKey)
 	local profiles = self:GetAllProfiles()
 	local profile = profiles[profileKey]
 
-	if not profile or not KkthnxUIDB.Profiles[profile.name] then
+	if not profile then
 		return false, "Profile not found"
 	end
 
-	-- Switch active profile for this character by changing the profile key
-	KkthnxUIDB.ProfileKeys = KkthnxUIDB.ProfileKeys or {}
-	KkthnxUIDB.ProfileKeys[K.UserKey] = profile.name
+	-- Switch the profile by copying the profile data to current character
+	local sourceSettings = KkthnxUIDB.Settings[profile.realm][profile.name]
+	local sourceVariables = KkthnxUIDB.Variables[profile.realm][profile.name]
 
-	-- Optionally touch metadata
-	local profileData = KkthnxUIDB.Profiles[profile.name]
-	profileData.LastSwitched = time()
-	profileData.SwitchedFrom = self:GetCurrentProfileKey()
-	profileData.LastModified = time()
-
-	-- Apply the new profile to the live config
-	if K.Database and K.Database.ApplyCurrentProfile then
-		K.Database:ApplyCurrentProfile()
+	if sourceSettings then
+		KkthnxUIDB.Settings[K.Realm][K.Name] = K.CopyTable(sourceSettings)
 	end
+
+	if sourceVariables then
+		if not KkthnxUIDB.Variables[K.Realm] then
+			KkthnxUIDB.Variables[K.Realm] = {}
+		end
+		KkthnxUIDB.Variables[K.Realm][K.Name] = K.CopyTable(sourceVariables)
+		-- Ensure installer is marked complete after switching profiles
+		KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete = true
+	end
+
+	-- Add switch metadata
+	KkthnxUIDB.Settings[K.Realm][K.Name].LastSwitched = time()
+	KkthnxUIDB.Settings[K.Realm][K.Name].SwitchedFrom = profileKey
+	KkthnxUIDB.Settings[K.Realm][K.Name].LastModified = time()
 
 	return true, "Profile switch initiated"
 end
 
 function ProfileGUI:ResetProfile(profileKey)
-	local profiles = self:GetAllProfiles()
-	local profile = profileKey and profiles[profileKey] or nil
+	local profile = profileKey and self:GetAllProfiles()[profileKey] or nil
 
-	-- Determine which profile table to reset
-	local targetName = profile and profile.name or self:GetCurrentProfileKey()
-	if not targetName then
-		return false, "Profile not found"
-	end
+	if not profile then
+		-- Reset current profile to defaults
+		if KkthnxUIDB.Settings[K.Realm] then
+			KkthnxUIDB.Settings[K.Realm][K.Name] = K.CopyTable(K.Defaults or {})
+		end
+		if KkthnxUIDB.Variables[K.Realm] then
+			KkthnxUIDB.Variables[K.Realm][K.Name] = {}
+		end
 
-	KkthnxUIDB.Profiles[targetName] = {}
-	local profileData = KkthnxUIDB.Profiles[targetName]
-	profileData.ResetAt = time()
-	profileData.ResetBy = K.Name
-	profileData.LastModified = time()
+		-- Add reset metadata
+		KkthnxUIDB.Settings[K.Realm][K.Name].ResetAt = time()
+		KkthnxUIDB.Settings[K.Realm][K.Name].ResetBy = K.Name
+		KkthnxUIDB.Settings[K.Realm][K.Name].LastModified = time()
+	else
+		-- Reset specified profile to defaults
+		if KkthnxUIDB.Settings[profile.realm] then
+			KkthnxUIDB.Settings[profile.realm][profile.name] = K.CopyTable(K.Defaults or {})
+		end
+		if KkthnxUIDB.Variables[profile.realm] then
+			KkthnxUIDB.Variables[profile.realm][profile.name] = {}
+		end
 
-	-- If we reset the currently active profile, re-apply defaults to live config
-	if targetName == self:GetCurrentProfileKey() and K.Database and K.Database.ApplyCurrentProfile then
-		K.Database:ApplyCurrentProfile()
+		-- Add reset metadata
+		KkthnxUIDB.Settings[profile.realm][profile.name].ResetAt = time()
+		KkthnxUIDB.Settings[profile.realm][profile.name].ResetBy = K.Name
+		KkthnxUIDB.Settings[profile.realm][profile.name].LastModified = time()
 	end
 
 	return true, "Profile reset successfully"
@@ -867,9 +890,7 @@ function ProfileGUI:RefreshProfileList()
 				button.Text:SetText(profile.name)
 			end
 			if button.Portrait then
-				local charName = profile.charName or (profile.isCurrent and K.Name) or profile.name
-				local charRealm = profile.charRealm or (profile.isCurrent and K.Realm) or profile.realm
-				self:SetupPortrait(button.Portrait, charName, charRealm)
+				self:SetupPortrait(button.Portrait, profile.name, profile.realm)
 			end
 			self:UpdateProfileButtonState(button, profile)
 			button:Show()
@@ -943,10 +964,7 @@ function ProfileGUI:CreateProfileListButton(profile)
 	portrait:SetPoint("TOPLEFT", 2, -2)
 	portrait:SetPoint("BOTTOMRIGHT", -2, 2)
 
-	-- Use associated character identity (or fall back to current player) for portraits
-	local charName = profile.charName or (profile.isCurrent and K.Name) or profile.name
-	local charRealm = profile.charRealm or (profile.isCurrent and K.Realm) or profile.realm
-	self:SetupPortrait(portrait, charName, charRealm)
+	self:SetupPortrait(portrait, profile.name, profile.realm)
 
 	button.Portrait = portrait
 	button.PortraitFrame = portraitFrame
@@ -1241,17 +1259,13 @@ function ProfileGUI:UpdateInfoPanel()
 		self.InfoElements.CharacterLabel:SetJustifyH("LEFT")
 	end
 	self.InfoElements.CharacterLabel:SetTextColor(TEXT_COLOR[1], TEXT_COLOR[2], TEXT_COLOR[3], TEXT_COLOR[4])
-
-	-- Show the actual character identity tied to this profile when available
-	local charName = profile.charName or (profile.isCurrent and K.Name) or profile.name
-	local charRealm = profile.charRealm or (profile.isCurrent and K.Realm) or profile.realm
-	self.InfoElements.CharacterLabel:SetText("  Name: " .. charName .. " @ " .. (charRealm or ""))
+	self.InfoElements.CharacterLabel:SetText("  Name: " .. profile.name .. " @ " .. profile.realm)
 	self.InfoElements.CharacterLabel:SetPoint("TOPLEFT", 15, yOffset)
 	self.InfoElements.CharacterLabel:Show()
 	yOffset = yOffset - 14
 
 	-- Character class with color
-	local characterClass = self:GetClassFromGoldInfo(charName, charRealm)
+	local characterClass = self:GetClassFromGoldInfo(profile.name, profile.realm)
 	if characterClass and characterClass ~= "NONE" then
 		-- Class label (normal color)
 		if not self.InfoElements.ClassLabel then
@@ -1290,7 +1304,7 @@ function ProfileGUI:UpdateInfoPanel()
 	end
 
 	-- Character race
-	local race = self:GetRaceFromPortraitData(charName, charRealm)
+	local race = self:GetRaceFromPortraitData(profile.name, profile.realm)
 	if race then
 		if not self.InfoElements.RaceLabel then
 			self.InfoElements.RaceLabel = self.InfoPanel:CreateFontString(nil, "OVERLAY")
@@ -1309,7 +1323,7 @@ function ProfileGUI:UpdateInfoPanel()
 	end
 
 	-- Character faction
-	local faction = self:GetFactionFromGoldInfo(charName, charRealm)
+	local faction = self:GetFactionFromGoldInfo(profile.name, profile.realm)
 	if faction and faction ~= "Unknown" then
 		-- Faction label (normal color)
 		if not self.InfoElements.FactionLabel then
@@ -2415,25 +2429,17 @@ end
 
 -- Character metadata and utility functions
 function ProfileGUI:GetClassFromGoldInfo(name, realm)
-	-- First check Global Gold data (class is at index 2)
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.Gold then
-		-- Gold.lua normalizes realm names by stripping spaces, so try both
-		local normRealm = realm and realm:gsub("%s+", "") or realm
-		for _, r in ipairs({ realm, normRealm }) do
-			if r and KkthnxUIDB.Global.Gold[r] and KkthnxUIDB.Global.Gold[r][name] then
-				local classFromGold = KkthnxUIDB.Global.Gold[r][name][2]
-				if classFromGold and classFromGold ~= "NONE" then
-					return classFromGold
-				end
-			end
+	-- First check Gold data (class is at index 2)
+	if KkthnxUIDB.Gold and KkthnxUIDB.Gold[realm] and KkthnxUIDB.Gold[realm][name] then
+		local classFromGold = KkthnxUIDB.Gold[realm][name][2]
+		if classFromGold and classFromGold ~= "NONE" then
+			return classFromGold
 		end
 	end
 
 	-- Fallback to ProfilePortraits if available
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.ProfilePortraits then
-		if KkthnxUIDB.Global.ProfilePortraits[realm] and KkthnxUIDB.Global.ProfilePortraits[realm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[realm][name].class
-		end
+	if KkthnxUIDB.ProfilePortraits and KkthnxUIDB.ProfilePortraits[realm] and KkthnxUIDB.ProfilePortraits[realm][name] then
+		return KkthnxUIDB.ProfilePortraits[realm][name].class
 	end
 
 	return "NONE"
@@ -2449,12 +2455,11 @@ function ProfileGUI:StoreCharacterMetadata(name, realm)
 		end
 
 		-- Ensure ProfilePortraits structure exists
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
+		if not KkthnxUIDB.ProfilePortraits then
+			KkthnxUIDB.ProfilePortraits = {}
 		end
-		KkthnxUIDB.Global.ProfilePortraits = KkthnxUIDB.Global.ProfilePortraits or {}
-		if not KkthnxUIDB.Global.ProfilePortraits[realm] then
-			KkthnxUIDB.Global.ProfilePortraits[realm] = {}
+		if not KkthnxUIDB.ProfilePortraits[realm] then
+			KkthnxUIDB.ProfilePortraits[realm] = {}
 		end
 
 		-- Get current character data with validation
@@ -2466,7 +2471,7 @@ function ProfileGUI:StoreCharacterMetadata(name, realm)
 		-- Validate the data before storing
 		if class and race and gender and faction then
 			-- Store portrait metadata separately from Gold data
-			KkthnxUIDB.Global.ProfilePortraits[realm][name] = {
+			KkthnxUIDB.ProfilePortraits[realm][name] = {
 				class = class,
 				race = race,
 				gender = gender,
@@ -2476,11 +2481,9 @@ function ProfileGUI:StoreCharacterMetadata(name, realm)
 		end
 
 		-- Ensure current profile has LastModified timestamp
-		local currentProfile = self:GetCurrentProfileKey()
-		if currentProfile and KkthnxUIDB.Profiles and KkthnxUIDB.Profiles[currentProfile] then
-			local profileData = KkthnxUIDB.Profiles[currentProfile]
-			if not profileData.LastModified then
-				profileData.LastModified = time()
+		if KkthnxUIDB.Settings and KkthnxUIDB.Settings[realm] and KkthnxUIDB.Settings[realm][name] then
+			if not KkthnxUIDB.Settings[realm][name].LastModified then
+				KkthnxUIDB.Settings[realm][name].LastModified = time()
 			end
 		end
 	end
@@ -2488,32 +2491,16 @@ end
 
 -- Get race info from portrait storage
 function ProfileGUI:GetRaceFromPortraitData(name, realm)
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.ProfilePortraits then
-		-- Try exact realm key first
-		if KkthnxUIDB.Global.ProfilePortraits[realm] and KkthnxUIDB.Global.ProfilePortraits[realm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[realm][name].race
-		end
-
-		-- Also try normalized realm key to be robust against older data
-		local normRealm = realm and realm:gsub("%s+", "") or realm
-		if normRealm and KkthnxUIDB.Global.ProfilePortraits[normRealm] and KkthnxUIDB.Global.ProfilePortraits[normRealm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[normRealm][name].race
-		end
+	if KkthnxUIDB.ProfilePortraits and KkthnxUIDB.ProfilePortraits[realm] and KkthnxUIDB.ProfilePortraits[realm][name] then
+		return KkthnxUIDB.ProfilePortraits[realm][name].race
 	end
 	return nil
 end
 
 -- Get gender info from portrait storage
 function ProfileGUI:GetGenderFromPortraitData(name, realm)
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.ProfilePortraits then
-		if KkthnxUIDB.Global.ProfilePortraits[realm] and KkthnxUIDB.Global.ProfilePortraits[realm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[realm][name].gender
-		end
-
-		local normRealm = realm and realm:gsub("%s+", "") or realm
-		if normRealm and KkthnxUIDB.Global.ProfilePortraits[normRealm] and KkthnxUIDB.Global.ProfilePortraits[normRealm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[normRealm][name].gender
-		end
+	if KkthnxUIDB.ProfilePortraits and KkthnxUIDB.ProfilePortraits[realm] and KkthnxUIDB.ProfilePortraits[realm][name] then
+		return KkthnxUIDB.ProfilePortraits[realm][name].gender
 	end
 	return nil
 end
@@ -2647,28 +2634,16 @@ end
 -- Helper function to get character faction from gold data
 function ProfileGUI:GetFactionFromGoldInfo(name, realm)
 	-- First check Gold data (faction is at index 3)
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.Gold then
-		local normRealm = realm and realm:gsub("%s+", "") or realm
-		for _, r in ipairs({ realm, normRealm }) do
-			if r and KkthnxUIDB.Global.Gold[r] and KkthnxUIDB.Global.Gold[r][name] then
-				local factionFromGold = KkthnxUIDB.Global.Gold[r][name][3]
-				if factionFromGold then
-					return factionFromGold
-				end
-			end
+	if KkthnxUIDB.Gold and KkthnxUIDB.Gold[realm] and KkthnxUIDB.Gold[realm][name] then
+		local factionFromGold = KkthnxUIDB.Gold[realm][name][3]
+		if factionFromGold then
+			return factionFromGold
 		end
 	end
 
 	-- Fallback to ProfilePortraits if available
-	if KkthnxUIDB.Global and KkthnxUIDB.Global.ProfilePortraits then
-		if KkthnxUIDB.Global.ProfilePortraits[realm] and KkthnxUIDB.Global.ProfilePortraits[realm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[realm][name].faction
-		end
-
-		local normRealm = realm and realm:gsub("%s+", "") or realm
-		if normRealm and KkthnxUIDB.Global.ProfilePortraits[normRealm] and KkthnxUIDB.Global.ProfilePortraits[normRealm][name] then
-			return KkthnxUIDB.Global.ProfilePortraits[normRealm][name].faction
-		end
+	if KkthnxUIDB.ProfilePortraits and KkthnxUIDB.ProfilePortraits[realm] and KkthnxUIDB.ProfilePortraits[realm][name] then
+		return KkthnxUIDB.ProfilePortraits[realm][name].faction
 	end
 
 	return "Unknown"
@@ -2922,9 +2897,18 @@ function ProfileGUI:EnsureDatabaseIntegrity()
 	if not KkthnxUIDB then
 		KkthnxUIDB = {}
 	end
-	KkthnxUIDB.Global = KkthnxUIDB.Global or {}
-	KkthnxUIDB.ProfileKeys = KkthnxUIDB.ProfileKeys or {}
-	KkthnxUIDB.Profiles = KkthnxUIDB.Profiles or {}
+	if not KkthnxUIDB.Settings then
+		KkthnxUIDB.Settings = {}
+	end
+	if not KkthnxUIDB.Settings[K.Realm] then
+		KkthnxUIDB.Settings[K.Realm] = {}
+	end
+	if not KkthnxUIDB.Variables then
+		KkthnxUIDB.Variables = {}
+	end
+	if not KkthnxUIDB.Variables[K.Realm] then
+		KkthnxUIDB.Variables[K.Realm] = {}
+	end
 	return true
 end
 
@@ -3049,21 +3033,18 @@ function ProfileGUI:RefreshAllPortraits()
 	-- Update all portrait textures in the current list
 	for _, button in ipairs({ self.ProfileScrollFrame.Child:GetChildren() }) do
 		if button.Portrait and button.Profile then
-			local profile = button.Profile
-			local charName = profile.charName or (profile.isCurrent and K.Name) or profile.name
-			local charRealm = profile.charRealm or (profile.isCurrent and K.Realm) or profile.realm
-			self:SetupPortrait(button.Portrait, charName, charRealm)
+			self:SetupPortrait(button.Portrait, button.Profile.name, button.Profile.realm)
 		end
 	end
 end
 
 -- Helper function to check if character metadata needs refreshing
 function ProfileGUI:ShouldRefreshCharacterData(name, realm)
-	if not (KkthnxUIDB.Global and KkthnxUIDB.Global.ProfilePortraits and KkthnxUIDB.Global.ProfilePortraits[realm] and KkthnxUIDB.Global.ProfilePortraits[realm][name]) then
+	if not KkthnxUIDB.ProfilePortraits or not KkthnxUIDB.ProfilePortraits[realm] or not KkthnxUIDB.ProfilePortraits[realm][name] then
 		return true -- No data exists
 	end
 
-	local data = KkthnxUIDB.Global.ProfilePortraits[realm][name]
+	local data = KkthnxUIDB.ProfilePortraits[realm][name]
 	local currentTime = time()
 
 	-- Refresh if data is older than 1 hour

@@ -42,15 +42,11 @@ StaticPopupDialogs["RESETGOLD"] = {
 	button1 = YES,
 	button2 = NO,
 	OnAccept = function()
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
+		wipe(KkthnxUIDB.Gold)
+		if not KkthnxUIDB.Gold[myRealm] then
+			KkthnxUIDB.Gold[myRealm] = {}
 		end
-
-		wipe(KkthnxUIDB.Global.Gold)
-		if not KkthnxUIDB.Global.Gold[myRealm] then
-			KkthnxUIDB.Global.Gold[myRealm] = {}
-		end
-		KkthnxUIDB.Global.Gold[myRealm][myName] = { GetMoney(), K.Class, K.Faction }
+		KkthnxUIDB.Gold[myRealm][myName] = { GetMoney(), K.Class, K.Faction }
 	end,
 	whileDead = 1,
 }
@@ -114,7 +110,7 @@ local function OnEvent(_, event, arg1)
 		oldMoney = GetMoney()
 		GoldDataText:UnregisterEvent(event)
 
-		if KkthnxUIDB.Global.ShowSlots then
+		if KkthnxUIDB.ShowSlots then
 			GoldDataText:RegisterEvent("BAG_UPDATE")
 		end
 	elseif event == "BAG_UPDATE" then
@@ -140,7 +136,7 @@ local function OnEvent(_, event, arg1)
 		if C["DataText"].HideText then
 			GoldDataText.Text:SetText("")
 		else
-			if KkthnxUIDB.Global.ShowSlots then
+			if KkthnxUIDB.ShowSlots then
 				GoldDataText.Text:SetText(getSlotString())
 			else
 				GoldDataText.Text:SetText(K.FormatMoney(newMoney))
@@ -161,36 +157,24 @@ local function OnEvent(_, event, arg1)
 		end
 	end
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
+	if not KkthnxUIDB.Gold[myRealm] then
+		KkthnxUIDB.Gold[myRealm] = {}
 	end
 
-	if not KkthnxUIDB.Global.Gold then
-		KkthnxUIDB.Global.Gold = {}
+	if not KkthnxUIDB.Gold[myRealm][myName] then
+		KkthnxUIDB.Gold[myRealm][myName] = {}
 	end
 
-	if not KkthnxUIDB.Global.Gold[myRealm] then
-		KkthnxUIDB.Global.Gold[myRealm] = {}
-	end
-
-	if not KkthnxUIDB.Global.Gold[myRealm][myName] then
-		KkthnxUIDB.Global.Gold[myRealm][myName] = {}
-	end
-
-	KkthnxUIDB.Global.Gold[myRealm][myName][1] = GetMoney()
-	KkthnxUIDB.Global.Gold[myRealm][myName][2] = K.Class
-	KkthnxUIDB.Global.Gold[myRealm][myName][3] = K.Faction
+	KkthnxUIDB.Gold[myRealm][myName][1] = GetMoney()
+	KkthnxUIDB.Gold[myRealm][myName][2] = K.Class
+	KkthnxUIDB.Gold[myRealm][myName][3] = K.Faction
 
 	oldMoney = newMoney
 end
 K.GoldButton_OnEvent = OnEvent
 
 local function clearCharGold(_, realm, name)
-	if not (KkthnxUIDB.Global and KkthnxUIDB.Global.Gold and KkthnxUIDB.Global.Gold[realm]) then
-		return
-	end
-
-	KkthnxUIDB.Global.Gold[realm][name] = nil
+	KkthnxUIDB.Gold[realm][name] = nil
 	DropDownList1:Hide()
 	RebuildCharList()
 end
@@ -203,7 +187,7 @@ function RebuildCharList()
 	end
 
 	local index = 1
-	for realm, data in pairs(KkthnxUIDB.Global.Gold or {}) do
+	for realm, data in pairs(KkthnxUIDB.Gold) do
 		for name, value in pairs(data) do
 			if not (realm == myRealm and name == myName) then
 				index = index + 1
@@ -249,8 +233,8 @@ local function OnEnter(self)
 
 	local totalGold = 0
 	GameTooltip:AddLine(CHARACTER_BUTTON .. ":", 0.5, 0.7, 1)
-	if KkthnxUIDB.Global.Gold and KkthnxUIDB.Global.Gold[myRealm] then
-		for k, v in pairs(KkthnxUIDB.Global.Gold[myRealm]) do
+	if KkthnxUIDB.Gold[myRealm] then
+		for k, v in pairs(KkthnxUIDB.Gold[myRealm]) do
 			local gold, class, faction = unpack(v)
 			local name = Ambiguate(k .. "-" .. myRealm, "none")
 			if gold > showGoldGap or UnitIsUnit(name, "player") then
@@ -262,7 +246,7 @@ local function OnEnter(self)
 	end
 
 	local isShiftKeyDown = IsShiftKeyDown()
-	for realm, data in pairs(KkthnxUIDB.Global.Gold or {}) do
+	for realm, data in pairs(KkthnxUIDB.Gold) do
 		if realm ~= myRealm then
 			for k, v in pairs(data) do
 				local gold, class, faction = unpack(v)
@@ -334,7 +318,7 @@ local function OnEnter(self)
 	if self == GoldDataText then
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(" ", K.RightButton .. "Switch Mode" .. " ", 1, 1, 1, 0.5, 0.7, 1)
-		if KkthnxUIDB.Global.ShowSlots then
+		if KkthnxUIDB.ShowSlots then
 			GameTooltip:AddDoubleLine(" ", K.LeftButton .. BINDING_NAME_TOGGLEBACKPACK .. " ", 1, 1, 1, 0.5, 0.7, 1)
 		else
 			GameTooltip:AddDoubleLine(" ", K.LeftButton .. BINDING_NAME_TOGGLECURRENCY .. " ", 1, 1, 1, 0.5, 0.7, 1)
@@ -354,11 +338,8 @@ local function OnMouseUp(self, btn)
 			end
 			K.LibEasyMenu.Create(menuList, K.EasyMenu, self, -80, 100, "MENU", 1)
 		else
-			if not KkthnxUIDB.Global then
-				KkthnxUIDB.Global = {}
-			end
-			KkthnxUIDB.Global.ShowSlots = not KkthnxUIDB.Global.ShowSlots
-			if KkthnxUIDB.Global.ShowSlots then
+			KkthnxUIDB["ShowSlots"] = not KkthnxUIDB["ShowSlots"]
+			if KkthnxUIDB["ShowSlots"] then
 				GoldDataText:RegisterEvent("BAG_UPDATE")
 			else
 				GoldDataText:UnregisterEvent("BAG_UPDATE")
@@ -367,7 +348,7 @@ local function OnMouseUp(self, btn)
 		end
 		OnEnter(self) -- Update our tooltip for inventory or currency
 	else
-		if KkthnxUIDB.Global.ShowSlots then
+		if KkthnxUIDB.ShowSlots then
 			ToggleAllBags()
 		else
 			ToggleCharacter("TokenFrame")

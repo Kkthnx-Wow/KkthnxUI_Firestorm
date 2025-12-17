@@ -114,7 +114,7 @@ function Module:MapData_RefreshOverlays(fullUpdate)
 					texture:SetPoint("TOPLEFT", offsetX + (TILE_SIZE_WIDTH * (k - 1)), -(offsetY + (TILE_SIZE_HEIGHT * (j - 1))))
 					texture:SetTexture(fileDataIDs[((j - 1) * numTexturesWide) + k], nil, nil, "TRILINEAR")
 
-					if C["WorldMap"].RevealWorldMap then
+					if KkthnxUIDB.Variables[K.Realm][K.Name].RevealWorldMap then
 						if C["WorldMap"].MapRevealGlow then
 							texture:SetVertexColor(0.7, 0.7, 0.7)
 						else
@@ -150,7 +150,7 @@ function Module:CreateWorldMapReveal()
 	bu:SetHitRectInsets(-5, -5, -5, -5)
 	bu:SetPoint("TOPRIGHT", -260, 0)
 	bu:SetSize(24, 24)
-	bu:SetChecked(C["WorldMap"].RevealWorldMap)
+	bu:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].RevealWorldMap)
 	bu.text = K.CreateFontString(bu, 12, "Map Reveal", "", "system", "LEFT", 24, 0)
 	K.AddTooltip(bu, "ANCHOR_BOTTOMLEFT", "Show unexplored areas on the world map (removes fog of war).|n|nWhen enabled, hidden tiles are revealed so the full map is visible.", "info", true)
 
@@ -160,15 +160,10 @@ function Module:CreateWorldMapReveal()
 	end
 
 	bu:SetScript("OnClick", function(self)
-		local checked = self:GetChecked()
-		C["WorldMap"].RevealWorldMap = checked
-
-		if K.Database and K.Database.SetConfigPath then
-			K.Database:SetConfigPath("WorldMap.RevealWorldMap", checked)
-		end
+		KkthnxUIDB.Variables[K.Realm][K.Name].RevealWorldMap = self:GetChecked()
 
 		for i = 1, #shownMapCache do
-			shownMapCache[i]:SetShown(checked)
+			shownMapCache[i]:SetShown(KkthnxUIDB.Variables[K.Realm][K.Name].RevealWorldMap)
 		end
 	end)
 end

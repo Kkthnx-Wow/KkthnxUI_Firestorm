@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-   <Script file="GUIConfig.lua"/>
-
-   <Script file="Settings.lua"/>
+   <!-- Load_Config -->
+   <Script file="GUIConfig.lua" />
+   <Script file="AuraWatchGUI.lua" />
 
    <Include file="Elements\FilterLists\FilterLists.xml"/>
    <Include file="Elements\AuraWatchList\AuraWatchList.xml"/>
-
-   <Script file="AuraWatchGUI.lua"/>
 </Ui>

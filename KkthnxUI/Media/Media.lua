@@ -23,7 +23,6 @@ C["Media"] = {
 	["Textures"] = {
 		ArrowTexture = mediaFolder .. "Textures\\Arrow.tga",
 		BlankTexture = mediaFolder .. "Textures\\BlankTexture.blp",
-		CloseButton32 = mediaFolder .. "Textures\\CloseButton_32",
 		CopyChatTexture = mediaFolder .. "Chat\\Copy.tga",
 		GlowTexture = mediaFolder .. "Textures\\GlowTex.tga",
 		LogoSmallTexture = mediaFolder .. "Textures\\LogoSmall.tga",

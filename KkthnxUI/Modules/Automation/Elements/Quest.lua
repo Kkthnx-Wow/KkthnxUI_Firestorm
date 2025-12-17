@@ -37,13 +37,9 @@ local function setupCheckButton()
 	mono:SetSize(24, 24)
 	mono:SetFrameLevel(999)
 	mono.text = K.CreateFontString(mono, 12, "Auto Quest", "", "system", "LEFT", 24, 0)
-	mono:SetChecked(C["Automation"].AutoQuest)
+	mono:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest)
 	mono:SetScript("OnClick", function(self)
-		local checked = self:GetChecked()
-		C["Automation"].AutoQuest = checked
-		if K.Database and K.Database.SetConfigPath then
-			K.Database:SetConfigPath("Automation.AutoQuest", checked)
-		end
+		KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest = self:GetChecked()
 	end)
 	K.AddTooltip(mono, "ANCHOR_BOTTOMLEFT", "Automatically interact with quests.|n|nSingle-option gossip will be selected automatically.|n|nHold SHIFT to temporarily pause automation.|n|nTo block an NPC from auto-interaction, hold ALT and click their name in the Gossip or Quest frame.", "info", true)
 
@@ -60,7 +56,7 @@ end)
 function QuickQuest:Register(event, func)
 	self:RegisterEvent(event)
 	self[event] = function(...)
-		if C["Automation"].AutoQuest and not IsShiftKeyDown() then
+		if KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest and not IsShiftKeyDown() then
 			func(...)
 		end
 	end
@@ -335,15 +331,9 @@ local function UpdateIgnoreList()
 		C.IgnoreQuestNPC[npcID] = value
 	end
 
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if not charDB then
-		return
-	end
-
-	charDB.AutoQuestIgnoreNPC = charDB.AutoQuestIgnoreNPC or {}
-	for npcID, value in pairs(charDB.AutoQuestIgnoreNPC) do
+	for npcID, value in pairs(KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC) do
 		if value and C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			charDB.AutoQuestIgnoreNPC[npcID] = nil
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
 		else
 			C.IgnoreQuestNPC[npcID] = value
 		end
@@ -364,7 +354,7 @@ local function UnitQuickQuestStatus(self)
 	end
 
 	local npcID = GetNPCID()
-	local isIgnored = C["Automation"].AutoQuest and npcID and C.IgnoreQuestNPC[npcID]
+	local isIgnored = KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest and npcID and C.IgnoreQuestNPC[npcID]
 	self.__ignore:SetShown(isIgnored)
 end
 
@@ -372,7 +362,7 @@ local function ToggleQuickQuestStatus(self)
 	if not self.__ignore then
 		return
 	end
-	if not C["Automation"].AutoQuest then
+	if not KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest then
 		return
 	end
 	if not IsAltKeyDown() then
@@ -381,23 +371,17 @@ local function ToggleQuickQuestStatus(self)
 
 	self.__ignore:SetShown(not self.__ignore:IsShown())
 	local npcID = GetNPCID()
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if not charDB then
-		return
-	end
-
-	charDB.AutoQuestIgnoreNPC = charDB.AutoQuestIgnoreNPC or {}
 	if self.__ignore:IsShown() then
 		if C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			charDB.AutoQuestIgnoreNPC[npcID] = nil
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
 		else
-			charDB.AutoQuestIgnoreNPC[npcID] = true
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = true
 		end
 	else
 		if C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			charDB.AutoQuestIgnoreNPC[npcID] = false
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = false
 		else
-			charDB.AutoQuestIgnoreNPC[npcID] = nil
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
 		end
 	end
 

@@ -56,6 +56,100 @@ local function KKUI_EnableModulesOnce()
 	end
 end
 
+local function KKUI_VerifyDatabase()
+	KkthnxUIDB = KkthnxUIDB or {}
+	KkthnxUIDB.Variables = KkthnxUIDB.Variables or {}
+	KkthnxUIDB.Variables[K.Realm] = KkthnxUIDB.Variables[K.Realm] or {}
+	KkthnxUIDB.Variables[K.Realm][K.Name] = KkthnxUIDB.Variables[K.Realm][K.Name] or {}
+
+	local charData = KkthnxUIDB.Variables[K.Realm][K.Name]
+	charData.AuraWatchList = charData.AuraWatchList or { Switcher = {}, IgnoreSpells = {} }
+	charData.AuraWatchMover = charData.AuraWatchMover or {}
+	charData.AutoQuest = charData.AutoQuest or false
+	charData.AutoQuestIgnoreNPC = charData.AutoQuestIgnoreNPC or {}
+	charData.BindType = charData.BindType or 1
+	charData.CustomItems = charData.CustomItems or {}
+	charData.CustomJunkList = charData.CustomJunkList or {}
+	charData.CustomNames = charData.CustomNames or {}
+	charData.InternalCD = charData.InternalCD or {}
+	charData.Mover = charData.Mover or {}
+	charData.RevealWorldMap = charData.RevealWorldMap or false
+	charData.SplitCount = charData.SplitCount or 1
+	charData.TempAnchor = charData.TempAnchor or {}
+	charData.Tracking = charData.Tracking or { PvP = {}, PvE = {} }
+	charData.QueueTimer = charData.QueueTimer or { PVEPopTime = {}, PVEQueuedTime = {} }
+
+	KkthnxUIDB.Settings = KkthnxUIDB.Settings or {}
+	KkthnxUIDB.Settings[K.Realm] = KkthnxUIDB.Settings[K.Realm] or {}
+	KkthnxUIDB.Settings[K.Realm][K.Name] = KkthnxUIDB.Settings[K.Realm][K.Name] or {}
+
+	KkthnxUIDB.ChatHistory = KkthnxUIDB.ChatHistory or {}
+	KkthnxUIDB.Gold = KkthnxUIDB.Gold or {}
+	KkthnxUIDB.ProfilePortraits = KkthnxUIDB.ProfilePortraits or {}
+	KkthnxUIDB.ShowSlots = KkthnxUIDB.ShowSlots or false
+	KkthnxUIDB.KeystoneInfo = KkthnxUIDB.KeystoneInfo or {}
+	KkthnxUIDB.DisabledAddOns = KkthnxUIDB.DisabledAddOns or {}
+	KkthnxUIDB.ChangelogVersion = KkthnxUIDB.ChangelogVersion or nil
+	KkthnxUIDB.ChangelogHighlightLatest = KkthnxUIDB.ChangelogHighlightLatest or false
+	KkthnxUIDB.DetectedVersion = KkthnxUIDB.DetectedVersion or nil
+end
+
+local function KKUI_CreateDefaults()
+	K.Defaults = {}
+
+	for group, options in pairs(C) do
+		if not K.Defaults[group] then
+			K.Defaults[group] = {}
+		end
+
+		for option, value in pairs(options) do
+			K.Defaults[group][option] = value
+		end
+	end
+end
+
+local function KKUI_LoadCustomSettings()
+	local Settings = KkthnxUIDB.Settings[K.Realm][K.Name]
+
+	-- Migration: Automation.AutoSkipCinematic -> Automation.ConfirmCinematicSkip
+	if Settings and Settings.Automation then
+		local s = Settings.Automation
+		if s.AutoSkipCinematic ~= nil and Settings.Automation.ConfirmCinematicSkip == nil then
+			Settings.Automation.ConfirmCinematicSkip = s.AutoSkipCinematic
+			s.AutoSkipCinematic = nil
+		end
+	end
+
+	for group, options in pairs(Settings) do
+		if C[group] then
+			local Count = 0
+
+			for option, value in pairs(options) do
+				if C[group][option] ~= nil then
+					if C[group][option] == value then
+						Settings[group][option] = nil
+					else
+						Count = Count + 1
+						C[group][option] = value
+					end
+				end
+			end
+
+			-- Keeps settings clean and small
+			if Count == 0 then
+				Settings[group] = nil
+			end
+		else
+			Settings[group] = nil
+		end
+	end
+end
+
+local function KKUI_LoadVariables()
+	KKUI_CreateDefaults()
+	KKUI_LoadCustomSettings()
+end
+
 local function KKUI_OnEvent(_, event, addonName)
 	if event == "ADDON_LOADED" and addonName == "KkthnxUI" then
 		local t0
@@ -63,9 +157,8 @@ local function KKUI_OnEvent(_, event, addonName)
 			t0 = debugprofilestop()
 		end
 		local success, err = pcall(function()
-			if K.Database and K.Database.Initialize then
-				K.Database:Initialize()
-			end
+			KKUI_VerifyDatabase()
+			KKUI_LoadVariables()
 			K:SetupUIScale(true)
 
 			-- Initialize subsystems later on PLAYER_LOGIN for smoother load
@@ -82,14 +175,15 @@ local function KKUI_OnEvent(_, event, addonName)
 		-- Ensure subsystems are enabled exactly once
 		KKUI_EnableModulesOnce()
 
-		-- Defer profile timestamp update to PLAYER_ENTERING_WORLD, but only when the helper is available.
-		local function UpdateProfileTimestampOnPEW()
+		-- Use a wrapper to avoid passing a potentially nil function reference at load time
+		K:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 			if K.UpdateProfileTimestamp then
 				K.UpdateProfileTimestamp()
-				K:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateProfileTimestampOnPEW)
+			else
+				-- Soft log to help diagnose load-order issues; this will run once at PEW
+				print("|cffff9900KkthnxUI:|r UpdateProfileTimestamp not ready at PLAYER_ENTERING_WORLD")
 			end
-		end
-		K:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateProfileTimestampOnPEW)
+		end)
 		K:UnregisterEvent(event, KKUI_OnEvent)
 	end
 end

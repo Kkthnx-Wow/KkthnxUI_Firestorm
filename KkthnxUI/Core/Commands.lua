@@ -187,7 +187,7 @@ local function AbandonZoneQuests()
 end
 
 local function StoreAndDisableAddons()
-	if KkthnxUIDB.Global and next(KkthnxUIDB.Global.DisabledAddOns) then
+	if next(KkthnxUIDB.DisabledAddOns) then
 		print("Debug mode is already active. Use '/kkdebug off' to restore addons.")
 		return
 	end
@@ -215,11 +215,7 @@ local function StoreAndDisableAddons()
 			for i = 1, addonCount do
 				local name = C_AddOns.GetAddOnInfo(i)
 				if name ~= "KkthnxUI" and C_AddOns.IsAddOnLoaded(name) then
-					if not KkthnxUIDB.Global then
-						KkthnxUIDB.Global = {}
-					end
-					KkthnxUIDB.Global.DisabledAddOns = KkthnxUIDB.Global.DisabledAddOns or {}
-					KkthnxUIDB.Global.DisabledAddOns[name] = true
+					KkthnxUIDB.DisabledAddOns[name] = true
 					C_AddOns.DisableAddOn(name)
 				end
 			end
@@ -235,20 +231,16 @@ local function StoreAndDisableAddons()
 end
 
 local function RestoreAddons()
-		StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
+	StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
 		text = "You are about to re-enable all previously disabled addons.|n|nThanks for using |cff5C8BCFKkthnxUI|r |cffff0000<3|r",
 		button1 = "Yes",
 		button2 = "No",
 		OnAccept = function()
-			if not (KkthnxUIDB.Global and KkthnxUIDB.Global.DisabledAddOns) then
-				return
-			end
-
-			for name in pairs(KkthnxUIDB.Global.DisabledAddOns) do
+			for name in pairs(KkthnxUIDB.DisabledAddOns) do
 				C_AddOns.EnableAddOn(name)
 			end
 
-			wipe(KkthnxUIDB.Global.DisabledAddOns)
+			wipe(KkthnxUIDB.DisabledAddOns)
 			-- print("Addons have been restored to their previous states. Reloading UI...") -- Pointless
 			ReloadUI()
 		end,

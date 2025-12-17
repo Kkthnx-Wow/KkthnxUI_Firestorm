@@ -7,10 +7,6 @@ local string_find = string.find
 local table_insert = table.insert
 local table_remove = table.remove
 local table_wipe = table.wipe
-local type = type
-local unpack = unpack
-local math_floor = math.floor
-local tonumber = tonumber
 
 local C_Item_GetItemInfo = C_Item.GetItemInfo
 local C_Item_GetItemCooldown = C_Item.GetItemCooldown
@@ -39,7 +35,7 @@ local UnitName = UnitName
 
 -- Constants
 local maxFrames = 12
-local hasCentralize = false
+local hasCentralize
 
 -- Pre-allocate tables
 local auraWatchUpdater = CreateFrame("Frame")
@@ -79,8 +75,7 @@ local function DataAnalyze(v)
 end
 
 local function InsertData(index, target)
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if charDB and charDB.AuraWatchList and charDB.AuraWatchList.Switcher and charDB.AuraWatchList.Switcher[index] then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.Switcher[index] then
 		table_wipe(target)
 	end
 
@@ -94,15 +89,13 @@ local function InsertData(index, target)
 end
 
 local function ConvertTable()
-	-- Initialize user custom tables
 	for i = 1, 10 do
 		if myTable[i] then
 			table_wipe(myTable[i])
 		end
 		myTable[i] = myTable[i] or {}
 
-		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-		local value = charDB and charDB.AuraWatchList and charDB.AuraWatchList[i]
+		local value = KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList[i]
 		if value and next(value) then
 			for spellID, v in pairs(value) do
 				myTable[i][spellID] = DataAnalyze(v)
@@ -110,20 +103,14 @@ local function ConvertTable()
 		end
 	end
 
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local internalCD = charDB and charDB.InternalCD or {}
+	local internalCD = KkthnxUIDB.Variables[K.Realm][K.Name].InternalCD
 	if next(internalCD) then
 		for spellID, v in pairs(internalCD) do
 			myTable[10][spellID] = DataAnalyze(v)
 		end
 	end
 
-	-- [FIX] Safety check: If config wasn't loaded, don't crash
-	if not C.AuraWatchList then
-		return
-	end
-
-	local auraWatchList = C.AuraWatchList[K.Class] or {}
+	local auraWatchList = C.AuraWatchList[K.Class]
 	for _, v in pairs(auraWatchList) do
 		if v.Name == "Special Aura" then
 			InsertData(1, v.List)
@@ -134,7 +121,7 @@ local function ConvertTable()
 		end
 	end
 
-	local allAuras = C.AuraWatchList["ALL"] or {}
+	local allAuras = C.AuraWatchList["ALL"]
 	for i, v in pairs(allAuras) do
 		if v.Name == "Enchant Aura" then
 			InsertData(5, v.List)
@@ -155,23 +142,12 @@ end
 local function BuildAuraList()
 	AuraList = {}
 
-	-- [FIX] Safety check: Ensure the list exists before iterating
-	if not C.AuraWatchList then
-		return
-	end
-
-	local allAuras = C.AuraWatchList["ALL"] or {}
-	local classAuras = C.AuraWatchList[K.Class] or {}
-
-	-- Copy all entries into our local AuraList
-	for _, value in pairs(allAuras) do
-		table_insert(AuraList, value)
-	end
+	AuraList = C.AuraWatchList["ALL"] or {}
+	local classAuras = C.AuraWatchList[K.Class]
 	for _, value in pairs(classAuras) do
 		table_insert(AuraList, value)
 	end
 
-	-- Clear C table to free memory now that we have local copies
 	C.AuraWatchList = {}
 end
 
@@ -239,15 +215,7 @@ end
 
 function Module:RemoveSpellFromAuraList()
 	if IsAltKeyDown() and IsControlKeyDown() and self.type == 4 and self.spellID then
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		charDB.AuraWatchList = charDB.AuraWatchList or { Switcher = {}, IgnoreSpells = {} }
-		charDB.AuraWatchList.IgnoreSpells = charDB.AuraWatchList.IgnoreSpells or {}
-		charDB.AuraWatchList.IgnoreSpells[self.spellID] = true
-		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+		KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[self.spellID] = true
 		K.Print(string.format(L["AddToIgnoreList"], "", self.spellID))
 	end
 end
@@ -470,8 +438,8 @@ function Module:AuraWatch_UpdateTimer()
 		self.Statusbar.Spark:Show()
 	else
 		if self.Time then
-			local mins = math_floor(timer / 60)
-			local secs = math_floor(timer - mins * 60)
+			local mins = math.floor(timer / 60)
+			local secs = math.floor(timer - mins * 60)
 			self.Time:SetFormattedText("%d:%02d", mins, secs)
 		end
 		self.Statusbar:SetMinMaxValues(0, self.duration)
@@ -537,9 +505,8 @@ function Module:AuraWatch_UpdateCD()
 			if value then
 				if value.SpellID then
 					local name, icon = C_Spell_GetSpellName(value.SpellID), C_Spell_GetSpellTexture(value.SpellID)
-					local cooldownInfo = C_Spell_GetSpellCooldown(value.SpellID)
-					local start = cooldownInfo and cooldownInfo.startTime
-					local duration = cooldownInfo and cooldownInfo.duration
+					local start = C_Spell_GetSpellCooldown(value.SpellID).startTime
+					local duration = C_Spell_GetSpellCooldown(value.SpellID).duration
 					local charges, maxCharges, chargeStart, chargeDuration = C_Spell_GetSpellCharges(value.SpellID)
 
 					if group.Mode == "ICON" then
@@ -548,7 +515,7 @@ function Module:AuraWatch_UpdateCD()
 
 					if charges and maxCharges and maxCharges > 1 and charges < maxCharges then
 						Module:AuraWatch_SetupCD(KEY, name, icon, chargeStart, chargeDuration, true, 1, value.SpellID, charges)
-					elseif start and duration and duration > 3 then
+					elseif start and duration > 3 then
 						Module:AuraWatch_SetupCD(KEY, name, icon, start, duration, true, 1, value.SpellID)
 					end
 				elseif value.ItemID then
@@ -651,9 +618,7 @@ function Module:AuraWatch_SetupAura(KEY, unit, index, filter, name, icon, count,
 end
 
 function Module:AuraWatch_UpdateAura(unit, index, filter, name, icon, count, duration, expires, caster, spellID, number, inCombat)
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local ignore = charDB and charDB.AuraWatchList and charDB.AuraWatchList.IgnoreSpells or {}
-	if ignore[spellID] then -- ignore spells
+	if KkthnxUIDB.Variables[K.Realm][K.Name].AuraWatchList.IgnoreSpells[spellID] then -- ignore spells
 		return
 	end
 
@@ -1042,7 +1007,7 @@ function Module:AuraWatch_Centralize(force)
 	for i = 1, #FrameList do
 		local frames = FrameList[i]
 		local frame1 = frames and frames[1]
-		if frame1 and frame1.__direction == "CENTER" and frame1:IsShown() then
+		if frame1.__direction == "CENTER" and frame1:IsShown() then
 			local numIndex = force and 7 or frames.Index
 			local width = frame1.__width
 			local interval = frame1.__interval

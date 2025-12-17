@@ -133,25 +133,17 @@ end
 
 -- Persist PvE pop time to survive reloads
 local function SavePVEPopTime()
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	charDB.QueueTimer = charDB.QueueTimer or {}
-	charDB.QueueTimer.PVEPopTime = GetTime()
-	KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+	KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer or {}
+	KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer.PVEPopTime = GetTime()
 end
 
 local function LoadPVEPopTime()
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local t = charDB and charDB.QueueTimer
+	local t = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer
 	return t and t.PVEPopTime or nil
 end
 
 local function ClearPVEPopTime()
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local t = charDB and charDB.QueueTimer
+	local t = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer
 	if t then
 		t.PVEPopTime = nil
 	end

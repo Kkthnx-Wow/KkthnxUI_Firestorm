@@ -284,14 +284,10 @@ end
 
 function Module:Bind_Deactivate(save)
 	if save == true then
-		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-		local bindType = charDB and charDB.BindType or 1
-		SaveBindings(bindType)
+		SaveBindings(KkthnxUIDB.Variables[K.Realm][K.Name].BindType)
 		K.Print(" |cff00ff00" .. L["Save KeyBinds"] .. "|r")
 	else
-		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-		local bindType = charDB and charDB.BindType or 1
-		LoadBindings(bindType)
+		LoadBindings(KkthnxUIDB.Variables[K.Realm][K.Name].BindType)
 		K.Print(" |cffffff00" .. L["Discard KeyBinds"] .. "|r")
 	end
 
@@ -366,18 +362,10 @@ function Module:Bind_CreateDialog()
 	local checkBox = CreateFrame("CheckButton", nil, frame, "InterfaceOptionsBaseCheckButtonTemplate")
 	checkBox:SetSize(20, 20)
 	checkBox:SkinCheckBox()
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local bindType = charDB and charDB.BindType or 1
-	checkBox:SetChecked(bindType == 2)
+	checkBox:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].BindType == 2)
 	checkBox:SetPoint("RIGHT", frame.bottom, "LEFT", -6, 0)
 	checkBox:SetScript("OnClick", function(self)
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local db = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		db.BindType = self:GetChecked() and 2 or 1
-		KkthnxUIDB.Global.Characters[K.UserKey] = db
+		KkthnxUIDB.Variables[K.Realm][K.Name].BindType = self:GetChecked() and 2 or 1
 	end)
 
 	checkBox.text = frame.bottom:CreateFontString(nil, "OVERLAY", "GameFontNormal")

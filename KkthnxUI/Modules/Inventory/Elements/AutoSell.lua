@@ -50,7 +50,7 @@ local function startSelling()
 		t0 = debugprofilestop()
 	end
 
-local charDB = KkthnxUIDB and KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+	local charDB = KkthnxUIDB and KkthnxUIDB.Variables and KkthnxUIDB.Variables[K.Realm] and KkthnxUIDB.Variables[K.Realm][K.Name]
 	local customJunk = charDB and charDB.CustomJunkList
 
 	local total = #toSell
@@ -114,7 +114,7 @@ local function updateAutoSell(event, ...)
 		sellIndex = 1
 
 		-- Build a list of candidates once to avoid repeated full rescans
-		local charDB = KkthnxUIDB and KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
+		local charDB = KkthnxUIDB and KkthnxUIDB.Variables and KkthnxUIDB.Variables[K.Realm] and KkthnxUIDB.Variables[K.Realm][K.Name]
 		local customJunk = charDB and charDB.CustomJunkList
 		for bag = 0, 5 do
 			local numSlots = C_Container_GetContainerNumSlots(bag)

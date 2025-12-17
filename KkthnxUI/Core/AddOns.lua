@@ -178,13 +178,7 @@ local function ForceHekiliOptions()
 		},
 	}
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	meta.HekiliRequest = false
-	KkthnxUIDB.Global.Characters[K.UserKey] = meta
+	KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest = false
 end
 
 local function ForceMaxDPSOptions()
@@ -208,13 +202,7 @@ local function ForceMaxDPSOptions()
 		},
 	}
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	meta.MaxDpsRequest = false
-	KkthnxUIDB.Global.Characters[K.UserKey] = meta
+	KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest = false
 end
 
 local function ForceDBMOptions()
@@ -272,13 +260,7 @@ local function ForceDBMOptions()
 	DBM_ASO["Default"]["WarningFontSize"] = 18
 	DBM_ASO["Default"]["SpecialWarningFontSize2"] = 24
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	meta.DBMRequest = false
-	KkthnxUIDB.Global.Characters[K.UserKey] = meta
+	KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest = false
 end
 
 local function ForceCursorTrail()
@@ -303,13 +285,7 @@ local function ForceCursorTrail()
 		["Strata"] = "HIGH",
 	}
 
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local meta = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	meta.CursorTrailRequest = false
-	KkthnxUIDB.Global.Characters[K.UserKey] = meta
+	KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest = false
 end
 
 function Module:ForceAddonSkins()
@@ -317,20 +293,19 @@ function Module:ForceAddonSkins()
 		return
 	end
 
-	local meta = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if meta and meta.DBMRequest then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].DBMRequest then
 		ForceDBMOptions()
 	end
 
-	if meta and meta.MaxDpsRequest then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].MaxDpsRequest then
 		ForceMaxDPSOptions()
 	end
 
-	if meta and meta.CursorTrailRequest then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].CursorTrailRequest then
 		ForceCursorTrail()
 	end
 
-	if meta and meta.HekiliRequest then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].HekiliRequest then
 		ForceHekiliOptions()
 	end
 end

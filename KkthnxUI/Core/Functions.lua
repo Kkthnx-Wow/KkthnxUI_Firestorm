@@ -9,7 +9,6 @@ local string_format = string.format
 local string_gsub = string.gsub
 local string_lower = string.lower
 local string_match = string.match
-local strsplit = strsplit
 local tonumber = tonumber
 local type = type
 local unpack = unpack
@@ -296,15 +295,8 @@ do
 	end
 
 	function K.GetNPCID(guid)
-		if not guid then
-			return
-		end
-
-		-- Use C-side strsplit instead of pattern matching for better performance
-		local _, _, _, _, _, npcID = strsplit("-", guid)
-		if npcID then
-			return tonumber(npcID)
-		end
+		local id = tonumber(string_match((guid or ""), "%-(%d-)%-%x-$"))
+		return id
 	end
 
 	function K.CheckAddOnState(addon)
@@ -1021,30 +1013,10 @@ do
 				return
 			end
 
-			local name = frame:GetName()
-			if not name then
-				return
-			end
-
 			local orig, _, tar, x, y = frame:GetPoint()
-			if not orig or not tar then
-				return
-			end
-
-			-- Normalize to UIParent and round coordinates for stability
-			x = K.Round and K.Round(x) or x
-			y = K.Round and K.Round(y) or y
-
-			frame:ClearAllPoints()
-			frame:SetPoint(orig, UIParent, tar, x, y)
-
-			-- Store per-profile temporary anchor
-			C.TempAnchor = C.TempAnchor or {}
-			C.TempAnchor[name] = { orig, "UIParent", tar, x, y }
-
-			-- Persist into the active profile when the profile system is available
-			if K.Database and K.Database.SetConfigPath then
-				K.Database:SetConfigPath("TempAnchor." .. name, C.TempAnchor[name])
+			if KkthnxUIDB.Variables and KkthnxUIDB.Variables[K.Realm] and KkthnxUIDB.Variables[K.Realm][K.Name] then
+				KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"] = KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"] or {}
+				KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][frame:GetName()] = { orig, "UIParent", tar, x, y }
 			end
 		end)
 	end
@@ -1055,22 +1027,13 @@ do
 		end
 
 		local name = self:GetName()
-		if not name then
-			return
+		if name and KkthnxUIDB.Variables and KkthnxUIDB.Variables[K.Realm] and KkthnxUIDB.Variables[K.Realm][K.Name] then
+			local anchorData = KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"] and KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][name]
+			if anchorData then
+				self:ClearAllPoints()
+				self:SetPoint(unpack(anchorData))
+			end
 		end
-
-		local points = C.TempAnchor and C.TempAnchor[name]
-		if not points or type(points) ~= "table" then
-			return
-		end
-
-		local orig, _, tar, x, y = unpack(points)
-		if not orig or not tar then
-			return
-		end
-
-		self:ClearAllPoints()
-		self:SetPoint(orig, UIParent, tar, x, y)
 	end
 
 	function K.ShortenString(string, numChars, dots)

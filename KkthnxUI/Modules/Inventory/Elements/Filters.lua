@@ -95,9 +95,9 @@ local function isItemJunk(item)
 
 	-- Lazy cache character variables to reduce deep table lookups
 	if not charVars then
-		local db = KkthnxUIDB and KkthnxUIDB.Global and KkthnxUIDB.Global.Characters
-		if db and db[K.UserKey] then
-			charVars = db[K.UserKey]
+		local db = KkthnxUIDB and KkthnxUIDB.Variables
+		if db and db[K.Realm] and db[K.Realm][K.Name] then
+			charVars = db[K.Realm][K.Name]
 		end
 	end
 	local isCustomJunk = charVars and charVars.CustomJunkList and charVars.CustomJunkList[item.id]
@@ -196,9 +196,9 @@ local function isItemCustom(item, index)
 
 	-- Use cached character variables for faster lookup
 	if not charVars then
-		local db = KkthnxUIDB and KkthnxUIDB.Global and KkthnxUIDB.Global.Characters
-		if db and db[K.UserKey] then
-			charVars = db[K.UserKey]
+		local db = KkthnxUIDB and KkthnxUIDB.Variables
+		if db and db[K.Realm] and db[K.Realm][K.Name] then
+			charVars = db[K.Realm][K.Name]
 		end
 	end
 	local customIndex = charVars and charVars.CustomItems and charVars.CustomItems[item.id]

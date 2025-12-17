@@ -1280,18 +1280,13 @@ function Module:UpdateRaidDebuffIndicator()
 				ORD:RegisterDebuffs(C["DebuffsTracking_PvE"].spells)
 			end
 
-			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-			if charDB and charDB.Tracking and charDB.Tracking.PvE then
-				ORD:RegisterDebuffs(charDB.Tracking.PvE)
-			end
+			ORD:RegisterDebuffs(KkthnxUIDB.Variables[K.Realm][K.Name].Tracking.PvE)
 		else
 			if C["Raid"].DebuffWatchDefault or C["SimpleParty"].DebuffWatchDefault then
 				ORD:RegisterDebuffs(C["DebuffsTracking_PvP"].spells)
 			end
-			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-			if charDB and charDB.Tracking and charDB.Tracking.PvP then
-				ORD:RegisterDebuffs(charDB.Tracking.PvP)
-			end
+
+			ORD:RegisterDebuffs(KkthnxUIDB.Variables[K.Realm][K.Name].Tracking.PvP)
 		end
 	end
 end

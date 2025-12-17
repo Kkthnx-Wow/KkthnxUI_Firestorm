@@ -325,7 +325,10 @@ local function CloseOrRestoreBags(self, btn)
 		local bank = self.__owner.bank
 		local reagent = self.__owner.reagent
 		local account = self.__owner.accountbank
-		-- TempAnchor is legacy; positions are now controlled by Movers/profile
+		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bag:GetName()] = nil
+		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bank:GetName()] = nil
+		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][reagent:GetName()] = nil
+		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][account:GetName()] = nil
 		bag:ClearAllPoints()
 		bag:SetPoint(unpack(bag.__anchor))
 		bank:ClearAllPoints()
@@ -486,8 +489,7 @@ local function updateDepositButtonStatus(bu)
 		return
 	end
 
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if charDB and charDB.AutoDeposit then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit then
 		bu.KKUI_Border:SetVertexColor(1, 0.8, 0)
 	else
 		bu.KKUI_Border:SetVertexColor(1, 1, 1)
@@ -495,8 +497,7 @@ local function updateDepositButtonStatus(bu)
 end
 
 function Module:AutoDeposit()
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	if charDB and charDB.AutoDeposit and not IsShiftKeyDown() then
+	if KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit and not IsShiftKeyDown() then
 		DepositReagentBank()
 	end
 end
@@ -515,13 +516,7 @@ function Module:CreateDepositButton()
 	DepositButton:RegisterForClicks("AnyUp")
 	DepositButton:SetScript("OnClick", function(_, btn)
 		if btn == "RightButton" then
-			if not KkthnxUIDB.Global then
-				KkthnxUIDB.Global = {}
-			end
-			KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-			local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-			charDB.AutoDeposit = not charDB.AutoDeposit
-			KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+			KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit = not KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit
 			updateDepositButtonStatus(DepositButton)
 		else
 			DepositReagentBank()
@@ -745,13 +740,7 @@ end
 
 local function saveSplitCount(self)
 	local count = self:GetText() or ""
-	if not KkthnxUIDB.Global then
-		KkthnxUIDB.Global = {}
-	end
-	KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-	local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-	charDB.SplitCount = tonumber(count) or 1
-	KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+	KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount = tonumber(count) or 1
 end
 
 local function editBoxClearFocus(self)
@@ -807,9 +796,7 @@ function Module:CreateSplitButton()
 			self.Icon:SetDesaturated(true)
 			self.text = enabledText
 			splitFrame:Show()
-			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-			local value = charDB and charDB.SplitCount or 1
-			editBox:SetText(value)
+			editBox:SetText(KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
 		else
 			self.__turnOff()
 		end
@@ -835,10 +822,8 @@ local function splitOnClick(self)
 	local texture = info and info.iconFileID
 	local itemCount = info and info.stackCount
 	local locked = info and info.isLocked
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local splitCount = charDB and charDB.SplitCount or 1
-	if texture and not locked and itemCount and itemCount > splitCount then
-		SplitContainerItem(self.bagId, self.slotId, splitCount)
+	if texture and not locked and itemCount and itemCount > KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount then
+		SplitContainerItem(self.bagId, self.slotId, KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
 
 		local bagID, slotID = Module:GetEmptySlot("Bag")
 		if slotID then
@@ -848,9 +833,7 @@ local function splitOnClick(self)
 end
 
 local function GetCustomGroupTitle(index)
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local names = charDB and charDB.CustomNames
-	return (names and names[index]) or (CUSTOM .. " " .. FILTER .. " " .. index)
+	return KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] or (CUSTOM .. " " .. FILTER .. " " .. index)
 end
 
 StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
@@ -860,14 +843,7 @@ StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
 	OnAccept = function(self)
 		local index = Module.selectGroupIndex
 		local text = self.editBox:GetText()
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		charDB.CustomNames = charDB.CustomNames or {}
-		charDB.CustomNames[index] = text ~= "" and text or nil
-		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+		KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] = text ~= "" and text or nil
 
 		Module.CustomMenu[index + 2].text = GetCustomGroupTitle(index)
 		Module.ContainerGroups["Bag"][index].label:SetText(GetCustomGroupTitle(index))
@@ -890,18 +866,11 @@ end
 function Module:MoveItemToCustomBag(index)
 	local itemID = Module.selectItemID
 	if index == 0 then
-		if KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey] and KkthnxUIDB.Global.Characters[K.UserKey].CustomItems then
-			KkthnxUIDB.Global.Characters[K.UserKey].CustomItems[itemID] = nil
+		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] then
+			KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = nil
 		end
 	else
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		charDB.CustomItems = charDB.CustomItems or {}
-		charDB.CustomItems[itemID] = index
-		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
+		KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = index
 	end
 	Module:UpdateAllBags()
 end
@@ -909,9 +878,7 @@ end
 function Module:IsItemInCustomBag()
 	local index = self.arg1
 	local itemID = Module.selectItemID
-	local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-	local custom = charDB and charDB.CustomItems or {}
-	return (index == 0 and not custom[itemID]) or (custom[itemID] == index)
+	return (index == 0 and not KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID]) or (KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] == index)
 end
 
 function Module:CreateFavouriteButton()
@@ -1053,18 +1020,11 @@ local function customJunkOnClick(self)
 	local itemID = info and info.itemID
 	local price = select(11, GetItemInfo(itemID))
 	if texture and price > 0 then
-		if not KkthnxUIDB.Global then
-			KkthnxUIDB.Global = {}
-		end
-		KkthnxUIDB.Global.Characters = KkthnxUIDB.Global.Characters or {}
-		local charDB = KkthnxUIDB.Global.Characters[K.UserKey] or { Tracking = { PvP = {}, PvE = {} } }
-		charDB.CustomJunkList = charDB.CustomJunkList or {}
-		if charDB.CustomJunkList[itemID] then
-			charDB.CustomJunkList[itemID] = nil
+		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] then
+			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = nil
 		else
-			charDB.CustomJunkList[itemID] = true
+			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = true
 		end
-		KkthnxUIDB.Global.Characters[K.UserKey] = charDB
 		ClearCursor()
 		Module:UpdateAllBags()
 	end
@@ -1510,9 +1470,7 @@ function Module:OnEnable()
 
 	function MyButton:OnUpdateButton(item)
 		if self.JunkIcon then
-			local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-			local customJunk = charDB and charDB.CustomJunkList or {}
-			if (item.quality == Enum.ItemQuality.Poor or customJunk[item.id]) and item.hasPrice then
+			if (item.quality == Enum.ItemQuality.Poor or KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[item.id]) and item.hasPrice then
 				self.JunkIcon:Show()
 			else
 				self.JunkIcon:Hide()
@@ -1550,9 +1508,7 @@ function Module:OnEnable()
 			SetItemCraftingQualityOverlay(self, item.link)
 		end
 
-		local charDB = KkthnxUIDB.Global and KkthnxUIDB.Global.Characters and KkthnxUIDB.Global.Characters[K.UserKey]
-		local customItems = charDB and charDB.CustomItems or {}
-		if customItems[item.id] and not C["Inventory"].ItemFilter then
+		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[item.id] and not C["Inventory"].ItemFilter then
 			self.Favourite:Show()
 		else
 			self.Favourite:Hide()
@@ -1895,7 +1851,7 @@ function Module:OnEnable()
 	-- Update DataText slots
 	if _G.KKUI_GoldDataText then
 		Backpack.OnOpen = function()
-			if not (KkthnxUIDB.Global and KkthnxUIDB.Global.ShowSlots) then
+			if not KkthnxUIDB.ShowSlots then
 				return
 			end
 			K.GoldButton_OnEvent()

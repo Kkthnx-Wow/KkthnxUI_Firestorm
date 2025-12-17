@@ -1,28 +1,14 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:NewModule("AurasTable")
 
-local unpack = unpack
-local pairs = pairs
 local string_format = string.format
-local table_insert = table.insert
 local table_wipe = table.wipe
-local type = type
-local pcall = pcall
-local tostring = tostring
-local print = print
 
 local C_Spell_GetSpellInfo = C_Spell.GetSpellInfo
 local UIParent = UIParent
 
--- 1. Initialize K.Defaults (The Source of Truth)
-K.Defaults = K.Defaults or {}
-K.Defaults.AuraWatchList = K.Defaults.AuraWatchList or {}
-
--- Local reference for faster access within this file
-local AuraWatchList = K.Defaults.AuraWatchList
-
+local AuraWatchList = {}
 local groups = {
-	-- Direction, Interval, Mode, IconSize, Position, BarWidth
 	["Special Aura"] = { "LEFT", 6, "ICON", 30, { "BOTTOMRIGHT", UIParent, "BOTTOM", -160, 432 } },
 	["Focus Aura"] = { "RIGHT", 6, "ICON", 35, { "BOTTOMLEFT", UIParent, "LEFT", 5, -230 } },
 	["Spell Cooldown"] = { "UP", 6, "BAR", 20, { "BOTTOMRIGHT", UIParent, "BOTTOM", -486, 120 }, 150 },
@@ -45,16 +31,15 @@ local function newAuraFormat(value)
 end
 
 function Module:AddNewAuraWatch(class, list)
-	-- Input Validation: Remove invalid spell IDs before processing
 	for _, k in pairs(list) do
 		for _, v in pairs(k) do
 			local spellID = v.AuraID or v.SpellID
 			if spellID then
 				local name = C_Spell_GetSpellInfo(spellID)
 				if not name then
-					table_wipe(v) -- Wipe invalid entries
+					table_wipe(v)
 					if K.isDeveloper then
-						print(string_format("|cffFF0000Invalid spellID:|r '%s' %s", class, spellID))
+						K.Print(string_format("|cffFF0000Invalid spellID:|r '%s' %s", class, spellID))
 					end
 				end
 			end
@@ -70,33 +55,21 @@ function Module:AddNewAuraWatch(class, list)
 	end
 
 	for name, v in pairs(list) do
-		local groupInfo = groups[name]
-		if groupInfo then
-			local direction, interval, mode, size, pos, width = unpack(groupInfo)
-			table_insert(AuraWatchList[class], {
-				Name = name,
-				Direction = direction,
-				Interval = interval,
-				Mode = mode,
-				IconSize = size,
-				Pos = pos,
-				BarWidth = width,
-				List = newAuraFormat(v),
-			})
-		end
+		local direction, interval, mode, size, pos, width = unpack(groups[name])
+		table.insert(AuraWatchList[class], {
+			Name = name,
+			Direction = direction,
+			Interval = interval,
+			Mode = mode,
+			IconSize = size,
+			Pos = pos,
+			BarWidth = width,
+			List = newAuraFormat(v),
+		})
 	end
 end
 
 function Module:AddDeprecatedGroup()
-	-- Support for legacy tables if they exist in C (from older files)
-	if not C.DeprecatedAuras then
-		return
-	end
-
-	if not AuraWatchList["ALL"] then
-		AuraWatchList["ALL"] = {}
-	end
-
 	for name, value in pairs(C.DeprecatedAuras) do
 		for _, list in pairs(AuraWatchList["ALL"]) do
 			if list.Name == name then
@@ -121,13 +94,10 @@ function Module:OnEnable()
 		if type(func) == "function" then
 			local success, err = pcall(func, self)
 			if not success then
-				-- Non-blocking error logging
-				print(string_format("|cffFF0000AuraWatch Error:|r %s: %s", funcName, tostring(err)))
+				error("Error in function " .. funcName .. ": " .. tostring(err), 2)
 			end
 		end
 	end
 
-	-- BRIDGE: Ensure C.AuraWatchList sees the data in K.Defaults
-	-- This guarantees that modules reading 'C' get the data, regardless of Settings.lua timing.
-	C.AuraWatchList = K.Defaults.AuraWatchList
+	C.AuraWatchList = AuraWatchList
 end

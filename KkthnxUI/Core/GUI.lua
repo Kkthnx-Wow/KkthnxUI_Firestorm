@@ -356,9 +356,19 @@ function SetConfigValue(configPath, value, requiresReload, settingName)
 	-- Set in runtime config
 	SetValueByPath(C, configPath, value)
 
-	-- Save to active profile via Database module (profile-centric storage)
-	if K.Database and K.Database.SetConfigPath then
-		K.Database:SetConfigPath(configPath, value)
+	-- Save to database (with safety check)
+	if KkthnxUIDB then
+		if not KkthnxUIDB.Settings then
+			KkthnxUIDB.Settings = {}
+		end
+		if not KkthnxUIDB.Settings[K.Realm] then
+			KkthnxUIDB.Settings[K.Realm] = {}
+		end
+		if not KkthnxUIDB.Settings[K.Realm][K.Name] then
+			KkthnxUIDB.Settings[K.Realm][K.Name] = {}
+		end
+
+		SetValueByPath(KkthnxUIDB.Settings[K.Realm][K.Name], configPath, value)
 	else
 		-- Database not yet available, settings will only be stored in runtime config
 		-- This is normal during initial loading
