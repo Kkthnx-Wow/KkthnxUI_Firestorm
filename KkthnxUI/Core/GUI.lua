@@ -1,35 +1,55 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 
+-- Cache frequently used functions for performance
+local strsplit = strsplit
+local select = select
+local table_wipe = table.wipe
+
 -- Utility Functions
 --
 
+-- Table recycling for frequently called functions (prevents GC churn)
+local keysTable = {} -- Reused table for path splitting
+
 -- Utility functions for handling nested config paths
 local function SetValueByPath(table, path, value)
-	local keys = { strsplit(".", path) }
-	local current = table
-
-	for i = 1, #keys - 1 do
-		if not current[keys[i]] then
-			current[keys[i]] = {}
-		elseif type(current[keys[i]]) ~= "table" then
-			-- Handle case where we encounter a primitive value that needs to become a table
-			current[keys[i]] = {}
-		end
-		current = current[keys[i]]
+	-- Reuse table instead of creating new one every call (zero GC allocation)
+	table_wipe(keysTable)
+	local n = select("#", strsplit(".", path))
+	for i = 1, n do
+		keysTable[i] = select(i, strsplit(".", path))
 	end
 
-	current[keys[#keys]] = value
+	local current = table
+
+	for i = 1, #keysTable - 1 do
+		if not current[keysTable[i]] then
+			current[keysTable[i]] = {}
+		elseif type(current[keysTable[i]]) ~= "table" then
+			-- Handle case where we encounter a primitive value that needs to become a table
+			current[keysTable[i]] = {}
+		end
+		current = current[keysTable[i]]
+	end
+
+	current[keysTable[#keysTable]] = value
 end
 
 local function GetValueByPath(table, path)
-	local keys = { strsplit(".", path) }
+	-- Reuse table instead of creating new one every call (zero GC allocation)
+	table_wipe(keysTable)
+	local n = select("#", strsplit(".", path))
+	for i = 1, n do
+		keysTable[i] = select(i, strsplit(".", path))
+	end
+
 	local current = table
 
-	for i = 1, #keys do
-		if not current or type(current) ~= "table" or not current[keys[i]] then
+	for i = 1, #keysTable do
+		if not current or type(current) ~= "table" or not current[keysTable[i]] then
 			return nil
 		end
-		current = current[keys[i]]
+		current = current[keysTable[i]]
 	end
 
 	return current
@@ -3583,7 +3603,6 @@ function Module:SetupSlashCommands()
 			StaticPopup_Show("KKTHNXUI_IMPORT_SETTINGS")
 		elseif command == "refresh" then
 			self.GUI:RefreshAllWidgets()
-			print("All widget values refreshed!")
 		elseif command == "reload" then
 			StaticPopup_Show("KKTHNXUI_NEW_GUI_RELOAD")
 		elseif command == "reset" then

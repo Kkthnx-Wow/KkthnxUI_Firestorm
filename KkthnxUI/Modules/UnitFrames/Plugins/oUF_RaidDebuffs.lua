@@ -402,7 +402,6 @@ local function Enable(self)
 		end
 
 		if not element.KKUI_Border then
-			print(element.KKUI_Border)
 			element:CreateBorder()
 		end
 

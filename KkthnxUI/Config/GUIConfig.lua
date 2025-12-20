@@ -901,6 +901,10 @@ local function CreateNameplateCategory()
 		end
 	end
 
+	-- Table recycling for UpdateCustomUnitList (prevents GC churn)
+	local setTable = {} -- Reused table for set operations
+	local mergedTable = {} -- Reused table for merged results
+
 	local function UpdateCustomUnitList(newValue, oldValue, path)
 		-- Treat this input as a buffer: merge tokens into the real list, then clear the buffer
 		local input = tostring(newValue or "")
@@ -911,19 +915,20 @@ local function CreateNameplateCategory()
 
 		if input ~= "" then
 			local existing = tostring(C["Nameplate"].CustomUnitList or "")
-			local set = {}
+			-- Reuse tables instead of creating new ones (zero GC allocation)
+			table.wipe(setTable)
+			table.wipe(mergedTable)
 			for w in string.gmatch(existing, "%S+") do
-				set[w] = true
+				setTable[w] = true
 			end
 			for w in string.gmatch(input, "%S+") do
-				set[w] = true
+				setTable[w] = true
 			end
-			local merged = {}
-			for w in pairs(set) do
-				table.insert(merged, w)
+			for w in pairs(setTable) do
+				table.insert(mergedTable, w)
 			end
-			table.sort(merged)
-			local mergedStr = table.concat(merged, " ")
+			table.sort(mergedTable)
+			local mergedStr = table.concat(mergedTable, " ")
 
 			if K.GUI and K.GUI.GUI and K.GUI.GUI.SetConfigValue then
 				K.GUI.GUI:SetConfigValue("Nameplate.CustomUnitList", mergedStr)
@@ -952,19 +957,20 @@ local function CreateNameplateCategory()
 
 		if input ~= "" then
 			local existing = tostring(C["Nameplate"].PowerUnitList or "")
-			local set = {}
+			-- Reuse tables instead of creating new ones (zero GC allocation)
+			table.wipe(setTable)
+			table.wipe(mergedTable)
 			for w in string.gmatch(existing, "%S+") do
-				set[w] = true
+				setTable[w] = true
 			end
 			for w in string.gmatch(input, "%S+") do
-				set[w] = true
+				setTable[w] = true
 			end
-			local merged = {}
-			for w in pairs(set) do
-				table.insert(merged, w)
+			for w in pairs(setTable) do
+				table.insert(mergedTable, w)
 			end
-			table.sort(merged)
-			local mergedStr = table.concat(merged, " ")
+			table.sort(mergedTable)
+			local mergedStr = table.concat(mergedTable, " ")
 
 			if K.GUI and K.GUI.GUI and K.GUI.GUI.SetConfigValue then
 				K.GUI.GUI:SetConfigValue("Nameplate.PowerUnitList", mergedStr)
