@@ -432,7 +432,7 @@ function ExtraGUI:CreateFrame()
 	title:SetFontObject(K.UIFont)
 	title:SetTextColor(1, 1, 1, 1)
 	title:SetText(L["Extra Configuration"] or "Extra Configuration")
-	title:SetPoint("LEFT", 15, 0)
+	title:SetPoint("CENTER", 0, -1)
 
 	-- Close Button using atlas icon
 	local closeButton = CreateFrame("Button", nil, titleBar)

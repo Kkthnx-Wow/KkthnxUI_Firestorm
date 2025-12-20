@@ -3126,9 +3126,9 @@ function GUI:ShowCategory(category)
 	PopulateContent(category)
 
 	-- Ensure any widgets that should have ExtraGUI cogwheels get them attached
-	if self.AttachExtraCogwheels then
-		self:AttachExtraCogwheels()
-	end
+	-- if self.AttachExtraCogwheels then
+	-- 	self:AttachExtraCogwheels()
+	-- end
 
 	-- Safety: re-evaluate dependency states for all widgets after population
 	if category and category.Widgets then
