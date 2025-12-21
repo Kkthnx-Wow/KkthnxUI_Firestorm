@@ -6,7 +6,6 @@ local K, C = _G.KkthnxUI[1], _G.KkthnxUI[2]
 local _G = _G
 local CreateFrame = CreateFrame
 local pairs = pairs
-local tostring = tostring
 local debugprofilestop = debugprofilestop
 local string_format = string.format
 
@@ -39,6 +38,30 @@ local function Ensure(t, k, default)
 		t[k] = v
 	end
 	return v
+end
+
+-- Recursive merge function for database schema upgrades
+-- Merges new defaults into existing saved variables without overwriting user settings
+local function CopyDefaults(src, dst)
+	if type(src) ~= "table" then
+		return {}
+	end
+	if type(dst) ~= "table" then
+		dst = {}
+	end
+
+	for k, v in pairs(src) do
+		if type(v) == "table" then
+			-- Recursively merge nested tables
+			dst[k] = CopyDefaults(v, dst[k])
+		elseif dst[k] == nil then
+			-- Only set if the key doesn't exist (preserve user settings)
+			dst[k] = v
+		end
+		-- If dst[k] exists, keep the user's value (don't overwrite)
+	end
+
+	return dst
 end
 
 local function VerifyDatabase()
@@ -120,6 +143,10 @@ local function LoadCustomSettings()
 		Automation.ConfirmCinematicSkip = Automation.AutoSkipCinematic
 		Automation.AutoSkipCinematic = nil
 	end
+
+	-- Merge new defaults into Settings (schema upgrade)
+	-- This ensures new config options are available even if user's SavedVars don't have them
+	CopyDefaults(C, Settings)
 
 	-- Apply + prune
 	for group, options in pairs(Settings) do

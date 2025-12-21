@@ -1,40 +1,47 @@
 local K, C = KkthnxUI[1], KkthnxUI[2]
 
--- Cache Lua Globals (Speed Optimization - ~30% speedup for heavy math logic)
-local math_abs = math.abs
-local math_floor = math.floor
-local math_max = math.max
-local math_min = math.min
-local mod = mod
+--========================================================
+-- Cache Lua Globals (Upvalues) for speed
+--========================================================
 local select = select
+local unpack = unpack
+local type = type
+local tonumber = tonumber
 local pairs = pairs
 local ipairs = ipairs
 local next = next
-local type = type
-local tonumber = tonumber
-local unpack = unpack
+
+-- Table functions
 local table_insert = table.insert
-local table_remove = table.remove
 local table_wipe = table.wipe
-local string_find = string.find
+
+-- Math functions
+local math_floor = math.floor
+local math_abs = math.abs
+local mod = mod
+
+-- String functions
 local string_format = string.format
+local string_match = string.match
+local string_find = string.find
 local string_gsub = string.gsub
 local string_lower = string.lower
-local string_match = string.match
-local string_join = string.join
 
+-- WoW API caching (common APIs used in utilities)
+local GetTime = GetTime
+local UnitClass = UnitClass
+local UnitIsPlayer = UnitIsPlayer
+
+-- Additional WoW API caching
 local C_Map_GetWorldPosFromMapPos = C_Map.GetWorldPosFromMapPos
 local CreateVector2D = CreateVector2D
 local ENCHANTED_TOOLTIP_LINE = ENCHANTED_TOOLTIP_LINE
 local GameTooltip = GameTooltip
 local GetSpecialization = GetSpecialization
 local GetSpecializationInfo = GetSpecializationInfo
-local GetTime = GetTime
 local ITEM_LEVEL = ITEM_LEVEL
 local IsInRaid = IsInRaid
 local UIParent = UIParent
-local UnitClass = UnitClass
-local UnitIsPlayer = UnitIsPlayer
 local UnitIsTapDenied = UnitIsTapDenied
 local UnitReaction = UnitReaction
 
@@ -45,6 +52,10 @@ do
 	end
 
 	-- Optimized ShortValue (Zero GC Churn - uses math instead of string.format)
+	-- Cached format strings to avoid string concatenation in hot paths
+	local format1 = "%.1f"
+	local format2 = "%.2f"
+
 	function K.ShortValue(n)
 		if not n or type(n) ~= "number" then
 			return ""
@@ -75,9 +86,9 @@ do
 		-- Format the shortened value using math for rounding (zero GC).
 		local val = n / div
 		if val < 10 then
-			-- Round to 1 decimal place without string formatting
+			-- Round to 1 decimal place using cached format string
 			local rounded = math_floor(val * 10 + 0.5) / 10
-			return rounded .. suffix
+			return string_format(format1, rounded) .. suffix
 		else
 			return math_floor(val + 0.5) .. suffix
 		end
@@ -95,7 +106,7 @@ do
 		idp = idp or 0
 		local mult = 10 ^ idp
 
-		return math.floor(number * mult + 0.5) / mult
+		return math_floor(number * mult + 0.5) / mult
 	end
 end
 
@@ -143,7 +154,7 @@ do
 	function K.GetClassIcon(class, iconSize)
 		local size = iconSize or 16
 		if class then
-			return string.format("|A:groupfinder-icon-class-%s:%d:%d|a ", string.lower(class), size, size)
+			return string_format("|A:groupfinder-icon-class-%s:%d:%d|a ", string_lower(class), size, size)
 		end
 	end
 
@@ -226,7 +237,7 @@ do
 		variable = variable or ""
 
 		if cleanup then
-			table.wipe(list)
+			table_wipe(list)
 		end
 
 		for word in gmatch(variable, "%S+") do
@@ -553,8 +564,8 @@ do
 				return
 			end
 
-			table.wipe(slotData.gems)
-			table.wipe(slotData.gemsColor)
+			table_wipe(slotData.gems)
+			table_wipe(slotData.gemsColor)
 			slotData.iLvl = nil
 			slotData.enchantText = nil
 
@@ -623,7 +634,7 @@ do
 		end
 		-- Periodically clear cached item levels to avoid unbounded growth during long sessions
 		local function ClearItemLevelCache()
-			table.wipe(iLvlDB)
+			table_wipe(iLvlDB)
 		end
 		K:RegisterEvent("PLAYER_ENTERING_WORLD", ClearItemLevelCache)
 		K:RegisterEvent("PLAYER_LEAVING_WORLD", ClearItemLevelCache)
@@ -851,17 +862,17 @@ do
 		local prefix = getThemePrefix()
 		local trySuffixes = {}
 		if suffix and suffix ~= "" then
-			table.insert(trySuffixes, suffix)
+			table_insert(trySuffixes, suffix)
 		end
 		if variant == "tp" then
 			-- Common Trading Post suffixes
-			table.insert(trySuffixes, "topbig")
-			table.insert(trySuffixes, "topsmall")
-			table.insert(trySuffixes, "top")
+			table_insert(trySuffixes, "topbig")
+			table_insert(trySuffixes, "topsmall")
+			table_insert(trySuffixes, "top")
 		else
 			-- Traveler's Log common pieces
-			table.insert(trySuffixes, "top")
-			table.insert(trySuffixes, "box")
+			table_insert(trySuffixes, "top")
+			table_insert(trySuffixes, "box")
 		end
 		for _, s in ipairs(trySuffixes) do
 			local atlas = ("perks-theme-%s-%s-%s"):format(prefix, variant, s)

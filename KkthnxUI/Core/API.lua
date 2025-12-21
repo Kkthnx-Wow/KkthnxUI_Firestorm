@@ -13,7 +13,8 @@ local getmetatable, select, unpack = getmetatable, select, unpack
 local math_min, math_max, math_pi = math.min, math.max, math.pi
 local CreateFrame, EnumerateFrames = CreateFrame, EnumerateFrames
 local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
-local RegisterStateDriver, UIParent = RegisterStateDriver, UIParent
+local RegisterStateDriver = RegisterStateDriver
+local UIParent = UIParent
 
 local CustomCloseButton = "Interface\\AddOns\\KkthnxUI\\Media\\Textures\\CloseButton_32"
 

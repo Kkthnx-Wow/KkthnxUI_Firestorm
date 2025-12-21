@@ -5,9 +5,6 @@ local AddOnName, Engine = ...
 --========================================================
 local _G = _G
 
-local assert = assert
-local ipairs = ipairs
-local next = next
 local pairs = pairs
 local select = select
 local tonumber = tonumber
@@ -17,7 +14,6 @@ local type = type
 local max = max
 local min = min
 
-local pcall = pcall
 local xpcall = xpcall
 local print = print
 
@@ -27,7 +23,7 @@ local bit_bor = bit.bor
 local string_format = string.format
 local string_lower = string.lower
 
-local tinsert = table.insert
+local table_insert = table.insert
 
 local debugstack = debugstack -- available in WoW; used for xpcall error handler
 
@@ -48,6 +44,8 @@ local GetAddOnEnableState = C_AddOns.GetAddOnEnableState
 local GetAddOnInfo = C_AddOns.GetAddOnInfo
 local GetNumAddOns = C_AddOns.GetNumAddOns
 
+-- Cache additional globals for performance
+local hooksecurefunc = hooksecurefunc
 local CombatLogGetCurrentEventInfo = CombatLogGetCurrentEventInfo
 local CreateFrame = CreateFrame
 local Enum = Enum
@@ -181,7 +179,7 @@ K.RaidPetFlags = bit_bor(COMBATLOG_OBJECT_AFFILIATION_RAID, COMBATLOG_OBJECT_REA
 -- Tables / State
 --========================================================
 local eventsFrame = CreateFrame("Frame")
-local events = {}         -- events[event] = { list = {}, index = {}, n = number }
+local events = {} -- events[event] = { list = {}, index = {}, n = number }
 local modules = {}
 local modulesQueue = {}
 
@@ -269,9 +267,9 @@ eventsFrame:SetScript("OnEvent", function(_, event, ...)
 	local n = bucket.n
 
 	if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-		local a,b,c,d,e,f,g,h,i,j,k,l,m,n2,o,p,q,r,s = CombatLogGetCurrentEventInfo()
+		local a, b, c, d, e, f, g, h, i, j, k, l, m, n2, o, p, q, r, s = CombatLogGetCurrentEventInfo()
 		for i = 1, n do
-			Dispatch(list[i], event, a,b,c,d,e,f,g,h,i,j,k,l,m,n2,o,p,q,r,s)
+			Dispatch(list[i], event, a, b, c, d, e, f, g, h, i, j, k, l, m, n2, o, p, q, r, s)
 		end
 		return
 	end
@@ -350,23 +348,58 @@ end
 --========================================================
 function K:NewModule(name)
 	if modules[name] then
-		print("Module <" .. name .. "> has been registered.")
-		return
+		print(string_format("|cffff0000KkthnxUI:|r Module <%s> has been registered.", name))
+		return modules[name]
 	end
-	local module = { name = name }
+	local module = { name = name, IsEnabled = false }
 	modules[name] = module
 
-	tinsert(modulesQueue, module)
+	table_insert(modulesQueue, module)
 	return module
+end
+
+-- Alias for CreateModule
+function K:CreateModule(name)
+	return K:NewModule(name)
 end
 
 function K:GetModule(name)
 	if not modules[name] then
-		print("Module <" .. name .. "> does not exist.")
+		print(string_format("|cffff0000KkthnxUI:|r Module <%s> does not exist.", name))
 		return
 	end
 	return modules[name]
 end
+
+function K:InitializeModules()
+	for i = 1, #modulesQueue do
+		local module = modulesQueue[i]
+		if module.OnEnable and not module.IsEnabled then
+			module:OnEnable()
+			module.IsEnabled = true
+		end
+	end
+end
+
+--========================================================
+-- Secure Frame Helpers (Taint Safety)
+--========================================================
+-- Wrapper for RegisterStateDriver to ensure secure frame handling
+-- Use this instead of directly modifying secure frames during combat
+function K:RegisterStateDriver(frame, state, value)
+	if not frame or not state or not value then
+		print(string_format("|cffff0000KkthnxUI:RegisterStateDriver error:|r invalid arguments"))
+		return
+	end
+
+	-- RegisterStateDriver is secure and can be called from insecure code
+	-- It allows the C-engine to handle visibility securely
+	RegisterStateDriver(frame, state, value)
+end
+
+-- Helper for secure hooks (taint-safe alternative to direct function replacement)
+-- Use hooksecurefunc instead of replacing functions to avoid taint
+K.HookSecureFunc = hooksecurefunc
 
 --========================================================
 -- Scaling
@@ -443,13 +476,8 @@ K:RegisterEvent("PLAYER_LOGIN", function()
 		K.HideOverlayGlow = K.LibCustomGlow.HideOverlayGlow
 	end
 
-	for i = 1, #modulesQueue do
-		local module = modulesQueue[i]
-		assert(module.OnEnable, "Module has no OnEnable function.")
-		assert(not module.Enabled, "Module is already enabled.")
-		module:OnEnable()
-		module.Enabled = true
-	end
+	-- Initialize all modules using the enhanced system
+	K:InitializeModules()
 
 	K.Modules = modules
 
