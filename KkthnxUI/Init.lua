@@ -8,13 +8,11 @@ local _G = _G
 local pairs = pairs
 local select = select
 local tonumber = tonumber
-local tostring = tostring
 local type = type
 
 local max = max
 local min = min
 
-local xpcall = xpcall
 local print = print
 
 local bit_band = bit.band
@@ -24,8 +22,9 @@ local string_format = string.format
 local string_lower = string.lower
 
 local table_insert = table.insert
+local table_remove = table.remove
 
-local debugstack = debugstack -- available in WoW; used for xpcall error handler
+local debugstack = debugstack
 
 --========================================================
 -- Cached WoW globals / APIs
@@ -147,7 +146,6 @@ K.SystemColor = "|CFFFFCC66"
 --========================================================
 K.MediaFolder = "Interface\\AddOns\\KkthnxUI\\Media\\"
 
--- FIX: Don’t overwrite size/style; keep both font + outline font info
 K.UIFont = "KkthnxUIFont"
 K.UIFontSize = select(2, _G.KkthnxUIFont:GetFont())
 K.UIFontStyle = select(3, _G.KkthnxUIFont:GetFont())
@@ -179,7 +177,7 @@ K.RaidPetFlags = bit_bor(COMBATLOG_OBJECT_AFFILIATION_RAID, COMBATLOG_OBJECT_REA
 -- Tables / State
 --========================================================
 local eventsFrame = CreateFrame("Frame")
-local events = {} -- events[event] = { list = {}, index = {}, n = number }
+local events = {} -- events[event] = { func1 = true, func2 = true }
 local modules = {}
 local modulesQueue = {}
 
@@ -236,46 +234,23 @@ K.QualityColors[Enum.ItemQuality.Poor] = { r = 0.61, g = 0.61, b = 0.61 }
 K.QualityColors[Enum.ItemQuality.Common] = { r = 1, g = 1, b = 1 }
 
 --========================================================
--- Event System (packed array + explicit length; WoW-safe)
+-- Event System (Simplified)
 --========================================================
--- Set true only when debugging. pcall/xpcall is expensive on hot events.
-local DEBUG_SAFE_DISPATCH = false
-
-local function Dispatch(func, event, ...)
-	if not func then
+eventsFrame:SetScript("OnEvent", function(self, event, ...)
+	local funcs = events[event]
+	if not funcs then
 		return
 	end
-
-	if not DEBUG_SAFE_DISPATCH then
-		return func(event, ...)
-	end
-
-	-- xpcall keeps stack context; debugstack exists in WoW
-	local ok, err = xpcall(func, debugstack, event, ...)
-	if not ok then
-		print(string_format("|cffff0000KkthnxUI callback error:|r %s (event: %s)", tostring(err), tostring(event)))
-	end
-end
-
-eventsFrame:SetScript("OnEvent", function(_, event, ...)
-	local bucket = events[event]
-	if not bucket then
-		return
-	end
-
-	local list = bucket.list
-	local n = bucket.n
 
 	if event == "COMBAT_LOG_EVENT_UNFILTERED" then
-		local a, b, c, d, e, f, g, h, i, j, k, l, m, n2, o, p, q, r, s = CombatLogGetCurrentEventInfo()
-		for i = 1, n do
-			Dispatch(list[i], event, a, b, c, d, e, f, g, h, i, j, k, l, m, n2, o, p, q, r, s)
+		for func in pairs(funcs) do
+			-- Directly pass the API call return values to avoid table churn and truncation
+			func(event, CombatLogGetCurrentEventInfo())
 		end
-		return
-	end
-
-	for i = 1, n do
-		Dispatch(list[i], event, ...)
+	else
+		for func in pairs(funcs) do
+			func(event, ...)
+		end
 	end
 end)
 
@@ -284,16 +259,13 @@ function K:RegisterEvent(event, func, unit1, unit2)
 		event = "COMBAT_LOG_EVENT_UNFILTERED"
 	end
 
-	if type(func) ~= "function" then
-		print(string_format("|cffff0000KkthnxUI:RegisterEvent error:|r callback not a function for '%s' (%s)", tostring(event), tostring(func)))
+	if not func or type(func) ~= "function" then
+		print(string_format("|cffff0000KkthnxUI:RegisterEvent error:|r invalid function for '%s'", event))
 		return
 	end
 
-	local bucket = events[event]
-	if not bucket then
-		bucket = { list = {}, index = {}, n = 0 }
-		events[event] = bucket
-
+	if not events[event] then
+		events[event] = {}
 		if unit1 then
 			eventsFrame:RegisterUnitEvent(event, unit1, unit2)
 		else
@@ -301,14 +273,7 @@ function K:RegisterEvent(event, func, unit1, unit2)
 		end
 	end
 
-	if bucket.index[func] then
-		return
-	end
-
-	local n = bucket.n + 1
-	bucket.n = n
-	bucket.list[n] = func
-	bucket.index[func] = n
+	events[event][func] = true
 end
 
 function K:UnregisterEvent(event, func)
@@ -316,30 +281,14 @@ function K:UnregisterEvent(event, func)
 		event = "COMBAT_LOG_EVENT_UNFILTERED"
 	end
 
-	local bucket = events[event]
-	if not bucket then
-		return
-	end
+	local funcs = events[event]
+	if funcs and funcs[func] then
+		funcs[func] = nil
 
-	local pos = bucket.index[func]
-	if not pos then
-		return
-	end
-
-	local n = bucket.n
-	local list = bucket.list
-
-	local lastFunc = list[n]
-	list[pos] = lastFunc
-	list[n] = nil
-
-	bucket.index[lastFunc] = pos
-	bucket.index[func] = nil
-	bucket.n = n - 1
-
-	if bucket.n == 0 then
-		events[event] = nil
-		eventsFrame:UnregisterEvent(event)
+		if not next(funcs) then
+			events[event] = nil
+			eventsFrame:UnregisterEvent(event)
+		end
 	end
 end
 
@@ -384,21 +333,14 @@ end
 --========================================================
 -- Secure Frame Helpers (Taint Safety)
 --========================================================
--- Wrapper for RegisterStateDriver to ensure secure frame handling
--- Use this instead of directly modifying secure frames during combat
 function K:RegisterStateDriver(frame, state, value)
 	if not frame or not state or not value then
 		print(string_format("|cffff0000KkthnxUI:RegisterStateDriver error:|r invalid arguments"))
 		return
 	end
-
-	-- RegisterStateDriver is secure and can be called from insecure code
-	-- It allows the C-engine to handle visibility securely
 	RegisterStateDriver(frame, state, value)
 end
 
--- Helper for secure hooks (taint-safe alternative to direct function replacement)
--- Use hooksecurefunc instead of replacing functions to avoid taint
 K.HookSecureFunc = hooksecurefunc
 
 --========================================================
@@ -476,7 +418,7 @@ K:RegisterEvent("PLAYER_LOGIN", function()
 		K.HideOverlayGlow = K.LibCustomGlow.HideOverlayGlow
 	end
 
-	-- Initialize all modules using the enhanced system
+	-- Initialize all modules
 	K:InitializeModules()
 
 	K.Modules = modules

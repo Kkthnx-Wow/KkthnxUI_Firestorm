@@ -1380,6 +1380,7 @@ local function CreateSkinsCategory()
 	GUI:CreateSwitch(addonSkinsSection, "Skins.DeadlyBossMods", L["Deadly Boss Mods Skin"], "Apply KkthnxUI styling to Deadly Boss Mods (DBM)")
 	GUI:CreateSwitch(addonSkinsSection, "Skins.Details", L["Details Skin"], "Apply KkthnxUI styling to Details! damage meter")
 	GUI:CreateSwitch(addonSkinsSection, "Skins.Dominos", L["Dominos Skin"], "Apply KkthnxUI styling to Dominos action bar addon")
+	GUI:CreateSwitch(addonSkinsSection, "Skins.Hekili", "Hekili Skin", "Apply KkthnxUI styling to Hekili rotation helper addon")
 	GUI:CreateSwitch(addonSkinsSection, "Skins.RareScanner", L["RareScanner Skin"], "Apply KkthnxUI styling to RareScanner addon")
 	GUI:CreateSwitch(addonSkinsSection, "Skins.WeakAuras", L["WeakAuras Skin"], "Apply KkthnxUI styling to WeakAuras addon")
 

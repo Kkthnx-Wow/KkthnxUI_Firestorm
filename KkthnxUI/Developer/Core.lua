@@ -4,6 +4,7 @@ local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 K.Devs = {
 	["Kkthnx-Area 52"] = true,
 	["Kkthnx-Dornogal"] = true,
+	["Informant-Dornogal"] = true,
 }
 
 local function isDeveloper()

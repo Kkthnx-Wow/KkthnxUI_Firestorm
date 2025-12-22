@@ -10,15 +10,9 @@ local Module = K:NewModule("Installer")
 
 -- Basic Lua functions
 local _G = _G
-local pairs = pairs
-local ipairs = ipairs
-local type = type
-local tostring = tostring
-local tonumber = tonumber
 
 -- Table functions
 local tinsert = table.insert
-local tremove = table.remove
 local wipe = wipe
 
 -- String functions
@@ -48,7 +42,6 @@ local CHAT_FRAMES = CHAT_FRAMES
 
 -- Game and System Settings
 local C_Timer = C_Timer
-local GetCVarBool = GetCVarBool
 local InCombatLockdown = InCombatLockdown
 local PlaySound = PlaySound
 local ReloadUI = ReloadUI
@@ -543,10 +536,12 @@ local function ApplyTutorialStep(page)
 		StopSound(SOUNDKIT_ACHIEVEMENT)
 		local vars = KkthnxUIDB.Variables[K.Realm][K.Name]
 		vars.DBMRequest = vars.DBMRequest or true
-		vars.MaxDpsRequest = vars.MaxDpsRequest or true
-		vars.CursorTrailRequest = vars.CursorTrailRequest or true
 		vars.HekiliRequest = vars.HekiliRequest or true
-		Module.ForceAddonSkins()
+		local getAddOnProfiles = K:GetModule("AddOns")
+		if getAddOnProfiles then
+			print("getAddOnProfiles found")
+			K:GetModule("AddOns"):CreateAddOnProfiles()
+		end
 		ShowFakeAchievement("Achievement Earned", "You have successfully applied the relevant AddOn Settings.")
 		PlaySound(SOUNDKIT_ACHIEVEMENT)
 	elseif page == 5 then
@@ -834,10 +829,12 @@ local function HelloWorld()
 		K:SetupUIScale()
 		local vars = KkthnxUIDB.Variables[K.Realm][K.Name]
 		vars.DBMRequest = vars.DBMRequest or true
-		vars.MaxDpsRequest = vars.MaxDpsRequest or true
-		vars.CursorTrailRequest = vars.CursorTrailRequest or true
 		vars.HekiliRequest = vars.HekiliRequest or true
-		Module.ForceAddonSkins()
+		local getAddOnProfiles = K:GetModule("AddOns")
+		if getAddOnProfiles then
+			print("getAddOnProfiles found")
+			K:GetModule("AddOns"):CreateAddOnProfiles()
+		end
 		vars.InstallComplete = true
 		StaticPopup_Show("SKIP_INSTALLER_CONFIRM")
 	end)
@@ -867,15 +864,8 @@ _G.SlashCmdList["KKUI_INSTALLER"] = HelloWorld
 _G.SLASH_KKUI_INSTALLER1 = "/install"
 
 function Module:OnEnable()
-	print(K.Title .. " " .. K.GreyColor .. K.Version .. "|r " .. K.SystemColor .. K.Client .. "|r")
-
-	-- Initialize CVar caches early
-	InitializeCVarCaches()
-
-	-- Tutorial and settings
-	Module.ForceAddonSkins()
-
 	if not KkthnxUIDB.Variables[K.Realm][K.Name].InstallComplete then
+		print(K.Title .. " " .. K.GreyColor .. K.Version .. "|r " .. K.SystemColor .. K.Client .. "|r")
 		HelloWorld()
 	end
 end
