@@ -1,59 +1,7 @@
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 
 -- Cache frequently used functions for performance
-local strsplit = strsplit
 local select = select
-local table_wipe = table.wipe
-
--- Utility Functions
---
-
--- Table recycling for frequently called functions (prevents GC churn)
-local keysTable = {} -- Reused table for path splitting
-
--- Utility functions for handling nested config paths
-local function SetValueByPath(table, path, value)
-	-- Reuse table instead of creating new one every call (zero GC allocation)
-	table_wipe(keysTable)
-	local n = select("#", strsplit(".", path))
-	for i = 1, n do
-		keysTable[i] = select(i, strsplit(".", path))
-	end
-
-	local current = table
-
-	for i = 1, #keysTable - 1 do
-		if not current[keysTable[i]] then
-			current[keysTable[i]] = {}
-		elseif type(current[keysTable[i]]) ~= "table" then
-			-- Handle case where we encounter a primitive value that needs to become a table
-			current[keysTable[i]] = {}
-		end
-		current = current[keysTable[i]]
-	end
-
-	current[keysTable[#keysTable]] = value
-end
-
-local function GetValueByPath(table, path)
-	-- Reuse table instead of creating new one every call (zero GC allocation)
-	table_wipe(keysTable)
-	local n = select("#", strsplit(".", path))
-	for i = 1, n do
-		keysTable[i] = select(i, strsplit(".", path))
-	end
-
-	local current = table
-
-	for i = 1, #keysTable do
-		if not current or type(current) ~= "table" or not current[keysTable[i]] then
-			return nil
-		end
-		current = current[keysTable[i]]
-	end
-
-	return current
-end
 
 -- System Documentation
 
@@ -344,14 +292,14 @@ end
 
 -- Get configuration value by path
 local function GetConfigValue(configPath)
-	return GetValueByPath(C, configPath)
+	return K.GetValueByPath(C, configPath)
 end
 
 -- Get default value for a config path from K.Defaults
 local function GetDefaultValue(configPath)
 	-- First check if K.Defaults exists and has the path
 	if K.Defaults then
-		local defaultValue = GetValueByPath(K.Defaults, configPath)
+		local defaultValue = K.GetValueByPath(K.Defaults, configPath)
 		if defaultValue ~= nil then
 			return defaultValue
 		end
@@ -359,7 +307,7 @@ local function GetDefaultValue(configPath)
 
 	-- Fallback: If K.Defaults doesn't exist or doesn't have the path,
 	-- try to get from the original C table structure (may be current values though)
-	return GetValueByPath(C, configPath)
+	return K.GetValueByPath(C, configPath)
 end
 
 -- Forward declaration of SetConfigValue so ResetToDefault can call it
@@ -370,11 +318,11 @@ function SetConfigValue(configPath, value, requiresReload, settingName)
 	DebugLog("SetConfigValue called: " .. configPath .. " = " .. tostring(value) .. " (requiresReload: " .. tostring(requiresReload) .. ")")
 
 	-- Get old value for hook comparison
-	local oldValue = GetValueByPath(C, configPath)
+	local oldValue = K.GetValueByPath(C, configPath)
 	DebugLog("Old value: " .. tostring(oldValue))
 
 	-- Set in runtime config
-	SetValueByPath(C, configPath, value)
+	K.SetValueByPath(C, configPath, value)
 
 	-- Save to database (with safety check)
 	if KkthnxUIDB then
@@ -388,7 +336,7 @@ function SetConfigValue(configPath, value, requiresReload, settingName)
 			KkthnxUIDB.Settings[K.Realm][K.Name] = {}
 		end
 
-		SetValueByPath(KkthnxUIDB.Settings[K.Realm][K.Name], configPath, value)
+		K.SetValueByPath(KkthnxUIDB.Settings[K.Realm][K.Name], configPath, value)
 	else
 		-- Database not yet available, settings will only be stored in runtime config
 		-- This is normal during initial loading
@@ -463,77 +411,9 @@ end
 -- Helper Widget Functions
 
 -- Create colored background texture
-local function CreateColoredBackground(frame, r, g, b, a)
-	local bg = frame:CreateTexture(nil, "BACKGROUND")
-	bg:SetAllPoints()
-	bg:SetTexture(C["Media"].Textures.White8x8Texture)
-	bg:SetVertexColor(r or 0, g or 0, b or 0, a or 0.8)
-	return bg
-end
-
--- Create basic button widget
-local function CreateButton(parent, text, width, height, onClick)
-	local button = CreateFrame("Button", nil, parent)
-	button:SetSize(width or 120, height or WIDGET_HEIGHT)
-
-	-- Clean button background
-	local buttonBg = button:CreateTexture(nil, "BACKGROUND")
-	buttonBg:SetAllPoints()
-	buttonBg:SetTexture(C["Media"].Textures.White8x8Texture)
-	buttonBg:SetVertexColor(0.15, 0.15, 0.15, 1)
-	button.KKUI_Background = buttonBg
-
-	-- Subtle border for depth
-	local buttonBorder = button:CreateTexture(nil, "BORDER")
-	buttonBorder:SetPoint("TOPLEFT", -1, 1)
-	buttonBorder:SetPoint("BOTTOMRIGHT", 1, -1)
-	buttonBorder:SetTexture(C["Media"].Textures.White8x8Texture)
-	buttonBorder:SetVertexColor(0.3, 0.3, 0.3, 0.8)
-	button.KKUI_Border = buttonBorder
-
-	-- Hover effects for clean design
-	button:SetScript("OnEnter", function(self)
-		self.KKUI_Background:SetVertexColor(ACCENT_COLOR[1] * 0.8, ACCENT_COLOR[2] * 0.8, ACCENT_COLOR[3] * 0.8, 1)
-		self.KKUI_Border:SetVertexColor(ACCENT_COLOR[1], ACCENT_COLOR[2], ACCENT_COLOR[3], 1)
-		if self.Text then
-			self.Text:SetTextColor(1, 1, 1, 1)
-		end
-	end)
-
-	button:SetScript("OnLeave", function(self)
-		self.KKUI_Background:SetVertexColor(0.15, 0.15, 0.15, 1)
-		self.KKUI_Border:SetVertexColor(0.3, 0.3, 0.3, 0.8)
-		if self.Text then
-			self.Text:SetTextColor(TEXT_COLOR[1], TEXT_COLOR[2], TEXT_COLOR[3], TEXT_COLOR[4])
-		end
-	end)
-
-	-- Click effect
-	button:SetScript("OnMouseDown", function(self)
-		self.KKUI_Background:SetVertexColor(ACCENT_COLOR[1] * 0.6, ACCENT_COLOR[2] * 0.6, ACCENT_COLOR[3] * 0.6, 1)
-	end)
-
-	button:SetScript("OnMouseUp", function(self)
-		if self:IsMouseOver() then
-			self.KKUI_Background:SetVertexColor(ACCENT_COLOR[1] * 0.8, ACCENT_COLOR[2] * 0.8, ACCENT_COLOR[3] * 0.8, 1)
-		else
-			self.KKUI_Background:SetVertexColor(0.15, 0.15, 0.15, 1)
-		end
-	end)
-
-	-- Button text
-	button.Text = button:CreateFontString(nil, "OVERLAY")
-	button.Text:SetFontObject(K.UIFont)
-	button.Text:SetTextColor(TEXT_COLOR[1], TEXT_COLOR[2], TEXT_COLOR[3], TEXT_COLOR[4])
-	button.Text:SetText(text)
-	button.Text:SetPoint("CENTER")
-
-	if onClick then
-		button:SetScript("OnClick", onClick)
-	end
-
-	return button
-end
+-- Use unified widget factory from K.UI
+local CreateColoredBackground = K.UI.CreateBackdrop
+local CreateButton = K.UI.CreateButton
 
 -- Enhanced Features Functions (moved here to be available when needed)
 local function CreateEnhancedTooltip(widget, title, description, warning)
@@ -3652,9 +3532,9 @@ end
 -- Expose commonly used helpers for reuse in ExtraGUI/ProfileGUI
 K.GUIHelpers.ProcessNewTag = K.GUIHelpers.ProcessNewTag or ProcessNewTag
 K.GUIHelpers.AddNewTag = K.GUIHelpers.AddNewTag or AddNewTag
-K.GUIHelpers.CreateColoredBackground = K.GUIHelpers.CreateColoredBackground or CreateColoredBackground
+K.GUIHelpers.CreateColoredBackground = K.GUIHelpers.CreateColoredBackground or K.UI.CreateBackdrop
 K.GUIHelpers.CreateEnhancedTooltip = K.GUIHelpers.CreateEnhancedTooltip or CreateEnhancedTooltip
-K.GUIHelpers.CreateButton = K.GUIHelpers.CreateButton or CreateButton
+K.GUIHelpers.CreateButton = K.GUIHelpers.CreateButton or K.UI.CreateButton
 
 -- Simple scroll attach helper for consistent mousewheel behavior
 function K.GUIHelpers.AttachSimpleScroll(scrollFrame, step)
@@ -4143,7 +4023,7 @@ function K.GUIHelpers.BindDependency(childWidget, parentConfigPath, expectedValu
 	end
 
 	local function update()
-		local current = GetValueByPath(C, parentConfigPath)
+		local current = K.GetValueByPath(C, parentConfigPath)
 		K.GUIHelpers.SetWidgetEnabled(childWidget, evaluate(current))
 	end
 
@@ -4161,9 +4041,9 @@ function K.GUIHelpers.BindDependency(childWidget, parentConfigPath, expectedValu
 			else
 				expectedText = tostring(expected)
 			end
-			local current = GetValueByPath(C, parentConfigPath)
+			local current = K.GetValueByPath(C, parentConfigPath)
 			if current == nil and K and K.Defaults then
-				local def = GetValueByPath(K.Defaults, parentConfigPath)
+				local def = K.GetValueByPath(K.Defaults, parentConfigPath)
 				if def ~= nil then
 					current = def
 				end
@@ -4383,7 +4263,7 @@ end
 
 -- Helper functions for creating custom widgets in config files
 function GUI:CreateButton(parent, text, width, height, onClick)
-	return CreateButton(parent, text, width, height, onClick)
+	return K.UI.CreateButton(parent, text, width, height, onClick)
 end
 
 function GUI:CreateEnhancedTooltip(widget, title, description, warning)

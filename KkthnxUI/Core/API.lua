@@ -15,6 +15,8 @@ local CreateFrame, EnumerateFrames = CreateFrame, EnumerateFrames
 local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
 local RegisterStateDriver = RegisterStateDriver
 local UIParent = UIParent
+local strsplit = strsplit
+local table_wipe = table.wipe
 
 local CustomCloseButton = "Interface\\AddOns\\KkthnxUI\\Media\\Textures\\CloseButton_32"
 
