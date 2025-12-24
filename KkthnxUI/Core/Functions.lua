@@ -1291,15 +1291,15 @@ do
 end
 
 --========================================================
--- Unified Widget Factory (K.UI)
+-- Unified Widget Factory (K.WidgetFactory)
 --========================================================
 -- Centralized UI toolkit for consistent styling across all GUI modules
 -- This eliminates code duplication and makes theme changes easier
 
-K.UI = {}
+K.WidgetFactory = {}
 
 -- CreateBackdrop: Creates a colored background texture
-function K.UI.CreateBackdrop(parent, r, g, b, a)
+function K.WidgetFactory.CreateBackdrop(parent, r, g, b, a)
 	local bg = parent:CreateTexture(nil, "BACKGROUND")
 	bg:SetAllPoints()
 	bg:SetTexture(C["Media"].Textures.White8x8Texture)
@@ -1308,7 +1308,7 @@ function K.UI.CreateBackdrop(parent, r, g, b, a)
 end
 
 -- CreateButton: Creates a styled button with hover effects and consistent theming
-function K.UI.CreateButton(parent, text, width, height, onClick)
+function K.WidgetFactory.CreateButton(parent, text, width, height, onClick)
 	local button = CreateFrame("Button", nil, parent)
 	button:SetSize(width or 120, height or 28)
 

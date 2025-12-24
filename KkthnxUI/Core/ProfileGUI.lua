@@ -100,9 +100,9 @@ local ProfileGUI = {
 -- Helper Functions
 
 -- Create colored background texture (matching main GUI exactly)
--- Use unified widget factory from K.UI
-local CreateColoredBackground = K.UI.CreateBackdrop
-local CreateButton = K.UI.CreateButton
+-- Use unified widget factory from K.WidgetFactory
+local CreateColoredBackground = K.WidgetFactory.CreateBackdrop
+local CreateButton = K.WidgetFactory.CreateButton
 
 -- Simplified EditBox
 local function CreateEditBox(parent, width, height, multiline)

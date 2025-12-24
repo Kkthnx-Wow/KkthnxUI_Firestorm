@@ -411,9 +411,9 @@ end
 -- Helper Widget Functions
 
 -- Create colored background texture
--- Use unified widget factory from K.UI
-local CreateColoredBackground = K.UI.CreateBackdrop
-local CreateButton = K.UI.CreateButton
+-- Use unified widget factory from K.WidgetFactory
+local CreateColoredBackground = K.WidgetFactory.CreateBackdrop
+local CreateButton = K.WidgetFactory.CreateButton
 
 -- Enhanced Features Functions (moved here to be available when needed)
 local function CreateEnhancedTooltip(widget, title, description, warning)
@@ -3532,9 +3532,9 @@ end
 -- Expose commonly used helpers for reuse in ExtraGUI/ProfileGUI
 K.GUIHelpers.ProcessNewTag = K.GUIHelpers.ProcessNewTag or ProcessNewTag
 K.GUIHelpers.AddNewTag = K.GUIHelpers.AddNewTag or AddNewTag
-K.GUIHelpers.CreateColoredBackground = K.GUIHelpers.CreateColoredBackground or K.UI.CreateBackdrop
+K.GUIHelpers.CreateColoredBackground = K.GUIHelpers.CreateColoredBackground or K.WidgetFactory.CreateBackdrop
 K.GUIHelpers.CreateEnhancedTooltip = K.GUIHelpers.CreateEnhancedTooltip or CreateEnhancedTooltip
-K.GUIHelpers.CreateButton = K.GUIHelpers.CreateButton or K.UI.CreateButton
+K.GUIHelpers.CreateButton = K.GUIHelpers.CreateButton or K.WidgetFactory.CreateButton
 
 -- Simple scroll attach helper for consistent mousewheel behavior
 function K.GUIHelpers.AttachSimpleScroll(scrollFrame, step)
@@ -4263,7 +4263,7 @@ end
 
 -- Helper functions for creating custom widgets in config files
 function GUI:CreateButton(parent, text, width, height, onClick)
-	return K.UI.CreateButton(parent, text, width, height, onClick)
+	return K.WidgetFactory.CreateButton(parent, text, width, height, onClick)
 end
 
 function GUI:CreateEnhancedTooltip(widget, title, description, warning)

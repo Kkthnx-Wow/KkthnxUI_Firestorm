@@ -351,8 +351,8 @@ local BG_COLOR = C["Media"].Backdrops.ColorBackdrop
 
 -- Helper Functions
 
--- Use unified widget factory from K.UI
-local CreateColoredBackground = K.UI.CreateBackdrop
+-- Use unified widget factory from K.WidgetFactory
+local CreateColoredBackground = K.WidgetFactory.CreateBackdrop
 
 -- Create section header with background (reduces code duplication)
 local function CreateSectionHeader(parent, text, width, yOffset)
@@ -3798,8 +3798,8 @@ end
 
 -- Button Widget for ExtraGUI
 function ExtraGUI:CreateButton(parent, text, width, height, onClick)
-	-- Use unified widget factory from K.UI
-	return K.UI.CreateButton(parent, text, width, height, onClick)
+	-- Use unified widget factory from K.WidgetFactory
+	return K.WidgetFactory.CreateButton(parent, text, width, height, onClick)
 end
 
 -- Module Exports

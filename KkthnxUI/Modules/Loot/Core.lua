@@ -37,9 +37,6 @@ local ITEM_QUALITY_COLORS = ITEM_QUALITY_COLORS
 local TEXTURE_ITEM_QUEST_BANG = TEXTURE_ITEM_QUEST_BANG
 local LOOT = LOOT
 
--- Cache frequently used K helpers
--- Avoid caching K helpers at file scope to prevent lifecycle issues
-
 -- Cache Blizzard frames
 local LootFrameRef = _G.LootFrame
 local MasterLooterFrameRef = _G.MasterLooterFrame
@@ -55,10 +52,19 @@ local coinTextureIDs = {
 	[133789] = true,
 }
 
+-- === FastLoot bridge (Retail-only) ==========================================
+function Module:SetLootFrameSuppressed(suppressed)
+	-- DO NOT :Hide() lootFrame here; its OnHide calls CloseLoot() :contentReference[oaicite:3]{index=3}
+	if lootFrame then
+		lootFrame:SetAlpha(suppressed and 0 or 1)
+		lootFrame:EnableMouse(not suppressed)
+	end
+end
+-- ============================================================================
+
 local function SlotEnter(slot)
 	local id = slot:GetID()
 	if LootSlotHasItem(id) then
-		-- Only protect the tooltip operations that can cause taint
 		GameTooltip:SetOwner(slot, "ANCHOR_RIGHT")
 		GameTooltip:SetLootItem(id)
 		CursorUpdate(slot)
@@ -119,7 +125,6 @@ local function AnchorSlots(frame)
 	for _, slot in next, frame.slots do
 		if slot:IsShown() then
 			shownSlots = shownSlots + 1
-
 			slot:SetPoint("TOP", lootFrame, 4, (-8 + iconSize) - (shownSlots * iconSize))
 		end
 	end
@@ -209,6 +214,11 @@ function Module:LOOT_CLOSED()
 	for _, slot in next, lootFrame.slots do
 		slot:Hide()
 	end
+
+	-- FastLoot bridge
+	if self.FastLoot_OnLootClosed then
+		self:FastLoot_OnLootClosed()
+	end
 end
 
 function Module:LOOT_OPENED(_, autoloot)
@@ -218,6 +228,11 @@ function Module:LOOT_OPENED(_, autoloot)
 	end
 
 	lootFrame:Show()
+
+	-- FastLoot bridge: allow FasterLoot.lua to lock autoloot state + suppress the frame safely
+	if self.FastLoot_OnLootOpened then
+		self:FastLoot_OnLootOpened(autoloot)
+	end
 
 	if not lootFrame:IsShown() then
 		CloseLoot(not autoloot)
@@ -233,11 +248,9 @@ function Module:LOOT_OPENED(_, autoloot)
 
 	lootFrame:ClearAllPoints()
 
-	-- Blizzard uses strings here
 	if GetCVarBool("lootUnderMouse") then
 		local scale = lootFrame:GetEffectiveScale()
 		local x, y = GetCursorPosition()
-
 		lootFrame:SetPoint("TOPLEFT", _G.UIParent, "BOTTOMLEFT", (x / scale) - 40, (y / scale) + 20)
 		lootFrame:GetCenter()
 		lootFrame:Raise()
@@ -296,7 +309,6 @@ function Module:LOOT_OPENED(_, autoloot)
 				K.HideOverlayGlow(slot.iconFrame)
 			end
 
-			-- Check for FasterLooting scripts or w/e (if bag is full)
 			if textureID then
 				slot:Enable()
 				slot:Show()
@@ -366,7 +378,11 @@ function Module:OnEnable()
 	lootFrame.title:SetFont(select(1, lootFrame.title:GetFont()), 13, select(3, lootFrame.title:GetFont()))
 	lootFrame.title:SetPoint("BOTTOMLEFT", lootFrame, "TOPLEFT", 0, 5)
 	lootFrame.slots = {}
-	lootFrame:SetScript("OnHide", FrameHide) -- mimic LootFrame_OnHide, mostly
+	lootFrame:SetScript("OnHide", FrameHide)
+
+	-- Expose for other Loot submodules (FasterLoot.lua)
+	self.lootFrame = lootFrame
+	self.lootFrameHolder = lootFrameHolder
 
 	K:RegisterEvent("LOOT_OPENED", Module.LOOT_OPENED)
 	K:RegisterEvent("LOOT_SLOT_CLEARED", Module.LOOT_SLOT_CLEARED)
@@ -381,7 +397,6 @@ function Module:OnEnable()
 	end
 	tinsert(_G.UISpecialFrames, "KKUI_LootFrame")
 
-	-- fix blizzard setpoint connection bs
 	if MasterLooterFrameRef then
 		hooksecurefunc(MasterLooterFrameRef, "Hide", MasterLooterFrameRef.ClearAllPoints)
 	end
@@ -404,7 +419,6 @@ function Module:OnEnable()
 	end
 end
 
--- Lightweight profiling management
 function Module:LootProfileSetEnabled(enabled)
 	self._lootProfile = self._lootProfile or { enabled = false, runs = 0, totalMs = 0 }
 	local p = self._lootProfile
