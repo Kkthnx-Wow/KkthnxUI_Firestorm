@@ -113,19 +113,19 @@ function Module:CreatePlayer()
 		local Portrait
 
 		if playerPortraitStyle == 4 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_PlayerPortrait", self)
+			Portrait = CreateFrame("PlayerModel", nil, self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
 		elseif playerPortraitStyle == 5 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_PlayerPortrait", Health)
+			Portrait = CreateFrame("PlayerModel", nil, Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
 			Portrait:CreateBorder()
 		else
-			Portrait = Health:CreateTexture("KKUI_PlayerPortrait", "BACKGROUND", nil, 1)
+			Portrait = Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
@@ -439,7 +439,7 @@ function Module:CreatePlayer()
 	end
 
 	if C["Unitframe"].GlobalCooldown then
-		local GCD = CreateFrame("Frame", "oUF_PlayerGCD", Power)
+		local GCD = CreateFrame("Frame", nil, Power)
 		GCD:SetWidth(playerWidth)
 		GCD:SetHeight(C["Unitframe"].PlayerPowerHeight - 2)
 		GCD:SetPoint("LEFT", Power, "LEFT", 0, 0)
@@ -459,7 +459,7 @@ function Module:CreatePlayer()
 		end
 
 		local parentFrame = CreateFrame("Frame", nil, UIParent)
-		local FloatingCombatFeedback = CreateFrame("Frame", "oUF_Player_CombatTextFrame", parentFrame)
+		local FloatingCombatFeedback = CreateFrame("Frame", nil, parentFrame)
 		FloatingCombatFeedback:SetSize(32, 32)
 		K.Mover(FloatingCombatFeedback, "CombatText", "PlayerCombatText", { "BOTTOM", self, "TOPLEFT", 0, 120 })
 
@@ -534,6 +534,7 @@ function Module:CreatePlayer()
 	else
 		LeaderIndicator:SetPoint("TOPLEFT", Health, 0, 10)
 	end
+	LeaderIndicator.PostUpdate = Module.PostUpdateLeaderIndicator
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	AssistantIndicator:SetSize(16, 16)
@@ -587,7 +588,7 @@ function Module:CreatePlayer()
 	end
 
 	do
-		local RestingIndicator = CreateFrame("Frame", "KKUI_RestingFrame", Overlay)
+		local RestingIndicator = CreateFrame("Frame", nil, Overlay)
 		RestingIndicator:SetSize(5, 5)
 		if playerPortraitStyle ~= 0 and playerPortraitStyle ~= 4 then
 			RestingIndicator:SetPoint("TOPLEFT", self.Portrait, "TOPLEFT", -2, 4)

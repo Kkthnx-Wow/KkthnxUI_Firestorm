@@ -99,13 +99,13 @@ function Module:CreateFocus()
 
 	if focusPortraitStyle ~= 0 then
 		if focusPortraitStyle == 4 then
-			self.Portrait = CreateFrame("PlayerModel", "KKUI_FocusPortrait", self)
+			self.Portrait = CreateFrame("PlayerModel", nil, self)
 			self.Portrait:SetFrameStrata(self:GetFrameStrata())
 			self.Portrait:SetPoint("TOPLEFT", self.Health, "TOPLEFT", 1, -1)
 			self.Portrait:SetPoint("BOTTOMRIGHT", self.Health, "BOTTOMRIGHT", -1, 1)
 			self.Portrait:SetAlpha(0.6)
 		elseif focusPortraitStyle == 5 then
-			self.Portrait = CreateFrame("PlayerModel", "KKUI_FocusPortrait", self.Health)
+			self.Portrait = CreateFrame("PlayerModel", nil, self.Health)
 			self.Portrait:SetFrameStrata(self:GetFrameStrata())
 			self.Portrait:SetSize(self.Health:GetHeight() + self.Power:GetHeight() + 6, self.Health:GetHeight() + self.Power:GetHeight() + 6)
 			self.Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
@@ -115,7 +115,7 @@ function Module:CreateFocus()
 				Module:ApplyPortraitAlphaFix(self)
 			end
 		elseif focusPortraitStyle ~= 5 and focusPortraitStyle ~= 4 then
-			self.Portrait = self.Health:CreateTexture("KKUI_FocusPortrait", "BACKGROUND", nil, 1)
+			self.Portrait = self.Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			self.Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			self.Portrait:SetSize(self.Health:GetHeight() + self.Power:GetHeight() + 6, self.Health:GetHeight() + self.Power:GetHeight() + 6)
 			self.Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
@@ -168,7 +168,7 @@ function Module:CreateFocus()
 	end
 
 	if C["Unitframe"].FocusCastbar then
-		local Castbar = CreateFrame("StatusBar", "oUF_CastbarFocus", self)
+		local Castbar = CreateFrame("StatusBar", nil, self)
 		Castbar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
 		Castbar:SetFrameLevel(10)
 		Castbar:SetSize(C["Unitframe"].FocusCastbarWidth, C["Unitframe"].FocusCastbarHeight)
@@ -353,6 +353,7 @@ function Module:CreateFocus()
 	else
 		self.LeaderIndicator:SetPoint("TOPRIGHT", self.Portrait, 0, 10)
 	end
+	self.LeaderIndicator.PostUpdate = Module.PostUpdateLeaderIndicator
 
 	self.RaidTargetIndicator = self.Overlay:CreateTexture(nil, "OVERLAY")
 	if focusPortraitStyle ~= 0 and focusPortraitStyle ~= 4 then

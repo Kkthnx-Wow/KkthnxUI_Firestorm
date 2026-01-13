@@ -51,8 +51,8 @@ local UISpecialFrames = UISpecialFrames
 -- [FIX] Cache Bag constants to avoid magic numbers
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS or 4
 local NUM_BANKBAGSLOTS = NUM_BANKBAGSLOTS or 7
--- Calculate the max bag ID dynamically (usually 4 + 7 = 11 in Retail)
-local MAX_BAG_ID = NUM_BAG_SLOTS + NUM_BANKBAGSLOTS
+-- Calculate the max bag ID dynamically (usually 4 + 7 = 11 in Retail, plus 5 Account Bank tabs = 17)
+local MAX_BAG_ID = Enum.BagIndex.AccountBankTab_5 or 17
 
 --[[!
     @class Implementation

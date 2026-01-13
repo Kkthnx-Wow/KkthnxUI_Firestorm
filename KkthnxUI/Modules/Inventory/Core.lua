@@ -325,10 +325,10 @@ local function CloseOrRestoreBags(self, btn)
 		local bank = self.__owner.bank
 		local reagent = self.__owner.reagent
 		local account = self.__owner.accountbank
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bag:GetName()] = nil
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][bank:GetName()] = nil
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][reagent:GetName()] = nil
-		KkthnxUIDB.Variables[K.Realm][K.Name]["TempAnchor"][account:GetName()] = nil
+		K.GetCharVars()["TempAnchor"][bag:GetName()] = nil
+		K.GetCharVars()["TempAnchor"][bank:GetName()] = nil
+		K.GetCharVars()["TempAnchor"][reagent:GetName()] = nil
+		K.GetCharVars()["TempAnchor"][account:GetName()] = nil
 		bag:ClearAllPoints()
 		bag:SetPoint(unpack(bag.__anchor))
 		bank:ClearAllPoints()
@@ -489,7 +489,7 @@ local function updateDepositButtonStatus(bu)
 		return
 	end
 
-	if KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit then
+	if K.GetCharVars().AutoDeposit then
 		bu.KKUI_Border:SetVertexColor(1, 0.8, 0)
 	else
 		bu.KKUI_Border:SetVertexColor(1, 1, 1)
@@ -497,7 +497,7 @@ local function updateDepositButtonStatus(bu)
 end
 
 function Module:AutoDeposit()
-	if KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit and not IsShiftKeyDown() then
+	if K.GetCharVars().AutoDeposit and not IsShiftKeyDown() then
 		DepositReagentBank()
 	end
 end
@@ -516,7 +516,7 @@ function Module:CreateDepositButton()
 	DepositButton:RegisterForClicks("AnyUp")
 	DepositButton:SetScript("OnClick", function(_, btn)
 		if btn == "RightButton" then
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit = not KkthnxUIDB.Variables[K.Realm][K.Name].AutoDeposit
+			K.GetCharVars().AutoDeposit = not K.GetCharVars().AutoDeposit
 			updateDepositButtonStatus(DepositButton)
 		else
 			DepositReagentBank()
@@ -740,7 +740,7 @@ end
 
 local function saveSplitCount(self)
 	local count = self:GetText() or ""
-	KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount = tonumber(count) or 1
+	K.GetCharVars().SplitCount = tonumber(count) or 1
 end
 
 local function editBoxClearFocus(self)
@@ -796,7 +796,7 @@ function Module:CreateSplitButton()
 			self.Icon:SetDesaturated(true)
 			self.text = enabledText
 			splitFrame:Show()
-			editBox:SetText(KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
+			editBox:SetText(K.GetCharVars().SplitCount)
 		else
 			self.__turnOff()
 		end
@@ -822,8 +822,8 @@ local function splitOnClick(self)
 	local texture = info and info.iconFileID
 	local itemCount = info and info.stackCount
 	local locked = info and info.isLocked
-	if texture and not locked and itemCount and itemCount > KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount then
-		SplitContainerItem(self.bagId, self.slotId, KkthnxUIDB.Variables[K.Realm][K.Name].SplitCount)
+	if texture and not locked and itemCount and itemCount > K.GetCharVars().SplitCount then
+		SplitContainerItem(self.bagId, self.slotId, K.GetCharVars().SplitCount)
 
 		local bagID, slotID = Module:GetEmptySlot("Bag")
 		if slotID then
@@ -833,7 +833,7 @@ local function splitOnClick(self)
 end
 
 local function GetCustomGroupTitle(index)
-	return KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] or (CUSTOM .. " " .. FILTER .. " " .. index)
+	return K.GetCharVars().CustomNames[index] or (CUSTOM .. " " .. FILTER .. " " .. index)
 end
 
 StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
@@ -843,7 +843,7 @@ StaticPopupDialogs["KKUI_RENAMECUSTOMGROUP"] = {
 	OnAccept = function(self)
 		local index = Module.selectGroupIndex
 		local text = self.editBox:GetText()
-		KkthnxUIDB.Variables[K.Realm][K.Name].CustomNames[index] = text ~= "" and text or nil
+		K.GetCharVars().CustomNames[index] = text ~= "" and text or nil
 
 		Module.CustomMenu[index + 2].text = GetCustomGroupTitle(index)
 		Module.ContainerGroups["Bag"][index].label:SetText(GetCustomGroupTitle(index))
@@ -866,11 +866,11 @@ end
 function Module:MoveItemToCustomBag(index)
 	local itemID = Module.selectItemID
 	if index == 0 then
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = nil
+		if K.GetCharVars().CustomItems[itemID] then
+			K.GetCharVars().CustomItems[itemID] = nil
 		end
 	else
-		KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] = index
+		K.GetCharVars().CustomItems[itemID] = index
 	end
 	Module:UpdateAllBags()
 end
@@ -878,7 +878,7 @@ end
 function Module:IsItemInCustomBag()
 	local index = self.arg1
 	local itemID = Module.selectItemID
-	return (index == 0 and not KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID]) or (KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[itemID] == index)
+	return (index == 0 and not K.GetCharVars().CustomItems[itemID]) or (K.GetCharVars().CustomItems[itemID] == index)
 end
 
 function Module:CreateFavouriteButton()
@@ -1020,10 +1020,10 @@ local function customJunkOnClick(self)
 	local itemID = info and info.itemID
 	local price = select(11, GetItemInfo(itemID))
 	if texture and price > 0 then
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = nil
+		if K.GetCharVars().CustomJunkList[itemID] then
+			K.GetCharVars().CustomJunkList[itemID] = nil
 		else
-			KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[itemID] = true
+			K.GetCharVars().CustomJunkList[itemID] = true
 		end
 		ClearCursor()
 		Module:UpdateAllBags()
@@ -1458,8 +1458,7 @@ function Module:OnEnable()
 			-- Data not ready yet; hide for now and retry on a throttled OnUpdate
 			self.UpgradeIcon:SetShown(false)
 			self._callUpdateUpgradeIcon = function(btn)
-				-- Re-evaluate using the latest item for this button
-				UpdatePawnArrow(btn, item)
+				UpdatePawnArrow(btn, btn:GetInfo())
 			end
 			self:SetScript("OnUpdate", UpgradeCheck_OnUpdate)
 		else
@@ -1470,7 +1469,8 @@ function Module:OnEnable()
 
 	function MyButton:OnUpdateButton(item)
 		if self.JunkIcon then
-			if (item.quality == Enum.ItemQuality.Poor or KkthnxUIDB.Variables[K.Realm][K.Name].CustomJunkList[item.id]) and item.hasPrice then
+			local vars = K.GetCharVars()
+			if (item.quality == Enum.ItemQuality.Poor or (vars and vars.CustomJunkList and vars.CustomJunkList[item.id])) and item.hasPrice then
 				self.JunkIcon:Show()
 			else
 				self.JunkIcon:Hide()
@@ -1508,7 +1508,8 @@ function Module:OnEnable()
 			SetItemCraftingQualityOverlay(self, item.link)
 		end
 
-		if KkthnxUIDB.Variables[K.Realm][K.Name].CustomItems[item.id] and not C["Inventory"].ItemFilter then
+		local vars = K.GetCharVars()
+		if vars and vars.CustomItems and vars.CustomItems[item.id] and not C["Inventory"].ItemFilter then
 			self.Favourite:Show()
 		else
 			self.Favourite:Hide()

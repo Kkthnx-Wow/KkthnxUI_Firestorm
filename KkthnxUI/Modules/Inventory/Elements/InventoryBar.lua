@@ -23,7 +23,10 @@ function Module:BagBar_OnLeave()
 end
 
 function Module:BagBar_OnEvent(event)
-	bagBar:UnregisterEvent(event)
+	if event == "PLAYER_REGEN_ENABLED" then
+		bagBar:UnregisterEvent(event)
+		Module:SetSizeAndPositionBagBar()
+	end
 end
 
 function Module:SkinBag(bag)

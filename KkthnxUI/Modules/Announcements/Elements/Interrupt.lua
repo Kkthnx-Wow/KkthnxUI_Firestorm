@@ -1,73 +1,115 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Announces interrupts, dispels, and broken crowd control to chat.
+-- - Design: Monitors COMBAT_LOG_EVENT_UNFILTERED (CLEU) and filters based on group affiliation.
+-----------------------------------------------------------------------------]]
+
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("Announcements")
 
--- Localize API functions
-local string_format, GetInstanceInfo, C_Spell_GetSpellLink, IsActiveBattlefieldArena, IsArenaSkirmish, IsInGroup, IsInRaid, IsPartyLFG, UnitInParty, UnitInRaid = string.format, GetInstanceInfo, C_Spell.GetSpellLink, IsActiveBattlefieldArena, IsArenaSkirmish, IsInGroup, IsInRaid, IsPartyLFG, UnitInParty, UnitInRaid
+-- ---------------------------------------------------------------------------
+-- LOCALS & CACHING
+-- ---------------------------------------------------------------------------
+
+-- PERF: Cache frequent string and global references to minimize CLEU overhead.
+local pairs = pairs
+local tostring = tostring
+local string_format = string.format
+
+local GetInstanceInfo = GetInstanceInfo
+local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local IsArenaSkirmish = IsArenaSkirmish
+local IsInGroup = IsInGroup
+local IsInRaid = IsInRaid
+local IsPartyLFG = IsPartyLFG
+local IsInInstance = IsInInstance
+local SendChatMessage = SendChatMessage
+local CombatLogGetCurrentEventInfo = CombatLogGetCurrentEventInfo
+
+local C_Spell_GetSpellLink = C_Spell.GetSpellLink
+local C_Spell_GetSpellInfo = C_Spell.GetSpellInfo
+local C_PartyInfo_IsPartyWalkIn = C_PartyInfo and C_PartyInfo.IsPartyWalkIn
+
 local band, bor = bit.band, bit.bor
 
 local AURA_TYPE_BUFF = AURA_TYPE_BUFF
+-- REASON: Filters CLEU events to only those originating from the player's immediate group.
+local AFFILIATION_MASK = bor(COMBATLOG_OBJECT_AFFILIATION_MINE, COMBATLOG_OBJECT_AFFILIATION_PARTY, COMBATLOG_OBJECT_AFFILIATION_RAID)
+
 local infoType = {}
 
--- Spells to ignore for "Broken Spell" announcements (commonly break on damage or are non-actionable)
+-- ---------------------------------------------------------------------------
+-- BLACKLISTS
+-- ---------------------------------------------------------------------------
+
+-- NOTE: Spells that break on damage or are non-actionable; suppressed to reduce spam.
 local brokenBlackList = {
+	[99] = true, -- Incapacitating Roar (Druid)
+	[122] = true, -- Frost Nova (Mage)
+	[1776] = true, -- Gouge (Rogue)
+	[1784] = true, -- Stealth (Rogue)
+	[5246] = true, -- Intimidating Shout (Warrior)
+	[8122] = true, -- Psychic Scream (Priest)
 	[102359] = true, -- Mass Entanglement (Druid)
 	[105421] = true, -- Blinding Light (Paladin)
 	[115191] = true, -- Stealth (Subterfuge) (Rogue)
-	[122] = true, -- Frost Nova (Mage)
 	[157997] = true, -- Ice Nova (Mage)
-	[1776] = true, -- Gouge (Rogue)
-	[1784] = true, -- Stealth (Rogue)
 	[197214] = true, -- Sundering (Shaman)
-	[198121] = true, -- Frostbite (Mage) — verify
+	[198121] = true, -- Frostbite (Mage)
 	[207167] = true, -- Blinding Sleet (Death Knight)
 	[207685] = true, -- Sigil of Misery (Demon Hunter)
 	[226943] = true, -- Mind Bomb (Priest)
 	[228600] = true, -- Glacial Spike (Mage)
-	[285515] = true, -- Verify spell name
 	[31661] = true, -- Dragon's Breath (Mage)
-	[331866] = true, -- Verify spell name
 	[33395] = true, -- Freeze (Water Elemental)
-	[354051] = true, -- Verify spell name
-	[355689] = true, -- Verify spell name
-	[378760] = true, -- Verify spell name
-	[386770] = true, -- Verify spell name
-	[5246] = true, -- Intimidating Shout (Warrior)
 	[64695] = true, -- Earthgrab (Totem Root)
-	[8122] = true, -- Psychic Scream (Priest)
 	[82691] = true, -- Ring of Frost (Mage)
-	[91807] = true, -- Shambling Rush — verify
-	[99] = true, -- Incapacitating Roar (Druid)
+	[91807] = true, -- Shambling Rush
 }
 
--- Spells to ignore for interrupt announcements (edge cases or non-standard interrupts)
+-- NOTE: Suppress specific interrupts that might be considered redundant or non-standard.
 local interruptBlackList = {
 	[31935] = true, -- Avenger's Shield (Paladin)
 }
 
--- Returns a user-facing spell reference (link if available, else localized name, else fallback id)
+-- ---------------------------------------------------------------------------
+-- UTILITIES
+-- ---------------------------------------------------------------------------
+
+-- COMPAT: Safely attempt to retrieve a spell link, falling back to name/ID to prevent script errors.
 local function GetSpellLinkSafe(spellID)
+	if not spellID then
+		return "SpellID:0"
+	end
+
 	local link = C_Spell_GetSpellLink(spellID)
 	if link then
 		return link
 	end
-	local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellID)
-	if info and info.name then
-		return info.name
+
+	if C_Spell_GetSpellInfo then
+		local info = C_Spell_GetSpellInfo(spellID)
+		if info and info.name then
+			return info.name
+		end
 	end
+
 	return "SpellID:" .. tostring(spellID)
 end
 
--- Resolves the chat channel used for announcements based on instance and settings
+-- REASON: Determines the appropriate chat channel based on the player's current instance and group type.
 local function getAlertChannel()
 	local _, instanceType = GetInstanceInfo()
-	local inPartyLFG = IsPartyLFG() or C_PartyInfo.IsPartyWalkIn()
+	local inPartyLFG = IsPartyLFG() or (C_PartyInfo_IsPartyWalkIn and C_PartyInfo_IsPartyWalkIn())
 	local inRaid = IsInRaid()
 
 	if instanceType == "arena" then
 		local isSkirmish = IsArenaSkirmish()
 		local _, isRegistered = IsActiveBattlefieldArena()
 		inPartyLFG = isSkirmish or not isRegistered
-		inRaid = false -- Arenas should not be considered raids
+		inRaid = false
 	end
 
 	local alertChannel = C["Announcements"].AlertChannel
@@ -86,7 +128,10 @@ local function getAlertChannel()
 	return "EMOTE"
 end
 
--- Enables/disables per-event announcement templates based on user settings
+-- ---------------------------------------------------------------------------
+-- EVENT LOGIC
+-- ---------------------------------------------------------------------------
+
 function Module:InterruptAlert_Toggle()
 	infoType["SPELL_STOLEN"] = C["Announcements"].DispellAlert and L["Steal"] or nil
 	infoType["SPELL_DISPEL"] = C["Announcements"].DispellAlert and L["Dispel"] or nil
@@ -94,7 +139,6 @@ function Module:InterruptAlert_Toggle()
 	infoType["SPELL_AURA_BROKEN_SPELL"] = C["Announcements"].BrokenAlert and L["Broken Spell"] or nil
 end
 
--- Returns true if any of the announcement types are enabled
 function Module:InterruptAlert_IsEnabled()
 	for _, value in pairs(infoType) do
 		if value then
@@ -104,59 +148,80 @@ function Module:InterruptAlert_IsEnabled()
 	return false
 end
 
--- Checks whether combat log flags indicate the source is our pet or an ally pet
 function Module:IsAllyPet(sourceFlags)
 	return K.IsMyPet(sourceFlags) or sourceFlags == K.PartyPetFlags or sourceFlags == K.RaidPetFlags
 end
 
--- Handles CLEU events and emits formatted announcements when conditions are met
+-- WARNING: This function is called frequently during CLEU bursts. Logic must remain lightweight.
 function Module:InterruptAlert_Update(...)
-	local _, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraskillID, _, _, auraType = ...
-	if not sourceGUID or sourceName == destName then
+	local eventType, sourceGUID, sourceName, sourceFlags, destName, spellID, extraSpellID, auraType
+	if CombatLogGetCurrentEventInfo then
+		_, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraSpellID, _, _, auraType = CombatLogGetCurrentEventInfo()
+	else
+		_, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraSpellID, _, _, auraType = ...
+	end
+
+	local infoText = eventType and infoType[eventType]
+	if not infoText or not sourceGUID or not sourceName or not destName or sourceName == destName then
+		return
+	end
+
+	-- PERF: Early exit if the source is not an ally or the player.
+	sourceFlags = sourceFlags or 0
+	if band(sourceFlags, AFFILIATION_MASK) == 0 then
 		return
 	end
 
 	local isPlayerOrAllyPet = sourceName == K.Name or Module:IsAllyPet(sourceFlags)
-	local isFromGroup = band(sourceFlags or 0, bor(COMBATLOG_OBJECT_AFFILIATION_MINE, COMBATLOG_OBJECT_AFFILIATION_PARTY, COMBATLOG_OBJECT_AFFILIATION_RAID)) ~= 0
 
-	if isFromGroup and infoType[eventType] then
-		local infoText = infoType[eventType]
-		local sourceSpellID, destSpellID
-
-		if eventType == "SPELL_AURA_BROKEN_SPELL" then
-			if auraType == AURA_TYPE_BUFF or brokenBlackList[spellID] then
-				return
-			end
-			sourceSpellID, destSpellID = extraskillID, spellID
-		elseif eventType == "SPELL_INTERRUPT" then
-			if (C["Announcements"].OwnInterrupt and not isPlayerOrAllyPet) or interruptBlackList[spellID] then
-				return
-			end
-			sourceSpellID, destSpellID = spellID, extraskillID
-		else
-			if C["Announcements"].OwnDispell and not isPlayerOrAllyPet then
-				return
-			end
-			sourceSpellID, destSpellID = spellID, extraskillID
+	local sourceSpellID, destSpellID
+	if eventType == "SPELL_AURA_BROKEN_SPELL" then
+		-- REASON: CC breaks on buffs (like shields) are usually not actionable/helpful to announce.
+		if auraType == AURA_TYPE_BUFF or (spellID and brokenBlackList[spellID]) then
+			return
 		end
-
-		if sourceSpellID and destSpellID then
-			local message = (eventType == "SPELL_AURA_BROKEN_SPELL") and string_format(infoText, sourceName, GetSpellLinkSafe(destSpellID)) or string_format(infoText, GetSpellLinkSafe(destSpellID))
-			SendChatMessage(message, getAlertChannel())
+		sourceSpellID, destSpellID = extraSpellID, spellID
+	elseif eventType == "SPELL_INTERRUPT" then
+		-- NOTE: Filtering to own interrupts if configured to reduce clutter.
+		if (C["Announcements"].OwnInterrupt and not isPlayerOrAllyPet) or (spellID and interruptBlackList[spellID]) then
+			return
 		end
+		sourceSpellID, destSpellID = spellID, extraSpellID
+	else
+		if C["Announcements"].OwnDispell and not isPlayerOrAllyPet then
+			return
+		end
+		sourceSpellID, destSpellID = spellID, extraSpellID
 	end
+
+	if not sourceSpellID or not destSpellID then
+		return
+	end
+
+	local message
+	if eventType == "SPELL_AURA_BROKEN_SPELL" then
+		message = string_format(infoText, sourceName, GetSpellLinkSafe(destSpellID))
+	else
+		message = string_format(infoText, GetSpellLinkSafe(destSpellID))
+	end
+
+	SendChatMessage(message, getAlertChannel())
 end
 
--- Registers/unregisters CLEU handler based on group and instance constraints
+-- ---------------------------------------------------------------------------
+-- REGISTRATION & LIFECYCLE
+-- ---------------------------------------------------------------------------
+
 function Module:InterruptAlert_CheckGroup()
-	if IsInGroup() and (not C["Announcements"].InstAlertOnly or (IsInInstance() and not IsPartyLFG() or C_PartyInfo.IsPartyWalkIn())) then
+	-- REASON: Manage CLEU registration to avoid unnecessary processing when solo or in world.
+	local allowInstance = (IsInInstance() and (not IsPartyLFG())) or (C_PartyInfo_IsPartyWalkIn and C_PartyInfo_IsPartyWalkIn())
+	if IsInGroup() and (not C["Announcements"].InstAlertOnly or allowInstance) then
 		K:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", Module.InterruptAlert_Update)
 	else
 		K:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", Module.InterruptAlert_Update)
 	end
 end
 
--- Initializes the interrupt/dispell/broken announcements and manages lifecycle
 function Module:CreateInterruptAnnounce()
 	Module:InterruptAlert_Toggle()
 

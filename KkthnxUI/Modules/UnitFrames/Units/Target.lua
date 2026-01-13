@@ -104,19 +104,19 @@ function Module:CreateTarget()
 		local Portrait
 
 		if targetPortraitStyle == 4 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_TargetPortrait", self)
+			Portrait = CreateFrame("PlayerModel", nil, self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
 		elseif targetPortraitStyle == 5 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_TargetPortrait", Health)
+			Portrait = CreateFrame("PlayerModel", nil, Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
 			Portrait:CreateBorder()
 		else
-			Portrait = Health:CreateTexture("KKUI_TargetPortrait", "BACKGROUND", nil, 1)
+			Portrait = Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
@@ -354,7 +354,7 @@ function Module:CreateTarget()
 
 	if C["Unitframe"].CombatText then
 		local parentFrame = CreateFrame("Frame", nil, UIParent)
-		local FloatingCombatFeedback = CreateFrame("Frame", "oUF_Target_CombatTextFrame", parentFrame)
+		local FloatingCombatFeedback = CreateFrame("Frame", nil, parentFrame)
 		FloatingCombatFeedback:SetSize(32, 32)
 		K.Mover(FloatingCombatFeedback, "CombatText", "TargetCombatText", { "BOTTOM", self, "TOPRIGHT", 0, 120 })
 
@@ -394,6 +394,7 @@ function Module:CreateTarget()
 	else
 		LeaderIndicator:SetPoint("TOPRIGHT", Health, 0, 10)
 	end
+	LeaderIndicator.PostUpdate = Module.PostUpdateLeaderIndicator
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	AssistantIndicator:SetSize(16, 16)

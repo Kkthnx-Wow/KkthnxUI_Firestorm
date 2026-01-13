@@ -1,6 +1,18 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Slash command registration and handler logic.
+-- - Combat: Most commands are safe; volume and gui toggles may have restrictions.
+-----------------------------------------------------------------------------]]
+
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 
--- Utility Functions
+-- ---------------------------------------------------------------------------
+-- LOCALS & GLOBAL CACHING
+-- ---------------------------------------------------------------------------
+
+-- PERF: Cache frequent APIs and globals to minimize table lookups.
 local print = print
 local string_format = string.format
 local string_lower = string.lower
@@ -18,7 +30,11 @@ local C_Item_GetItemInfo = C_Item and C_Item.GetItemInfo
 local PlaySound = PlaySound
 local UIErrorsFrame = UIErrorsFrame
 
--- Event Trace
+-- ---------------------------------------------------------------------------
+-- EVENT TRACE (DEBUG STATE)
+-- ---------------------------------------------------------------------------
+
+-- NOTE: Used for real-time event monitoring in the console.
 local EventTraceEnabled = true
 local EventTrace = CreateFrame("Frame")
 EventTrace:SetScript("OnEvent", function(_, event)
@@ -27,7 +43,10 @@ EventTrace:SetScript("OnEvent", function(_, event)
 	end
 end)
 
--- Command Functions
+-- ---------------------------------------------------------------------------
+-- COMMAND LOGIC HELPERS
+-- ---------------------------------------------------------------------------
+
 local function ToggleEventTrace()
 	if EventTraceEnabled then
 		EventTrace:UnregisterAllEvents()
@@ -48,6 +67,7 @@ local function SetVolume(val)
 	if new == old then
 		K.Print(string_format("Volume is already set to |cffa0f6aa%s|r.", old))
 	elseif new and 0 <= new and new <= 1 then
+		-- WARNING: Setting CVars during combat can occasionally cause taint in protected UI.
 		if InCombatLockdown() then
 			UIErrorsFrame:AddMessage(K.InfoColor .. _G.ERR_NOT_IN_COMBAT)
 			return
@@ -63,7 +83,11 @@ local function DoReadyCheckCommand()
 	DoReadyCheck()
 end
 
--- Quest Check
+-- ---------------------------------------------------------------------------
+-- QUEST INFORMATION HELPERS
+-- ---------------------------------------------------------------------------
+
+-- REASON: Maps locales to WoWHead subdomains for easier reference links.
 local QuestCheckSubDomain = (setmetatable({
 	ruRU = "ru",
 	frFR = "fr",
@@ -109,6 +133,7 @@ local function ToggleHelpFrame()
 	_G.ToggleHelpFrame()
 end
 
+-- REASON: Iterates through player bags to identify items that should be discarded.
 local function DeleteQuestItems()
 	for bag = 0, 4 do
 		for slot = 1, C_Container_GetContainerNumSlots(bag) do
@@ -116,7 +141,7 @@ local function DeleteQuestItems()
 			if itemLink then
 				local classID = C_Item_GetItemInfo and select(12, C_Item_GetItemInfo(itemLink))
 				if classID == _G.LE_ITEM_CLASS_QUESTITEM then
-				_G.print("Quest Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
+					_G.print("Quest Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
 				end
 			end
 		end
@@ -124,11 +149,12 @@ local function DeleteQuestItems()
 	_G.print("Please manually delete the listed quest items.")
 end
 
+-- NOTE: Helps clear out collections-based items that are no longer needed in inventory.
 local function DeleteHeirlooms()
 	for bag = 0, 4 do
 		for slot = 1, C_Container_GetContainerNumSlots(bag) do
 			local info = C_Container_GetContainerItemInfo(bag, slot)
-			-- Use modern container API struct; quality matches Enum.ItemQuality.Heirloom on modern clients
+			-- REASON: Heirloom quality corresponds to Enum.ItemQuality.Heirloom.
 			if info and info.quality == Enum.ItemQuality.Heirloom then
 				local itemLink = info.hyperlink or C_Container_GetContainerItemLink(bag, slot) or ("item:" .. (info.itemID or ""))
 				_G.print("Heirloom Item to Delete: " .. itemLink .. " in Bag: " .. bag .. " Slot: " .. slot)
@@ -186,6 +212,11 @@ local function AbandonZoneQuests()
 	print("All quests in " .. zoneName .. " have been abandoned.")
 end
 
+-- ---------------------------------------------------------------------------
+-- ADDON DEBUGGING & RESTORATION
+-- ---------------------------------------------------------------------------
+
+-- REASON: Disables all addons except KkthnxUI to isolate issues.
 local function StoreAndDisableAddons()
 	if next(KkthnxUIDB.DisabledAddOns) then
 		print("Debug mode is already active. Use '/kkdebug off' to restore addons.")
@@ -219,17 +250,18 @@ local function StoreAndDisableAddons()
 					C_AddOns.DisableAddOn(name)
 				end
 			end
-			-- print(string.format("Disabled %d addon(s) for debugging. Reloading UI...", addonsToDisable)) -- Pointless
+
 			ReloadUI()
 		end,
 		timeout = 0,
 		whileDead = true,
 		hideOnEscape = true,
-		preferredIndex = 3, -- Avoids taint
+		preferredIndex = 3, -- REASON: StaticPopup index 3 is generally safe from taint.
 	}
 	StaticPopup_Show("CONFIRM_DISABLE_ADDONS")
 end
 
+-- NOTE: Re-enables previously disabled addons and clears the tracking table.
 local function RestoreAddons()
 	StaticPopupDialogs["CONFIRM_RESTORE_ADDONS"] = {
 		text = "You are about to re-enable all previously disabled addons.|n|nThanks for using |cff5C8BCFKkthnxUI|r |cffff0000<3|r",
@@ -241,13 +273,13 @@ local function RestoreAddons()
 			end
 
 			wipe(KkthnxUIDB.DisabledAddOns)
-			-- print("Addons have been restored to their previous states. Reloading UI...") -- Pointless
+
 			ReloadUI()
 		end,
 		timeout = 0,
 		whileDead = true,
 		hideOnEscape = true,
-		preferredIndex = 3, -- Avoids taint
+		preferredIndex = 3, -- REASON: StaticPopup index 3 is generally safe from taint.
 	}
 	StaticPopup_Show("CONFIRM_RESTORE_ADDONS")
 end
@@ -260,16 +292,20 @@ local function DebugMode(msg)
 	end
 end
 
--- Frame for displaying commands
+-- ---------------------------------------------------------------------------
+-- UI COMPONENT: COMMAND LIST
+-- ---------------------------------------------------------------------------
+
+-- REASON: Creates a scrollable window listing all available slash commands.
 local function CreateCommandWindow()
 	if _G.KKUICommandWindow then
-		_G.KKUICommandWindow:Show() -- Show the window if it already exists
+		_G.KKUICommandWindow:Show()
 		return
 	end
 
 	local frame = CreateFrame("Frame", "KKUICommandWindow", UIParent)
-	frame:SetSize(650, 500) -- Width, Height
-	frame:SetPoint("CENTER") -- Position at the center of the screen
+	frame:SetSize(650, 500)
+	frame:SetPoint("CENTER")
 	frame:CreateBorder()
 	frame:SetMovable(true)
 	frame:EnableMouse(true)
@@ -277,12 +313,12 @@ local function CreateCommandWindow()
 	frame:SetScript("OnDragStart", frame.StartMoving)
 	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 
-	-- Title Text
 	frame.title = frame:CreateFontString(nil, "OVERLAY")
 	frame.title:SetFontObject("GameFontHighlightLarge")
 	frame.title:SetPoint("TOP", frame, "TOP", 0, -8)
-	frame.title:SetText(K.InfoColor .. "Commands List|r") -- Blue color title
+	frame.title:SetText(K.InfoColor .. "Commands List|r")
 
+	-- REASON: Visual branding for the command window.
 	local frameLogo = frame:CreateTexture(nil, "OVERLAY")
 	frameLogo:SetSize(512, 256)
 	frameLogo:SetBlendMode("ADD")
@@ -290,20 +326,17 @@ local function CreateCommandWindow()
 	frameLogo:SetTexture(C["Media"].Textures.LogoTexture)
 	frameLogo:SetPoint("CENTER", frame, "CENTER", 0, 0)
 
-	-- Scroll Frame
 	local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
 	scrollFrame:SetSize(594, 440)
 	scrollFrame:SetPoint("CENTER")
 
-	-- Scroll Child Frame
 	local scrollChild = CreateFrame("Frame")
 	scrollChild:SetSize(594, 440)
 	scrollFrame:SetScrollChild(scrollChild)
 	scrollFrame.ScrollBar:SkinScrollBar()
 
-	-- List of commands and descriptions
 	local commandsList = {
-		{ "KkthnxUI Commands", "" }, -- Section title
+		{ "KkthnxUI Commands", "" }, -- NOTE: Section headers have an empty description.
 		{ "/kk allquests", "Abandons all active quests." },
 		{ "/kk checkqueststatus [questid]", "Checks the completion status of a quest." },
 		{ "/kk clearchat [all]", "Clears the chat for the current window or all windows." },
@@ -318,7 +351,7 @@ local function CreateCommandWindow()
 		{ "/kk resetinstance", "Resets the current instance." },
 		{ "/kk volume [value]", "Sets the master volume level (0 to 1)." },
 		{ "/kk zonequests", "Abandons all quests from the current zone." },
-		{ "General Commands", "" }, -- Section title
+		{ "General Commands", "" },
 		{ "/debufftrack", "Opens the debuff tracking interface to manage and track debuffs in PvE and PvP." },
 		{ "/getfont", "Prints the font name, size, and flags of a specified global font object." },
 		{ "/getframe", "Gets the frame names under the mouse." },
@@ -337,49 +370,46 @@ local function CreateCommandWindow()
 		{ "/way [x] [y]", "Create a custom waypoint with the specified coordinates." },
 	}
 
-	-- Start positioning for the text
 	local yOffset = -10
 
 	for _, cmd in ipairs(commandsList) do
-		-- Create the font string for command text
 		local commandText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 		commandText:SetPoint("TOPLEFT", 0, yOffset)
 		commandText:SetWidth(594)
 		commandText:SetJustifyH("LEFT")
 
-		-- Check if the current entry is a section title or a command
+		-- REASON: Format section headers with a larger font and distinct color.
 		if cmd[2] == "" then
-			-- Section title (larger font, different color)
 			commandText:SetFontObject("GameFontNormalLarge")
-			commandText:SetText(K.InfoColorTint .. cmd[1] .. "|r") -- Section title color
+			commandText:SetText(K.InfoColorTint .. cmd[1] .. "|r")
 		else
-			-- Regular command with hyphen and description
 			commandText:SetFontObject("GameFontHighlight")
 			commandText:SetText(K.InfoColor .. cmd[1] .. "|r - " .. K.SystemColor .. cmd[2] .. "|r")
 		end
 
-		-- Adjust the yOffset for the next line
 		yOffset = yOffset - 26
 	end
 
-	frame:Hide() -- Hide by default
+	frame:Hide()
 
-	-- Close Button
 	frame.closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 	frame.closeButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT")
 	frame.closeButton:SkinCloseButton()
 
-	-- Store the frame for future use
+	-- NOTE: Cache the frame for future calls.
 	_G.KKUICommandWindow = frame
 end
 
--- Open Command Window with /kkhelp
 local function OpenCommandWindow()
 	CreateCommandWindow()
 	_G.KKUICommandWindow:Show()
 end
 
--- Command Mapping Table
+-- ---------------------------------------------------------------------------
+-- MAPPING & HANDLER REGISTRATION
+-- ---------------------------------------------------------------------------
+
+-- REASON: Table-based command mapping for better performance and maintainability.
 local commandMap = {
 	eventtrace = ToggleEventTrace,
 	gui = ToggleGUI,
@@ -397,10 +427,13 @@ local commandMap = {
 	allquests = AbandonAllQuests,
 	zonequests = AbandonZoneQuests,
 	help = OpenCommandWindow,
-	-- Add more commands as needed...
 }
 
--- Slash Command Handler
+-- ---------------------------------------------------------------------------
+-- SLASH COMMANDS
+-- ---------------------------------------------------------------------------
+
+-- REASON: Splitting input into command and arguments for modular handling.
 SlashCmdList["KKUI_COMMANDS"] = function(input)
 	local command, args = strsplit(" ", input, 2)
 	command = string.lower(command)
@@ -413,6 +446,7 @@ SlashCmdList["KKUI_COMMANDS"] = function(input)
 end
 _G.SLASH_KKUI_COMMANDS1 = "/kk"
 
+-- REASON: Dedicated handler for profile management (import/export/toggle).
 SlashCmdList["KKUI_PROFILE"] = function(msg)
 	if K.ProfileGUI then
 		local command = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
@@ -427,6 +461,7 @@ SlashCmdList["KKUI_PROFILE"] = function(msg)
 				K.ProfileGUI:ShowImportDialog()
 			else
 				K.ProfileGUI:Show()
+				-- REASON: Slight delay to ensure the frame is fully initialized before showing the dialog.
 				C_Timer.After(0.2, function()
 					K.ProfileGUI:ShowImportDialog()
 				end)
@@ -436,6 +471,7 @@ SlashCmdList["KKUI_PROFILE"] = function(msg)
 				K.ProfileGUI:ShowExportDialog()
 			else
 				K.ProfileGUI:Show()
+				-- REASON: Slight delay to ensure the frame is fully initialized before showing the dialog.
 				C_Timer.After(0.2, function()
 					K.ProfileGUI:ShowExportDialog()
 				end)
@@ -459,3 +495,16 @@ end
 _G.SLASH_KKUI_PROFILE1 = "/profile"
 _G.SLASH_KKUI_PROFILE2 = "/kprofile"
 _G.SLASH_KKUI_PROFILE3 = "/kkthnxprofile"
+
+-- ---------------------------------------------------------------------------
+-- EVENT HANDLING
+-- ---------------------------------------------------------------------------
+
+-- NOTE: Automated check on login; respects user's "don't show" preference in K:ShowChangelog.
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:SetScript("OnEvent", function(_, event)
+	if event == "PLAYER_LOGIN" then
+		K:ShowChangelog(false)
+	end
+end)

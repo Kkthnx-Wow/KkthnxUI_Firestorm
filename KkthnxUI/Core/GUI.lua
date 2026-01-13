@@ -85,7 +85,7 @@ local HEADER_HEIGHT = 40
 local CATEGORY_HEIGHT = 32
 
 -- Colors (use KkthnxUI's established color system)
-local ACCENT_COLOR = { K.r, K.g, K.b }
+local ACCENT_COLOR = { K.r * 0.7, K.g * 0.7, K.b * 0.7 }
 local BG_COLOR = C["Media"].Backdrops.ColorBackdrop
 local SIDEBAR_COLOR = { 0.05, 0.05, 0.05, 0.95 }
 local WIDGET_BG = { 0.12, 0.12, 0.12, 0.8 }
@@ -2193,12 +2193,14 @@ local function CreateTextInput(parent, configPath, text, placeholder, tooltip, h
 
 	-- Text Input EditBox
 	local editBox = CreateFrame("EditBox", nil, widget)
-	editBox:SetSize(150, 16)
-	-- Leave room for a checkmark apply button
-	editBox:SetPoint("RIGHT", -30, 0)
+	editBox:SetSize(180, 20) -- Comment: Wider + taller so text doesn't overflow/clamp
+	editBox:SetPoint("RIGHT", -30, 0) -- Comment: Leave room for apply checkmark
 	editBox:SetFontObject(K.UIFont)
 	editBox:SetTextColor(TEXT_COLOR[1], TEXT_COLOR[2], TEXT_COLOR[3], TEXT_COLOR[4])
 	editBox:SetAutoFocus(false)
+	editBox:SetMultiLine(false)
+	editBox:SetMaxLetters(255)
+	editBox:SetTextInsets(6, 6, 0, 0) -- Comment: Keep text/placeholder inside the box
 
 	-- Input background
 	local inputBg = editBox:CreateTexture(nil, "BACKGROUND")
@@ -2207,53 +2209,64 @@ local function CreateTextInput(parent, configPath, text, placeholder, tooltip, h
 	inputBg:SetVertexColor(0.2, 0.2, 0.2, 1)
 
 	-- Placeholder text
+	local placeholderText
+	local function UpdatePlaceholder()
+		if not placeholderText then
+			return
+		end
+
+		-- Comment: Show placeholder only when empty and not focused
+		if editBox:GetText() == "" and not editBox:HasFocus() then
+			placeholderText:Show()
+		else
+			placeholderText:Hide()
+		end
+	end
+
 	if placeholder then
-		local placeholderText = editBox:CreateFontString(nil, "OVERLAY")
+		placeholderText = editBox:CreateFontString(nil, "OVERLAY")
 		placeholderText:SetFontObject(K.UIFont)
 		placeholderText:SetTextColor(0.5, 0.5, 0.5, 1)
 		placeholderText:SetText(placeholder)
-		placeholderText:SetPoint("LEFT", editBox, "LEFT", 4, 0)
 
-		editBox:SetScript("OnTextChanged", function(self)
-			local text = self:GetText()
-			if text == "" then
-				placeholderText:Show()
-			else
-				placeholderText:Hide()
-			end
-		end)
+		-- Comment: Constrain placeholder inside the EditBox so it can't draw outside
+		placeholderText:SetPoint("LEFT", editBox, "LEFT", 6, 0)
+		placeholderText:SetPoint("RIGHT", editBox, "RIGHT", -6, 0)
+		placeholderText:SetJustifyH("LEFT")
+		placeholderText:SetJustifyV("MIDDLE")
+		placeholderText:SetWordWrap(false)
+		placeholderText:SetMaxLines(1)
 
-		editBox:SetScript("OnEditFocusGained", function()
-			placeholderText:Hide()
-		end)
+		-- Comment: Use HookScript so we don't clobber other handlers
+		editBox:HookScript("OnTextChanged", UpdatePlaceholder)
+		editBox:HookScript("OnEditFocusGained", UpdatePlaceholder)
+		editBox:HookScript("OnEditFocusLost", UpdatePlaceholder)
 
-		editBox:SetScript("OnEditFocusLost", function(self)
-			if self:GetText() == "" then
-				placeholderText:Show()
-			end
-		end)
+		-- Initialize placeholder visibility
+		UpdatePlaceholder()
 	end
 
 	-- Update function
 	function widget:UpdateValue()
 		local value = GetConfigValue(self.ConfigPath) or ""
 		editBox:SetText(tostring(value))
+		UpdatePlaceholder()
 	end
 
-	-- Save on enter/focus lost
-	editBox:SetScript("OnEnterPressed", function(self)
-		local txt = self and self.GetText and self:GetText() or ""
+	-- Save on enter/focus lost (Comment: HookScript so placeholder focus handling still runs)
+	editBox:HookScript("OnEnterPressed", function(self)
+		local txt = self:GetText() or ""
 		SetConfigValue(configPath, txt, requiresReload, cleanText)
 		self:ClearFocus()
 	end)
 
-	editBox:SetScript("OnEditFocusLost", function(self)
-		local txt = self and self.GetText and self:GetText() or ""
+	editBox:HookScript("OnEditFocusLost", function(self)
+		local txt = self:GetText() or ""
 		SetConfigValue(configPath, txt, requiresReload, cleanText)
 	end)
 
 	-- ESC to reset to default value
-	editBox:SetScript("OnEscapePressed", function(self)
+	editBox:HookScript("OnEscapePressed", function(self)
 		ResetToDefault(configPath, widget, cleanText)
 		self:ClearFocus()
 		widget:UpdateValue()
@@ -2494,6 +2507,18 @@ local function CreateMainFrame()
 	-- Perks Theme overlay via reusable helper
 	if K.AttachPerksTheme then
 		GUI.PerksOverlay = K.AttachPerksTheme(frame, { variant = "tp", point = "TOP", relPoint = "TOP", x = 0, y = 68, strata = "TOOLTIP", level = 999 })
+	end
+
+	local _, unitClass = UnitClass("player")
+	local ClassTCoords = CLASS_ICON_TCOORDS[unitClass]
+	local classIcon = titleBar:CreateTexture(nil, "OVERLAY")
+	classIcon:SetSize(32, 32)
+	classIcon:SetPoint("LEFT", 4, 0)
+	classIcon:SetTexture("Interface\\AddOns\\KkthnxUI\\Media\\Unitframes\\NEW-ICONS-CLASSES")
+	if ClassTCoords then
+		classIcon:SetTexCoord(ClassTCoords[1], ClassTCoords[2], ClassTCoords[3], ClassTCoords[4])
+	else
+		classIcon:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 	end
 
 	-- Close Button

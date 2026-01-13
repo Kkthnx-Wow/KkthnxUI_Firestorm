@@ -120,17 +120,18 @@ local function SetExpiresText(timeRemaining, dialog, isPvP)
 end
 
 local function SavePVEPopTime()
-	KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer or {}
-	KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer.PVEPopTime = GetTime()
+	local charVars = K.GetCharVars()
+	charVars.QueueTimer = charVars.QueueTimer or {}
+	charVars.QueueTimer.PVEPopTime = GetTime()
 end
 
 local function LoadPVEPopTime()
-	local t = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer
+	local t = K.GetCharVars().QueueTimer
 	return t and t.PVEPopTime or nil
 end
 
 local function ClearPVEPopTime()
-	local t = KkthnxUIDB.Variables[K.Realm][K.Name].QueueTimer
+	local t = K.GetCharVars().QueueTimer
 	if t then
 		t.PVEPopTime = nil
 	end

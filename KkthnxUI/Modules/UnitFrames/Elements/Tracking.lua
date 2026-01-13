@@ -43,12 +43,7 @@ local COLOR_YELLOW = "|CFFFFFF00"
 local COLOR_ORANGE = "|cffff8800"
 local COLOR_END = "|r"
 
---[[-----------------------------------------------------------------------------
-	Spell Info Compatibility Layer
-	
-	Provides compatibility between retail and classic GetSpellInfo APIs.
-	Caches results to avoid repeated API calls.
--------------------------------------------------------------------------------]]
+-- Spell Info Compatibility Layer
 do
 	local GetSpellInfo = _G.GetSpellInfo
 	local C_Spell_GetSpellInfo = _G.C_Spell and _G.C_Spell.GetSpellInfo
@@ -73,15 +68,7 @@ do
 			-- Modern retail API (preferred)
 			local info = C_Spell_GetSpellInfo(spell)
 			if info then
-				name, rank, iconID, castTime, minRange, maxRange, spellID, originalIconID =
-					info.name,
-					info.rank,
-					info.iconID,
-					info.castTime,
-					info.minRange,
-					info.maxRange,
-					info.spellID,
-					info.originalIconID
+				name, rank, iconID, castTime, minRange, maxRange, spellID, originalIconID = info.name, info.rank, info.iconID, info.castTime, info.minRange, info.maxRange, info.spellID, info.originalIconID
 			end
 		elseif GetSpellInfo then
 			-- Classic / fallback API
@@ -97,11 +84,7 @@ do
 	end
 end
 
---[[-----------------------------------------------------------------------------
-	Static Popup Dialogs
-	
-	Dialog boxes for adding new PvE/PvP debuffs to track.
--------------------------------------------------------------------------------]]
+-- Static Popup Dialogs
 
 --- Create static popup dialog for tracking
 -- @param category "PvE" or "PvP"
@@ -120,7 +103,7 @@ local function CreateTrackingDialog(category)
 				return
 			end
 
-			local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
+			local db = K.GetCharVars().Tracking[category]
 			local name, _, icon = Module.GetSpellInfo(spellID)
 
 			local trackingTitle = COLOR_GREEN .. L["DEBUFF TRACKING"] .. " " .. COLOR_END
@@ -167,11 +150,7 @@ end
 StaticPopupDialogs["KKUI_TRACKING_ADD_PVE"] = CreateTrackingDialog("PvE")
 StaticPopupDialogs["KKUI_TRACKING_ADD_PVP"] = CreateTrackingDialog("PvP")
 
---[[-----------------------------------------------------------------------------
-	Tracking UI Frame
-	
-	Main frame for debuff tracking interface.
--------------------------------------------------------------------------------]]
+-- Tracking UI Frame
 local Tracking = {}
 Tracking.__index = Tracking
 
@@ -182,7 +161,7 @@ Tracking.__index = Tracking
 function Tracking:GetSpell(button, category)
 	local count = 0
 	local id = button.ID
-	local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
+	local db = K.GetCharVars().Tracking[category]
 
 	for spellID in pairs(db) do
 		count = count + 1
@@ -203,7 +182,7 @@ function Tracking:RemoveSpell()
 
 	local category = self.Cat
 	local spellID = self.SpellID
-	local db = KkthnxUIDB.Variables[K.Realm][K.Name].Tracking[category]
+	local db = K.GetCharVars().Tracking[category]
 
 	if spellID and db[spellID] then
 		db[spellID] = nil
@@ -438,9 +417,7 @@ function Module:CreateTracking()
 	trackingFrame:Setup()
 end
 
---[[-----------------------------------------------------------------------------
-	Slash Command
--------------------------------------------------------------------------------]]
+-- Slash Command
 
 --- Slash command handler for /debufftrack
 SlashCmdList["KKUI_TRACKING"] = function()

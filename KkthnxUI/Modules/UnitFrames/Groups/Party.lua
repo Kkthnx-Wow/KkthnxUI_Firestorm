@@ -98,19 +98,19 @@ function Module:CreateParty()
 		local Portrait
 
 		if partyPortraitStyle == 4 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", self)
+			Portrait = CreateFrame("PlayerModel", nil, self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
 		elseif partyPortraitStyle == 5 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_PartyPortrait", Health)
+			Portrait = CreateFrame("PlayerModel", nil, Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
 			Portrait:CreateBorder()
 		else
-			Portrait = Health:CreateTexture("KKUI_PartyPortrait", "BACKGROUND", nil, 1)
+			Portrait = Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPRIGHT", self, "TOPLEFT", -6, 0)
@@ -143,7 +143,7 @@ function Module:CreateParty()
 	self:Tag(Level, "[nplevel]")
 
 	if C["Party"].ShowBuffs then
-		local Buffs = CreateFrame("Frame", "KKUI_PartyBuffs", self)
+		local Buffs = CreateFrame("Frame", nil, self)
 		Buffs:SetPoint("TOPLEFT", Power, "BOTTOMLEFT", 0, -6)
 		Buffs:SetPoint("TOPRIGHT", Power, "BOTTOMRIGHT", 0, -6)
 		Buffs.initialAnchor = "TOPLEFT"
@@ -176,7 +176,7 @@ function Module:CreateParty()
 	Debuffs.PostUpdateButton = Module.PostUpdateButton
 
 	if C["Party"].Castbars then
-		local Castbar = CreateFrame("StatusBar", "oUF_CastbarParty", self)
+		local Castbar = CreateFrame("StatusBar", nil, self)
 		Castbar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
 		Castbar:SetFrameLevel(10)
 		Castbar:SetPoint("BOTTOM", Health, "TOP", 0, 6)
@@ -366,6 +366,7 @@ function Module:CreateParty()
 	else
 		LeaderIndicator:SetPoint("TOPLEFT", self.Portrait, 0, 10)
 	end
+	LeaderIndicator.PostUpdate = Module.PostUpdateLeaderIndicator
 
 	local AssistantIndicator = Overlay:CreateTexture(nil, "OVERLAY")
 	AssistantIndicator:SetSize(15, 15)

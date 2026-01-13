@@ -96,19 +96,19 @@ function Module:CreateBoss()
 		local Portrait
 
 		if bossPortraitStyle == 4 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_BossPortrait", self)
+			Portrait = CreateFrame("PlayerModel", nil, self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", self.Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", self.Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
 		elseif bossPortraitStyle == 5 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_BossPortrait", self.Health)
+			Portrait = CreateFrame("PlayerModel", nil, self.Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(self.Health:GetHeight() + self.Power:GetHeight() + 6, self.Health:GetHeight() + self.Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
 			Portrait:CreateBorder()
 		else
-			Portrait = self.Health:CreateTexture("KKUI_BossPortrait", "BACKGROUND", nil, 1)
+			Portrait = self.Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(self.Health:GetHeight() + self.Power:GetHeight() + 6, self.Health:GetHeight() + self.Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
@@ -174,7 +174,7 @@ function Module:CreateBoss()
 	self.Debuffs.PostUpdateButton = Module.PostUpdateButton
 
 	if C["Boss"].Castbars then
-		local Castbar = CreateFrame("StatusBar", "oUF_CastbarBoss", self)
+		local Castbar = CreateFrame("StatusBar", nil, self)
 		Castbar:SetStatusBarTexture(K.GetTexture(C["General"].Texture))
 		Castbar:SetFrameLevel(10)
 		Castbar:SetPoint("BOTTOM", self.Health, "TOP", 0, 6)

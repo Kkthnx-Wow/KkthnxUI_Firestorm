@@ -19,6 +19,7 @@ local CustomFilterList = {
 	[153646] = true,
 	[153647] = true,
 	[161053] = true,
+	[224185] = true, -- Coffer Key Shard
 }
 
 local isPetToy = {
@@ -64,6 +65,10 @@ local function hasReagentBagEquipped()
 	return C_Container.GetContainerNumSlots(REAGENT_BAG) > 0
 end
 
+local function CheckFilterSetting(setting)
+	return C["Inventory"].ItemFilter and C["Inventory"][setting]
+end
+
 local function isCustomFilter(item)
 	if not C["Inventory"].ItemFilter then
 		return
@@ -88,24 +93,21 @@ local function isItemInAccountBank(item)
 	return item.bagId > 12 and item.bagId < 18
 end
 
+-- Cache character variables (file-local)
+local charVars
+
 local function isItemJunk(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterJunk then
+	if not CheckFilterSetting("FilterJunk") then
 		return
 	end
 
-	-- Lazy cache character variables to reduce deep table lookups
-	if not charVars then
-		local db = KkthnxUIDB and KkthnxUIDB.Variables
-		if db and db[K.Realm] and db[K.Realm][K.Name] then
-			charVars = db[K.Realm][K.Name]
-		end
-	end
-	local isCustomJunk = charVars and charVars.CustomJunkList and charVars.CustomJunkList[item.id]
+	local vars = K.GetCharVars()
+	local isCustomJunk = vars and vars.CustomJunkList and vars.CustomJunkList[item.id]
 	return (item.quality == Enum.ItemQuality.Poor or isCustomJunk) and item.hasPrice and not Module:IsPetTrashCurrency(item.id)
 end
 
 local function isItemEquipSet(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterEquipSet then
+	if not CheckFilterSetting("FilterEquipSet") then
 		return
 	end
 
@@ -113,7 +115,7 @@ local function isItemEquipSet(item)
 end
 
 local function isAzeriteArmor(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterAzerite or not item.link then
+	if not CheckFilterSetting("FilterAzerite") or not item.link then
 		return
 	end
 
@@ -125,7 +127,7 @@ local function CheckEquip(item)
 end
 
 local function isItemEquipment(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterEquipment or not item.link or item.quality <= Enum.ItemQuality.Common then
+	if not CheckFilterSetting("FilterEquipment") or not item.link or item.quality <= Enum.ItemQuality.Common then
 		return
 	end
 
@@ -133,21 +135,15 @@ local function isItemEquipment(item)
 end
 
 local function isItemLegacy(item)
-	if not C["Inventory"].ItemFilter then
+	if not CheckFilterSetting("FilterLegacy") then
 		return
 	end
-	if not C["Inventory"].FilterLegacy then
-		return
-	end
+
 	return CheckEquip(item) and item.expacID and item.expacID < CURRENT_EXPANSION
 end
 
 local function isItemLowerLevel(item)
-	if not C["Inventory"].ItemFilter then
-		return
-	end
-
-	if not C["Inventory"].FilterLower then
+	if not CheckFilterSetting("FilterLower") then
 		return
 	end
 
@@ -155,7 +151,7 @@ local function isItemLowerLevel(item)
 end
 
 local function isItemConsumable(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterConsumable then
+	if not CheckFilterSetting("FilterConsumable") then
 		return
 	end
 
@@ -166,7 +162,7 @@ local function isItemConsumable(item)
 end
 
 local function isItemLegendary(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterLegendary then
+	if not CheckFilterSetting("FilterLegendary") then
 		return
 	end
 
@@ -182,7 +178,7 @@ function Module:IsPetTrashCurrency(itemID)
 end
 
 local function isItemCollection(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterCollection then
+	if not CheckFilterSetting("FilterCollection") then
 		return
 	end
 
@@ -190,18 +186,12 @@ local function isItemCollection(item)
 end
 
 local function isItemCustom(item, index)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterCustom then
+	if not CheckFilterSetting("FilterCustom") then
 		return
 	end
 
-	-- Use cached character variables for faster lookup
-	if not charVars then
-		local db = KkthnxUIDB and KkthnxUIDB.Variables
-		if db and db[K.Realm] and db[K.Realm][K.Name] then
-			charVars = db[K.Realm][K.Name]
-		end
-	end
-	local customIndex = charVars and charVars.CustomItems and charVars.CustomItems[item.id]
+	local vars = K.GetCharVars()
+	local customIndex = vars and vars.CustomItems and vars.CustomItems[item.id]
 	return customIndex and customIndex == index
 end
 
@@ -214,7 +204,7 @@ local function isEmptySlot(item)
 end
 
 local function isTradeGoods(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterGoods then
+	if not CheckFilterSetting("FilterGoods") then
 		return
 	end
 
@@ -226,7 +216,7 @@ local function isTradeGoods(item)
 end
 
 local function isQuestItem(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterQuest then
+	if not CheckFilterSetting("FilterQuest") then
 		return
 	end
 
@@ -234,7 +224,7 @@ local function isQuestItem(item)
 end
 
 local function isAnimaItem(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterAnima or not item.link then
+	if not CheckFilterSetting("FilterAnima") or not item.link then
 		return
 	end
 
@@ -242,14 +232,14 @@ local function isAnimaItem(item)
 end
 
 local function isPrimordialStone(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterStone then
+	if not CheckFilterSetting("FilterStone") then
 		return
 	end
 	return item.id and primordialStones[item.id]
 end
 
 local function isItemKeystone(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterKeystone then
+	if not CheckFilterSetting("FilterKeystone") then
 		return
 	end
 
@@ -264,7 +254,7 @@ local function isItemKeystone(item)
 end
 
 local function isWarboundUntilEquipped(item)
-	if not C["Inventory"].ItemFilter or not C["Inventory"].FilterAOE then
+	if not CheckFilterSetting("FilterAOE") then
 		return
 	end
 	return item.bindOn and item.bindOn == "accountequip"

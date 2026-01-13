@@ -6,7 +6,6 @@ local next = next
 local max = max
 local ipairs = ipairs
 local string_format = string.format
-local debugprofilestop = debugprofilestop
 
 local CloseLoot = CloseLoot
 local CreateFrame = CreateFrame
@@ -52,7 +51,7 @@ local coinTextureIDs = {
 	[133789] = true,
 }
 
--- === FastLoot bridge (Retail-only) ==========================================
+-- FastLoot bridge (Retail-only)
 function Module:SetLootFrameSuppressed(suppressed)
 	-- DO NOT :Hide() lootFrame here; its OnHide calls CloseLoot() :contentReference[oaicite:3]{index=3}
 	if lootFrame then
@@ -60,7 +59,6 @@ function Module:SetLootFrameSuppressed(suppressed)
 		lootFrame:EnableMouse(not suppressed)
 	end
 end
--- ============================================================================
 
 local function SlotEnter(slot)
 	local id = slot:GetID()
@@ -222,11 +220,6 @@ function Module:LOOT_CLOSED()
 end
 
 function Module:LOOT_OPENED(_, autoloot)
-	local t0
-	if Module._lootProfile and Module._lootProfile.enabled then
-		t0 = debugprofilestop()
-	end
-
 	lootFrame:Show()
 
 	-- FastLoot bridge: allow FasterLoot.lua to lock autoloot state + suppress the frame safely
@@ -335,13 +328,6 @@ function Module:LOOT_OPENED(_, autoloot)
 	local color = ITEM_QUALITY_COLORS[max_quality]
 	lootFrame.KKUI_Border:SetVertexColor(color.r, color.g, color.b, 0.8)
 	lootFrame:SetWidth(max(max_width + 60, lootFrame.title:GetStringWidth() + 5))
-
-	if Module._lootProfile and Module._lootProfile.enabled and t0 then
-		local dt = debugprofilestop() - t0
-		local p = Module._lootProfile
-		p.runs = p.runs + 1
-		p.totalMs = p.totalMs + dt
-	end
 end
 
 function Module:OPEN_MASTER_LOOT_LIST()
@@ -362,7 +348,6 @@ function Module:OnEnable()
 	lootFrameHolder = CreateFrame("Frame", "KKUI_LootFrameHolder", UIParent)
 	lootFrameHolder:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 418, -186)
 	lootFrameHolder:SetSize(150, 22)
-
 	lootFrame = CreateFrame("Button", "KKUI_LootFrame", lootFrameHolder)
 	lootFrame:Hide()
 	lootFrame:SetClampedToScreen(true)
@@ -416,22 +401,5 @@ function Module:OnEnable()
 				error("Error in function " .. funcName .. ": " .. tostring(err), 2)
 			end
 		end
-	end
-end
-
-function Module:LootProfileSetEnabled(enabled)
-	self._lootProfile = self._lootProfile or { enabled = false, runs = 0, totalMs = 0 }
-	local p = self._lootProfile
-	p.enabled = not not enabled
-	p.runs = 0
-	p.totalMs = 0
-end
-
-function Module:LootProfileDump()
-	local p = self._lootProfile
-	if p and p.enabled then
-		K.Print(string_format("[Loot] runs=%d time=%.2fms", p.runs, p.totalMs))
-	else
-		K.Print("[Loot] profiling disabled")
 	end
 end

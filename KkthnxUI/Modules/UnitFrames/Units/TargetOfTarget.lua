@@ -85,19 +85,19 @@ function Module:CreateTargetOfTarget()
 		local Portrait
 
 		if targetOfTargetPortraitStyle == 4 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_TargetTargetPortrait", self)
+			Portrait = CreateFrame("PlayerModel", nil, self)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetPoint("TOPLEFT", Health, "TOPLEFT", 1, -1)
 			Portrait:SetPoint("BOTTOMRIGHT", Health, "BOTTOMRIGHT", -1, 1)
 			Portrait:SetAlpha(0.6)
 		elseif targetOfTargetPortraitStyle == 5 then
-			Portrait = CreateFrame("PlayerModel", "KKUI_TargetTargetPortrait", Health)
+			Portrait = CreateFrame("PlayerModel", nil, Health)
 			Portrait:SetFrameStrata(self:GetFrameStrata())
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)
 			Portrait:CreateBorder()
 		else
-			Portrait = Health:CreateTexture("KKUI_TargetTargetPortrait", "BACKGROUND", nil, 1)
+			Portrait = Health:CreateTexture(nil, "BACKGROUND", nil, 1)
 			Portrait:SetTexCoord(0.15, 0.85, 0.15, 0.85)
 			Portrait:SetSize(Health:GetHeight() + Power:GetHeight() + 6, Health:GetHeight() + Power:GetHeight() + 6)
 			Portrait:SetPoint("TOPLEFT", self, "TOPRIGHT", 6, 0)

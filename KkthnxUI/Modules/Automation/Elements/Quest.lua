@@ -37,9 +37,9 @@ local function setupCheckButton()
 	mono:SetSize(24, 24)
 	mono:SetFrameLevel(999)
 	mono.text = K.CreateFontString(mono, 12, "Auto Quest", "", "system", "LEFT", 24, 0)
-	mono:SetChecked(KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest)
+	mono:SetChecked(K.GetCharVars().AutoQuest)
 	mono:SetScript("OnClick", function(self)
-		KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest = self:GetChecked()
+		K.GetCharVars().AutoQuest = self:GetChecked()
 	end)
 	K.AddTooltip(mono, "ANCHOR_BOTTOMLEFT", "Automatically interact with quests.|n|nSingle-option gossip will be selected automatically.|n|nHold SHIFT to temporarily pause automation.|n|nTo block an NPC from auto-interaction, hold ALT and click their name in the Gossip or Quest frame.", "info", true)
 
@@ -56,7 +56,7 @@ end)
 function QuickQuest:Register(event, func)
 	self:RegisterEvent(event)
 	self[event] = function(...)
-		if KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest and not IsShiftKeyDown() then
+		if K.GetCharVars().AutoQuest and not IsShiftKeyDown() then
 			func(...)
 		end
 	end
@@ -202,12 +202,17 @@ QuickQuest:Register("GOSSIP_CONFIRM", function(index)
 end)
 
 QuickQuest:Register("QUEST_DETAIL", function()
+	local questID = GetQuestID()
+	if questID == 82449 then -- Call of the Worldsoul
+		return
+	end
+
 	if QuestIsFromAreaTrigger() then
 		AcceptQuest()
 	elseif QuestGetAutoAccept() then
 		AcknowledgeAutoAcceptQuest()
-	elseif not C_QuestLog_IsQuestTrivial(GetQuestID()) or C_Minimap.IsTrackingHiddenQuests() then
-		if not C.IgnoreQuestNPC[GetNPCID()] then
+	elseif not C_QuestLog_IsQuestTrivial(questID) or C_Minimap.IsTrackingHiddenQuests() then
+		if not C.IgnoreQuestNPC[GetNPCID()] and not IsAccountCompleted(questID) then
 			AcceptQuest()
 		end
 	end
@@ -229,13 +234,17 @@ end)
 
 QuickQuest:Register("QUEST_PROGRESS", function()
 	if IsQuestCompletable() then
-		local info = C_QuestLog_GetQuestTagInfo(GetQuestID())
+		local questID = GetQuestID()
+		if questID == 82449 then -- Call of the Worldsoul
+			return
+		end
+
+		local info = C_QuestLog_GetQuestTagInfo(questID)
 		if info and (info.tagID == 153 or info.worldQuestType) then
 			return
 		end
 
-		local npcID = GetNPCID()
-		if C.IgnoreQuestNPC[npcID] then
+		if C.IgnoreQuestNPC[GetNPCID()] then
 			return
 		end
 
@@ -264,6 +273,11 @@ QuickQuest:Register("QUEST_PROGRESS", function()
 end)
 
 QuickQuest:Register("QUEST_COMPLETE", function()
+	local questID = GetQuestID()
+	if questID == 82449 then -- Call of the Worldsoul
+		return
+	end
+
 	-- Blingtron 6000 only!
 	local npcID = GetNPCID()
 	if npcID == 43929 or npcID == 77789 then
@@ -272,7 +286,7 @@ QuickQuest:Register("QUEST_COMPLETE", function()
 
 	local choices = GetNumQuestChoices()
 	if choices <= 1 then
-		GetQuestReward(1)
+		GetQuestReward(choices)
 	elseif choices > 1 then
 		local bestValue, bestIndex = 0
 
@@ -331,9 +345,9 @@ local function UpdateIgnoreList()
 		C.IgnoreQuestNPC[npcID] = value
 	end
 
-	for npcID, value in pairs(KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC) do
+	for npcID, value in pairs(K.GetCharVars().AutoQuestIgnoreNPC) do
 		if value and C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
+			K.GetCharVars().AutoQuestIgnoreNPC[npcID] = nil
 		else
 			C.IgnoreQuestNPC[npcID] = value
 		end
@@ -354,7 +368,7 @@ local function UnitQuickQuestStatus(self)
 	end
 
 	local npcID = GetNPCID()
-	local isIgnored = KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest and npcID and C.IgnoreQuestNPC[npcID]
+	local isIgnored = K.GetCharVars().AutoQuest and npcID and C.IgnoreQuestNPC[npcID]
 	self.__ignore:SetShown(isIgnored)
 end
 
@@ -362,7 +376,7 @@ local function ToggleQuickQuestStatus(self)
 	if not self.__ignore then
 		return
 	end
-	if not KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuest then
+	if not K.GetCharVars().AutoQuest then
 		return
 	end
 	if not IsAltKeyDown() then
@@ -373,15 +387,15 @@ local function ToggleQuickQuestStatus(self)
 	local npcID = GetNPCID()
 	if self.__ignore:IsShown() then
 		if C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
+			K.GetCharVars().AutoQuestIgnoreNPC[npcID] = nil
 		else
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = true
+			K.GetCharVars().AutoQuestIgnoreNPC[npcID] = true
 		end
 	else
 		if C["AutoQuestData"].IgnoreQuestNPC[npcID] then
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = false
+			K.GetCharVars().AutoQuestIgnoreNPC[npcID] = false
 		else
-			KkthnxUIDB.Variables[K.Realm][K.Name].AutoQuestIgnoreNPC[npcID] = nil
+			K.GetCharVars().AutoQuestIgnoreNPC[npcID] = nil
 		end
 	end
 

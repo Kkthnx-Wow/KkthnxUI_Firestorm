@@ -1,8 +1,16 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Universal UI element movement and positioning system.
+-- - Design: Persistent anchor tracking, manual trimming, and Blizzard Edit Mode suppression.
+-----------------------------------------------------------------------------]]
+
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:NewModule("Mover")
 
--- Sourced: NDui (siweia)
--- Edited: KkthnxUI (Kkthnx)
+-- NOTE: Sourced: NDui (siweia)
+-- NOTE: Edited: KkthnxUI (Kkthnx)
 
 local pairs = pairs
 local table_insert = table.insert
@@ -28,13 +36,18 @@ local StaticPopup_Show = StaticPopup_Show
 local UIErrorsFrame = UIErrorsFrame
 local UIParent = UIParent
 
--- Frame Mover
+-- ---------------------------------------------------------------------------
+-- FRAME MOVER SYSTEM
+-- ---------------------------------------------------------------------------
+
 local MoverList = {}
 local f
 local updater
 
+-- REASON: Main entry point to make any frame moveable. Creates an overlay "mover"
+-- that acts as the anchor for the target frame.
 function K:Mover(text, value, anchor, width, height, isAuraWatch)
-	-- Ensure `self` is valid
+	-- NOTE: Safety check to ensure K:Mover is called correctly as a method.
 	if not self or type(self) ~= "table" then
 		return
 	end
@@ -44,17 +57,18 @@ function K:Mover(text, value, anchor, width, height, isAuraWatch)
 		key = "AuraWatchMover"
 	end
 
-	-- Use a unique name to avoid global collisions, or keep anonymous if preferred
+	-- NOTE: Use unique naming to facilitate debugging and avoid potential global table overlaps.
 	local uniqueName = "KKUI_Mover_" .. tostring(value or "Anon")
 	local mover = CreateFrame("Button", uniqueName, UIParent)
-	mover:SetWidth(width or (self.GetWidth and self:GetWidth() or 50)) -- Default to 50 if self:GetWidth is unavailable
-	mover:SetHeight(height or (self.GetHeight and self:GetHeight() or 50)) -- Default to 50 if self:GetHeight is unavailable
+	mover:SetWidth(width or (self.GetWidth and self:GetWidth() or 50))
+	mover:SetHeight(height or (self.GetHeight and self:GetHeight() or 50))
 	mover:CreateBorder(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, { 38 / 255, 125 / 255, 206 / 255, 80 / 255 })
 	mover:Hide()
 
 	mover.text = K.CreateFontString(mover, 12, text, "")
 	mover.text:SetWordWrap(true)
 
+	-- REASON: Load saved position from DB if it exists, otherwise use the hardcoded default.
 	if not KkthnxUIDB.Variables[K.Realm][K.Name][key][value] then
 		mover:SetPoint(unpack(anchor))
 	else
@@ -76,11 +90,12 @@ function K:Mover(text, value, anchor, width, height, isAuraWatch)
 	mover:SetScript("OnDragStop", Module.Mover_OnDragStop)
 	mover:SetScript("OnMouseUp", Module.Mover_OnClick)
 
+	-- NOTE: AuraWatch movers are handled separately due to their dynamic nature.
 	if not isAuraWatch then
 		table.insert(MoverList, mover)
 	end
 
-	-- Validate `self` before setting points
+	-- WARNING: Ensure the target frame supports standard positioning methods to avoid script errors.
 	if self.ClearAllPoints and self.SetPoint then
 		self:ClearAllPoints()
 		self:SetPoint("TOPLEFT", mover)
@@ -91,15 +106,21 @@ function K:Mover(text, value, anchor, width, height, isAuraWatch)
 	return mover
 end
 
+-- ---------------------------------------------------------------------------
+-- POINT CALCULATION & TRIMMING
+-- ---------------------------------------------------------------------------
+
+-- REASON: Calculates the nearest screen quadrant to determine the best anchor point.
+-- This ensures movers remain relatively positioned during resolution or scale changes.
 function Module:CalculateMoverPoints(mover, trimX, trimY)
 	local screenWidth = K.Round(UIParent:GetRight() or 0)
 	local screenHeight = K.Round(UIParent:GetTop() or 0)
 	local screenCenter = K.Round(UIParent:GetCenter() or 0)
 	local x, y = mover:GetCenter()
 
-	-- Validate x and y
+	-- NOTE: Handle nil coordinates defensively if frame state is invalid.
 	if not x or not y then
-		return 0, 0, "CENTER" -- Fallback values
+		return 0, 0, "CENTER"
 	end
 
 	local LEFT = screenWidth / 3
@@ -132,6 +153,7 @@ function Module:CalculateMoverPoints(mover, trimX, trimY)
 	return x, y, point
 end
 
+-- NOTE: Updates the coordinate display in the Mover Console UI.
 function Module:UpdateTrimFrame()
 	if not f then
 		return
@@ -145,6 +167,7 @@ function Module:UpdateTrimFrame()
 	f.__trimText:SetText(self.text:GetText())
 end
 
+-- REASON: Applies manual coordinate fine-tuning (trimming) and saves immediately to DB.
 function Module:DoTrim(trimX, trimY)
 	local mover = updater.__owner
 	if mover then
@@ -159,13 +182,19 @@ function Module:DoTrim(trimX, trimY)
 	end
 end
 
+-- ---------------------------------------------------------------------------
+-- MOVER EVENT HANDLERS
+-- ---------------------------------------------------------------------------
+
 function Module:Mover_OnClick(btn)
+	-- REASON: Shift+RightClick provides a quick toggle for visibility on standard movers.
 	if IsShiftKeyDown() and btn == "RightButton" then
 		if self.isAuraWatch then
 			UIErrorsFrame:AddMessage(K.InfoColor .. "You can't hide AuraWatch mover by that.")
 		else
 			self:Hide()
 		end
+	-- REASON: Ctrl+RightClick restores the hardcoded default position for the specific element.
 	elseif IsControlKeyDown() and btn == "RightButton" then
 		self:ClearAllPoints()
 		self:SetPoint(unpack(self.__anchor))
@@ -206,6 +235,10 @@ function Module:Mover_OnDragStop()
 	updater:Hide()
 end
 
+-- ---------------------------------------------------------------------------
+-- LOCK & UNLOCK LOGIC
+-- ---------------------------------------------------------------------------
+
 function Module:UnlockElements()
 	for i = 1, #MoverList do
 		local mover = MoverList[i]
@@ -224,10 +257,12 @@ function Module:LockElements()
 	end
 
 	f:Hide()
+	-- NOTE: Ensure related systems are also locked and grid overlays are removed.
 	_G.SlashCmdList["KKUI_TOGGLEGRID"]("1")
 	SlashCmdList.AuraWatch("lock")
 end
 
+-- REASON: Resetting all mover logic requires a full UI reload to re-initialize original positions.
 _G.StaticPopupDialogs["RESET_MOVER"] = {
 	text = "Are you sure to reset frames position?",
 	button1 = OKAY,
@@ -239,7 +274,11 @@ _G.StaticPopupDialogs["RESET_MOVER"] = {
 	end,
 }
 
--- Mover Console
+-- ---------------------------------------------------------------------------
+-- MOVER CONSOLE UI
+-- ---------------------------------------------------------------------------
+
+-- REASON: Creates the on-screen control panel for managing anchors and fine-tuning positions.
 local function CreateConsole()
 	if f then
 		return
@@ -292,11 +331,11 @@ local function CreateConsole()
 		end
 	end)
 
-	-- Reset
 	bu[4]:SetScript("OnClick", function()
 		StaticPopup_Show("RESET_MOVER")
 	end)
 
+	-- NOTE: Use the mover frame utility to make the console window itself draggable.
 	local header = CreateFrame("Frame", nil, f)
 	header:SetSize(212, 30)
 	header:SetPoint("TOP")
@@ -311,6 +350,10 @@ local function CreateConsole()
 	tex:SetSize(30, 30)
 	tex:SetPoint("TOPRIGHT", 2, 0)
 	tex:SetTexture("Interface\\Common\\Help-i")
+
+	-- ---------------------------------------------------------------------------
+	-- TRIMMING CONTROLS
+	-- ---------------------------------------------------------------------------
 
 	local frame = CreateFrame("Frame", nil, f)
 	frame:SetSize(212, 74)
@@ -401,6 +444,7 @@ local function CreateConsole()
 		arrows[i].Icon:SetRotation(math.rad(arrowData.degree))
 	end
 
+	-- WARNING: Force elements to lock if combat begins to avoid frame movement during protected state.
 	local function showLater(event)
 		if event == "PLAYER_REGEN_DISABLED" then
 			if f:IsShown() then
@@ -415,7 +459,12 @@ local function CreateConsole()
 	K:RegisterEvent("PLAYER_REGEN_DISABLED", showLater)
 end
 
+-- ---------------------------------------------------------------------------
+-- SLASH COMMAND REGISTRY
+-- ---------------------------------------------------------------------------
+
 _G.SlashCmdList["KKUI_MOVEUI"] = function()
+	-- WARNING: UI movement is restricted in combat to prevent protected UI taint.
 	if InCombatLockdown() then
 		UIErrorsFrame:AddMessage(ERR_NOT_IN_COMBAT)
 		return
@@ -434,6 +483,10 @@ _G.SlashCmdList["KKUI_LOCKUI"] = function()
 end
 _G.SLASH_KKUI_LOCKUI1 = "/lockui"
 _G.SLASH_KKUI_LOCKUI2 = "/lui"
+
+-- ---------------------------------------------------------------------------
+-- MODULE INITIALIZATION
+-- ---------------------------------------------------------------------------
 
 function Module:OnEnable()
 	updater = CreateFrame("Frame")
@@ -457,7 +510,12 @@ function Module:OnEnable()
 	end
 end
 
--- Disable blizzard edit mode
+-- ---------------------------------------------------------------------------
+-- BLIZZARD EDIT MODE SUPPRESSION
+-- ---------------------------------------------------------------------------
+
+-- NOTE: Helper functions to check if specific KkthnxUI modules are overriding Blizzard features.
+
 local function isUnitFrameEnable()
 	return C["Unitframe"].Enable
 end
@@ -486,10 +544,12 @@ local function isArenaEnable()
 	return C["Unitframe"].Enable and C["Arena"].Enable
 end
 
+-- REASON: Disable Blizzard's internal Edit Mode refresh logic for elements that KkthnxUI handles.
+-- This prevents visual conflicts and double-positioning issues.
 function Module:DisableBlizzardMover()
 	local editMode = _G.EditModeManagerFrame
 
-	-- account settings will be tainted
+	-- WARNING: Patching AccountSettings will cause internal Blizzard taint if Edit Mode is opened.
 	local mixin = editMode.AccountSettings
 	if isCastbarEnable() then
 		mixin.RefreshCastBar = K.Noop
