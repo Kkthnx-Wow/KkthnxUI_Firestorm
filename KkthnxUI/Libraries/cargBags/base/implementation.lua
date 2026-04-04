@@ -42,6 +42,7 @@ local C_Container_GetContainerItemInfo = C_Container.GetContainerItemInfo
 local C_Container_GetContainerItemQuestInfo = C_Container.GetContainerItemQuestInfo
 local C_Container_GetContainerNumSlots = C_Container.GetContainerNumSlots
 local C_Item_GetItemInfo = C_Item.GetItemInfo
+local C_Item_IsItemKeystoneByID = C_Item.IsItemKeystoneByID
 local CreateFrame = CreateFrame
 local Enum = Enum
 local InCombatLockdown = InCombatLockdown
@@ -65,10 +66,6 @@ Implementation.itemKeys = {}
 
 local toBagSlot = cargBags.ToBagSlot
 local PET_CAGE = 82800
-local MYTHIC_KEYSTONES = {
-	[180653] = true,
-	[187786] = true, -- Timewarped
-}
 
 --[[!
     Creates a new instance of the class
@@ -454,7 +451,7 @@ function Implementation:GetItemInfo(bagID, slotID, i)
 			i.level = tonumber(petLevel) or 0
 			i.classID = Enum.ItemClass.Miscellaneous
 			i.subClassID = Enum.ItemMiscellaneousSubclass.CompanionPet
-		elseif MYTHIC_KEYSTONES[i.id] then
+		elseif C_Item_IsItemKeystoneByID(i.id) then
 			i.level, i.name = string_match(i.link, "|H%w+:%d+:%d+:(%d+):.-|h%[(.-)%]|h")
 			i.level = tonumber(i.level) or 0
 		end

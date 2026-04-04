@@ -317,6 +317,7 @@ local function CreateAutomationCategory()
 
 	-- Miscellaneous
 	local miscSection = GUI:AddSection(category, L["Miscellaneous Options"] or "Miscellaneous Options")
+	GUI:CreateSwitch(miscSection, "Automation.AutoDelves", L["Auto Accept Delve Powers"], L["AutoDelves Desc"])
 	GUI:CreateSwitch(miscSection, "Automation.AutoGoodbye", L["Say Goodbye After Dungeon Completion"], L["AutoGoodbye Desc"])
 	GUI:CreateSwitch(miscSection, "Automation.AutoKeystone", L["Auto Place Mythic Keystones"], L["AutoKeystone Desc"])
 	GUI:CreateSwitch(miscSection, "Automation.AutoRelease", L["Auto Release in Battlegrounds & Arenas"], L["AutoRelease Desc"])
@@ -1078,6 +1079,13 @@ local function CreateNameplateCategory()
 	GUI:CreateSwitch(miscellaneousNameplateSection, "Nameplate.AKSProgress", L["Show AngryKeystones Progress"], "Display AngryKeystones progress information on nameplates", refreshNameplates)
 	GUI:CreateSwitch(miscellaneousNameplateSection, "Nameplate.PlateAuras", "Target Nameplate Auras", "Show auras on target nameplates", refreshNameplates)
 	GUI:CreateSwitch(miscellaneousNameplateSection, "Nameplate.QuestIndicator", L["Quest Progress Indicator"], "Show quest progress indicators on nameplates", refreshNameplates)
+
+	local questIndicatorStyleOptions = {
+		{ text = "Standard", value = 1 },
+		{ text = "Enhanced (Icons)", value = 2 },
+	}
+	GUI:CreateDropdown(miscellaneousNameplateSection, "Nameplate.QuestIconStyle", "Quest Icon Style", questIndicatorStyleOptions, "Choose the visual style for quest icons", refreshNameplates)
+
 	GUI:CreateSwitch(miscellaneousNameplateSection, "Nameplate.Smooth", L["Smooth Bars Transition"], "Enable smooth animations for nameplate bars", refreshNameplates)
 
 	-- Sizes
@@ -1090,6 +1098,7 @@ local function CreateNameplateCategory()
 	GUI:CreateSlider(sizesNameplateSection, "Nameplate.PlateWidth", L["Nameplate Width"], 80, 240, 1, "Width of nameplate bars", refreshNameplates)
 	GUI:CreateSlider(sizesNameplateSection, "Nameplate.VerticalSpacing", L["Nameplate Vertical Spacing"], 0.5, 2.5, 0.1, "Vertical spacing between stacked nameplates", refreshNameplates)
 	GUI:CreateSlider(sizesNameplateSection, "Nameplate.SelectedScale", L["Selected Nameplate Scale"], 1, 1.4, 0.1, L["SelectedScale Desc"], refreshNameplates)
+	GUI:CreateSlider(sizesNameplateSection, "Nameplate.ExecuteRatio", "Execute Ratio", 0, 50, 1, "Health percentage for execute range coloring", refreshNameplates)
 
 	-- Player Nameplate Toggles
 	local playerTogglesSection = GUI:AddSection(nameplateCategory, L["Player Nameplate Toggles"])
@@ -1112,6 +1121,10 @@ local function CreateNameplateCategory()
 	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.SecureColor", L["Secure Color"], "Color for secure threat level", refreshNameplates)
 	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.TargetColor", "Selected Target Coloring", "Color for targeted nameplates", refreshNameplates)
 	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.TransColor", L["Transition Color"], "Color for threat transition states", refreshNameplates)
+	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.ExecuteColor", "Execute Color", "Color for health bars in execute range", refreshNameplates)
+	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.QuestSkullColor", "Quest Kill Color", "Color for quest kill objectives", refreshNameplates)
+	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.QuestItemColor", "Quest Item Color", "Color for quest item objectives", refreshNameplates)
+	GUI:CreateColorPicker(colorsNameplateSection, "Nameplate.QuestChatColor", "Quest Chat Color", "Color for quest interaction objectives", refreshNameplates)
 end
 
 -- Party

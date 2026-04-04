@@ -241,45 +241,30 @@ end
 -- CONTROL KEY CHECKER (RESET BUTTONS)
 -- ---------------------------------------------------------------------------
 
--- NOTE: Global frame to track Ctrl key state; used to reveal hidden reset buttons on hover.
+-- NOTE: Global frame tracking Ctrl state without passive polling.
 local CtrlChecker = CreateFrame("Frame")
 local resetButtons = {}
 
-local function CtrlUpdate()
-	for widget, resetButton in pairs(resetButtons) do
-		if widget:IsMouseOver() then
-			if IsControlKeyDown() then
-				if not resetButton:IsShown() then
-					resetButton:Show()
+local function CtrlUpdate(_, _, key, state)
+	if key == "LCTRL" or key == "RCTRL" then
+		for widget, resetButton in pairs(resetButtons) do
+			if widget:IsMouseOver() then
+				if state == 1 then
+					if not resetButton:IsShown() then
+						resetButton:Show()
+					end
+				else
+					if resetButton:IsShown() then
+						resetButton:Hide()
+						GameTooltip:Hide()
+					end
 				end
-			else
-				if resetButton:IsShown() then
-					resetButton:Hide()
-					GameTooltip:Hide()
-				end
-			end
-		else
-			if resetButton:IsShown() then
-				resetButton:Hide()
-				GameTooltip:Hide()
+				break -- Only one widget can be moused over at a time
 			end
 		end
 	end
 end
-
-CtrlChecker.CtrlUpdate = CtrlUpdate
--- NOTE: Update logic is throttled to 0.12s to minimize CPU impact while the GUI is open.
-CtrlChecker:SetScript("OnUpdate", nil)
-
--- Throttled OnUpdate to reduce per-frame work
-local function CtrlChecker_OnUpdate(self, elapsed)
-	self._accum = (self._accum or 0) + (elapsed or 0)
-	if self._accum < 0.12 then
-		return
-	end
-	self._accum = 0
-	CtrlChecker:CtrlUpdate()
-end
+CtrlChecker:SetScript("OnEvent", CtrlUpdate)
 
 -- REASON: Attaches a hidden reset button to a widget that appears only when Ctrl is held.
 local function AddResetToDefaultFunctionality(widget, label, configPath, cleanText)
@@ -336,6 +321,21 @@ local function AddResetToDefaultFunctionality(widget, label, configPath, cleanTe
 
 	-- Store reference for showing/hiding
 	widget.ResetButton = resetButton
+
+	-- Hook native widget events for zero-polling control states
+	widget:HookScript("OnEnter", function()
+		if IsControlKeyDown() then
+			resetButton:Show()
+		end
+	end)
+	
+	widget:HookScript("OnLeave", function()
+		C_Timer.After(0.01, function()
+			if resetButton:IsShown() and not widget:IsMouseOver() and not resetButton:IsMouseOver() then
+				resetButton:Hide()
+			end
+		end)
+	end)
 
 	-- Register with global checker
 	resetButtons[widget] = resetButton
@@ -704,9 +704,9 @@ function ExtraGUI:ShowExtraConfig(configPath, optionTitle)
 	self.Frame:Show()
 	self.IsVisible = true
 
-	-- Enable CtrlChecker updates while ExtraGUI is visible
+	-- Enable CtrlChecker zero-polling modifiers while ExtraGUI is visible
 	if CtrlChecker then
-		CtrlChecker:SetScript("OnUpdate", CtrlChecker_OnUpdate)
+		CtrlChecker:RegisterEvent("MODIFIER_STATE_CHANGED")
 	end
 end
 
@@ -749,7 +749,7 @@ function ExtraGUI:Hide()
 
 	-- Disable CtrlChecker when ExtraGUI is hidden
 	if CtrlChecker then
-		CtrlChecker:SetScript("OnUpdate", nil)
+		CtrlChecker:UnregisterEvent("MODIFIER_STATE_CHANGED")
 	end
 end
 

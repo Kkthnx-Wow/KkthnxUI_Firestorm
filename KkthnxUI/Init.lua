@@ -368,10 +368,6 @@ function K:NewModule(name, noReport)
 	return module
 end
 
--- Alias for CreateModule
-function K:CreateModule(name)
-	return K:NewModule(name)
-end
 
 function K:GetModule(name)
 	if not modules[name] then

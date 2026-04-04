@@ -14,7 +14,7 @@ local Module = K:GetModule("Announcements")
 -- ---------------------------------------------------------------------------
 
 -- PERF: Cache frequent Lua and string functions for event processing.
-local floor = math.floor
+local math_floor = math.floor
 local pairs = pairs
 local find = string.find
 local format = string.format
@@ -175,7 +175,7 @@ function Module:FindQuestProgress(_, message)
 			current, maximum = tonumber(current), tonumber(maximum)
 			if current and maximum then
 				if maximum >= 10 then
-					local step = floor(maximum / 5)
+					local step = math_floor(maximum / 5)
 					if step > 0 and (current % step) == 0 then
 						if ShouldAnnounceProgress() then
 							SendQuestMessage(message)

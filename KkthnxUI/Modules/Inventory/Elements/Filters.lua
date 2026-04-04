@@ -1,16 +1,29 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Defines logical item filters for virtual bag categorization.
+-- - Design: Uses cargBags filter system to group items by type, quality, or custom flags.
+-- - Events: N/A (Functional library)
+-----------------------------------------------------------------------------]]
+
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Bags")
 
--- Cache global references
-local C_AzeriteEmpoweredItem_IsAzeriteEmpoweredItemByID = C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItemByID
-local C_ToyBox_GetToyInfo = C_ToyBox.GetToyInfo
-local C_Item_IsAnimaItemByID = C_Item.IsAnimaItemByID
-local C_Item_IsItemKeystoneByID = C_Item.IsItemKeystoneByID
-local CURRENT_EXPANSION = LE_EXPANSION_WAR_WITHIN or 10 -- 11.0
+-- PERF: Cache global references to avoid hashtable lookups during high-volume item filtering.
+-- REASON: These C_ functions are called repeatedly for every item in every bag during initialization and updates.
+local _G = _G
+local C_AzeriteEmpoweredItem_IsAzeriteEmpoweredItemByID = _G.C_AzeriteEmpoweredItem.IsAzeriteEmpoweredItemByID
+local C_ToyBox_GetToyInfo = _G.C_ToyBox.GetToyInfo
+local C_Item_IsAnimaItemByID = _G.C_Item.IsAnimaItemByID
+local C_Item_IsItemKeystoneByID = _G.C_Item.IsItemKeystoneByID
+
+-- FIX: Fallback for 'LE_EXPANSION_WAR_WITHIN' if not defined in older clients (though this is 11.0 code).
+local CURRENT_EXPANSION = _G.LE_EXPANSION_WAR_WITHIN or 10 -- 11.0
+local Enum = _G.Enum
 local REAGENT_BAG = (Enum.BagIndex and Enum.BagIndex.ReagentBag) or 5
 local BACKPACK_MAX = (Enum.BagIndex and Enum.BagIndex.Bag_5 and (Enum.BagIndex.Bag_5 - 1)) or 4
 
--- Custom filter lists
 local CustomFilterList = {
 	[37863] = false,
 	[187532] = false,
@@ -50,6 +63,7 @@ local consumableIDs = {
 	[Enum.ItemClass.ItemEnhancement] = true,
 }
 
+-- REASON: Dragonflight Primordial Stones specific logic.
 local primordialStones = {}
 for id = 204000, 204030 do
 	primordialStones[id] = true
@@ -66,6 +80,7 @@ local function hasReagentBagEquipped()
 end
 
 local function CheckFilterSetting(setting)
+	-- REASON: Central check to ensure main 'ItemFilter' toggle is enabled before checking specific sub-filters.
 	return C["Inventory"].ItemFilter and C["Inventory"][setting]
 end
 
@@ -78,6 +93,7 @@ local function isCustomFilter(item)
 end
 
 local function isItemInBag(item)
+	-- REASON: Validate item is in standard bag slots (Backpack to Bag 4/5).
 	return item.bagId >= 0 and item.bagId <= BACKPACK_MAX
 end
 
@@ -86,21 +102,21 @@ local function isItemInBagReagent(item)
 end
 
 local function isItemInBank(item)
+	-- REASON: Bag IDs 6-12 are Bank bags; -1 is the main Bank window.
 	return item.bagId == -1 or (item.bagId > 5 and item.bagId < 13)
 end
 
 local function isItemInAccountBank(item)
+	-- REASON: Warband Bank (Account Bank) uses Bag IDs 13-17.
 	return item.bagId > 12 and item.bagId < 18
 end
-
--- Cache character variables (file-local)
-local charVars
 
 local function isItemJunk(item)
 	if not CheckFilterSetting("FilterJunk") then
 		return
 	end
 
+	-- PERF: Retrieve character-specific junk list on demand.
 	local vars = K.GetCharVars()
 	local isCustomJunk = vars and vars.CustomJunkList and vars.CustomJunkList[item.id]
 	return (item.quality == Enum.ItemQuality.Poor or isCustomJunk) and item.hasPrice and not Module:IsPetTrashCurrency(item.id)
@@ -111,6 +127,7 @@ local function isItemEquipSet(item)
 		return
 	end
 
+	-- REASON: Specifically checks for items that are part of a user-defined Equipment Set.
 	return item.isItemSet
 end
 
@@ -127,7 +144,7 @@ local function CheckEquip(item)
 end
 
 local function isItemEquipment(item)
-	if not CheckFilterSetting("FilterEquipment") or not item.link or item.quality <= Enum.ItemQuality.Common then
+	if not CheckFilterSetting("FilterEquipment") then
 		return
 	end
 
@@ -139,6 +156,8 @@ local function isItemLegacy(item)
 		return
 	end
 
+	-- REASON: Checks if item belongs to a previous expansion relative to 'CURRENT_EXPANSION'.
+	-- This helps separate active gear from legacy collectible or sentimental items.
 	return CheckEquip(item) and item.expacID and item.expacID < CURRENT_EXPANSION
 end
 
@@ -147,6 +166,7 @@ local function isItemLowerLevel(item)
 		return
 	end
 
+	-- REASON: Filters equipment below a user-configured item level threshold.
 	return CheckEquip(item) and item.ilvl < C["Inventory"].iLvlToShow
 end
 
@@ -156,6 +176,7 @@ local function isItemConsumable(item)
 	end
 
 	if isCustomFilter(item) == false then
+		-- REASON: Explicitly excluded by 'CustomFilterList'.
 		return
 	end
 	return isCustomFilter(item) or consumableIDs[item.classID]
@@ -190,6 +211,7 @@ local function isItemCustom(item, index)
 		return
 	end
 
+	-- REASON: Checks against user-defined custom categories (1-5).
 	local vars = K.GetCharVars()
 	local customIndex = vars and vars.CustomItems and vars.CustomItems[item.id]
 	return customIndex and customIndex == index
@@ -208,10 +230,7 @@ local function isTradeGoods(item)
 		return
 	end
 
-	if isCustomFilter(item) == false then
-		return
-	end
-
+	-- REASON: Identifies items belonging to the 'Trade Goods' category.
 	return item.classID == Enum.ItemClass.Tradegoods
 end
 
@@ -220,6 +239,7 @@ local function isQuestItem(item)
 		return
 	end
 
+	-- REASON: Identifies items explicitly marked as Quest items, including those that start quests.
 	return item.questID or item.isQuestItem
 end
 
@@ -257,11 +277,13 @@ local function isWarboundUntilEquipped(item)
 	if not CheckFilterSetting("FilterAOE") then
 		return
 	end
+	-- REASON: 'accountequip' is the internal binding type for Warbound items.
 	return item.bindOn and item.bindOn == "accountequip"
 end
 
--- Filter factory functions (reusable, optimized)
 local function CreateLocationFilter(locationCheck, typeCheck)
+	-- REASON: Returns a closure that combines location validation with type checking.
+	-- PERF: Avoids redundant conditional logic in the main loop by baking the structure here.
 	if typeCheck then
 		return function(item)
 			return locationCheck(item) and typeCheck(item)
@@ -273,11 +295,9 @@ local function CreateLocationFilter(locationCheck, typeCheck)
 	end
 end
 
--- Main Module Filters (using factory pattern)
 function Module:GetFilters()
 	local filters = {}
 
-	-- Bag filters
 	filters.onlyBags = CreateLocationFilter(isItemInBag)
 	filters.bagAzeriteItem = CreateLocationFilter(isItemInBag, isAzeriteArmor)
 	filters.bagEquipment = CreateLocationFilter(isItemInBag, isItemEquipment)
@@ -294,7 +314,6 @@ function Module:GetFilters()
 	filters.bagLower = CreateLocationFilter(isItemInBag, isItemLowerLevel)
 	filters.bagLegacy = CreateLocationFilter(isItemInBag, isItemLegacy)
 
-	-- Bank filters
 	filters.onlyBank = CreateLocationFilter(isItemInBank)
 	filters.bankAzeriteItem = CreateLocationFilter(isItemInBank, isAzeriteArmor)
 	filters.bankLegendary = CreateLocationFilter(isItemInBank, isItemLegendary)
@@ -309,7 +328,6 @@ function Module:GetFilters()
 	filters.bankLower = CreateLocationFilter(isItemInBank, isItemLowerLevel)
 	filters.bankLegacy = CreateLocationFilter(isItemInBank, isItemLegacy)
 
-	-- Reagent filters
 	filters.onlyReagent = function(item)
 		return item.bagId == -3 and not isEmptySlot(item)
 	end -- reagent bank
@@ -317,7 +335,6 @@ function Module:GetFilters()
 		return (isItemInBagReagent(item) and not isEmptySlot(item)) or (hasReagentBagEquipped() and isItemInBag(item) and isTradeGoods(item))
 	end -- reagent bagslot
 
-	-- Account bank filters
 	filters.accountbank = CreateLocationFilter(isItemInAccountBank)
 	filters.accountEquipment = CreateLocationFilter(isItemInAccountBank, isItemEquipment)
 	filters.accountConsumable = CreateLocationFilter(isItemInAccountBank, isItemConsumable)
@@ -325,7 +342,7 @@ function Module:GetFilters()
 	filters.accountAOE = CreateLocationFilter(isItemInAccountBank, isWarboundUntilEquipped)
 	filters.accountLegacy = CreateLocationFilter(isItemInAccountBank, isItemLegacy)
 
-	-- Custom filters (dynamic generation)
+	-- REASON: Custom filters (dynamic generation)
 	for i = 1, 5 do
 		local customIndex = i -- Capture for closure
 		filters["bagCustom" .. i] = function(item)

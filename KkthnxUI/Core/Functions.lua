@@ -4,6 +4,7 @@
 -- Notes:
 -- - Purpose: Central utility library for various core functions and helpers.
 -- - Design: Lightweight, high-performance, and cached for frequent access.
+-- - Events: PLAYER_ENTERING_WORLD, PLAYER_LEAVING_WORLD, PLAYER_LOGIN, PLAYER_TALENT_UPDATE, PLAYER_SPECIALIZATION_CHANGED
 -----------------------------------------------------------------------------]]
 
 local K, C = KkthnxUI[1], KkthnxUI[2]
@@ -13,36 +14,40 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 -- ---------------------------------------------------------------------------
 
 -- PERF: Cache Lua globals for speed and consistency.
-local select = select
-local unpack = unpack
-local type = type
+local _G = _G
+local ipairs, next, pairs, select, tostring, type, unpack = ipairs, next, pairs, select, tostring, type, unpack
 local tonumber = tonumber
-local pairs = pairs
-local ipairs = ipairs
-local next = next
 
 local table_insert = table.insert
 local table_wipe = table.wipe
 local strsplit = strsplit
 
-local math_floor = math.floor
 local math_abs = math.abs
+local math_floor = math.floor
+local math_rad = math.rad
 
-local string_format = string.format
-local string_match = string.match
 local string_find = string.find
+local string_format = string.format
+local string_gmatch = string.gmatch
 local string_gsub = string.gsub
 local string_lower = string.lower
+local string_match = string.match
+local string_sub = string.sub
 
-local UnitClass = UnitClass
-local UnitIsPlayer = UnitIsPlayer
 local C_Map_GetWorldPosFromMapPos = C_Map.GetWorldPosFromMapPos
+local C_Timer_After = C_Timer.After
+local C_TooltipInfo_GetBagItem = C_TooltipInfo.GetBagItem
+local C_TooltipInfo_GetHyperlink = C_TooltipInfo.GetHyperlink
+local C_TooltipInfo_GetInventoryItem = C_TooltipInfo.GetInventoryItem
 
 local ENCHANTED_TOOLTIP_LINE = ENCHANTED_TOOLTIP_LINE
 local GetSpecialization = GetSpecialization
 local GetSpecializationInfo = GetSpecializationInfo
 local ITEM_LEVEL = ITEM_LEVEL
 local UIParent = UIParent
+local UnitClass = UnitClass
+local UnitInPartyIsAI = UnitInPartyIsAI
+local UnitIsPlayer = UnitIsPlayer
 local UnitIsTapDenied = UnitIsTapDenied
 local UnitReaction = UnitReaction
 
@@ -116,41 +121,65 @@ end
 -- ---------------------------------------------------------------------------
 
 do
+	-- PERF: Shared scratch table for path key splitting; avoids allocating a new table on every call.
+	-- NOTE: Safe for single-threaded use; Lua cannot interleave calls between SetValueByPath/GetValueByPath.
 	local keysTable = {}
-	-- REASON: Allows setting nested values via string paths (e.g., "General.FontSize").
+	local keysTableN = 0
+
+	-- REASON: Allows setting nested values via dot-delimited string paths (e.g., "General.FontSize").
+	-- PERF: Uses string_gmatch iteration into the reused keysTable instead of { strsplit(...) } per call.
 	function K.SetValueByPath(tbl, path, value)
-		table_wipe(keysTable)
-		local n = select("#", strsplit(".", path))
-		for i = 1, n do
-			keysTable[i] = select(i, strsplit(".", path))
+		if not path or not tbl then
+			return
+		end
+
+		-- REASON: Clear only the live portion of the buffer; avoids table_wipe overhead on a large table.
+		for i = 1, keysTableN do
+			keysTable[i] = nil
+		end
+		keysTableN = 0
+
+		for key in string_gmatch(path, "[^%.]+") do
+			keysTableN = keysTableN + 1
+			keysTable[keysTableN] = key
 		end
 
 		local current = tbl
-		for i = 1, #keysTable - 1 do
-			if not current[keysTable[i]] or type(current[keysTable[i]]) ~= "table" then
-				current[keysTable[i]] = {}
+		for i = 1, keysTableN - 1 do
+			local key = keysTable[i]
+			if not current[key] or type(current[key]) ~= "table" then
+				current[key] = {}
 			end
-			current = current[keysTable[i]]
+			current = current[key]
 		end
-		current[keysTable[#keysTable]] = value
+		if keysTableN > 0 then
+			current[keysTable[keysTableN]] = value
+		end
 	end
 
 	function K.GetValueByPath(tbl, path)
-		if not path then
+		if not path or not tbl then
 			return nil
 		end
-		table_wipe(keysTable)
-		local n = select("#", strsplit(".", path))
-		for i = 1, n do
-			keysTable[i] = select(i, strsplit(".", path))
+
+		-- PERF: Reuse the same buffer; clear only the live entries.
+		for i = 1, keysTableN do
+			keysTable[i] = nil
+		end
+		keysTableN = 0
+
+		for key in string_gmatch(path, "[^%.]+") do
+			keysTableN = keysTableN + 1
+			keysTable[keysTableN] = key
 		end
 
 		local current = tbl
-		for i = 1, #keysTable do
-			if not current or type(current) ~= "table" or not current[keysTable[i]] then
+		for i = 1, keysTableN do
+			local key = keysTable[i]
+			if not current or type(current) ~= "table" or not current[key] then
 				return nil
 			end
-			current = current[keysTable[i]]
+			current = current[key]
 		end
 		return current
 	end
@@ -280,7 +309,7 @@ do
 			table_wipe(list)
 		end
 
-		for word in gmatch(variable, "%S+") do
+		for word in string.gmatch(variable, "[^,%s]+") do
 			local converted = tonumber(word) or word
 			list[converted] = true
 		end
@@ -362,6 +391,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
+	-- REASON: Safe accessor for class color table (returns white if class is invalid).
 	function K.ColorClass(class)
 		local color = K.ClassColors[class]
 		if not color then
@@ -370,6 +400,7 @@ do
 		return color.r, color.g, color.b
 	end
 
+	-- REASON: Centralized unit coloring logic (Class -> Tap Denied -> Reaction).
 	function K.UnitColor(unit)
 		local r, g, b = 1, 1, 1
 
@@ -397,6 +428,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
+	-- NOTE: Simple helper to toggle frame visibility state.
 	function K.TogglePanel(frame)
 		if frame:IsShown() then
 			frame:Hide()
@@ -411,6 +443,7 @@ do
 		return id
 	end
 
+	-- PERF: Cached lookup for addon state to avoid repeated C_AddOns introspection.
 	function K.CheckAddOnState(addon)
 		if type(addon) ~= "string" then
 			return false
@@ -431,6 +464,7 @@ do
 		return K.GetAddOnEnableState(addon, K.Name) == 2
 	end
 
+	-- REASON: Binds arguments to a function for delayed execution (avoids global state reliance).
 	local function CreateClosure(func, data)
 		return function()
 			func(unpack(data))
@@ -445,7 +479,7 @@ do
 
 		local args = { ... }
 		-- PERF: Clamp delay to minimum 10ms to satisfy C_Timer API requirements.
-		C_Timer.After(delay < 0.01 and 0.01 or delay, (#args <= 0 and func) or CreateClosure(func, args))
+		C_Timer_After(delay < 0.01 and 0.01 or delay, (#args <= 0 and func) or CreateClosure(func, args))
 
 		return true
 	end
@@ -618,7 +652,7 @@ do
 	-- PERF: Optimized item level scanner using C_TooltipInfo; supports full scans for gems/enchants.
 	function K.GetItemLevel(link, arg1, arg2, fullScan)
 		if fullScan then
-			local data = C_TooltipInfo.GetInventoryItem(arg1, arg2)
+			local data = C_TooltipInfo_GetInventoryItem(arg1, arg2)
 			if not data then
 				return
 			end
@@ -666,11 +700,11 @@ do
 
 			local data
 			if arg1 and type(arg1) == "string" then
-				data = C_TooltipInfo.GetInventoryItem(arg1, arg2)
+				data = C_TooltipInfo_GetInventoryItem(arg1, arg2)
 			elseif arg1 and type(arg1) == "number" then
-				data = C_TooltipInfo.GetBagItem(arg1, arg2)
+				data = C_TooltipInfo_GetBagItem(arg1, arg2)
 			else
-				data = C_TooltipInfo.GetHyperlink(link, nil, nil, true)
+				data = C_TooltipInfo_GetHyperlink(link, nil, nil, true)
 			end
 			if not data then
 				return
@@ -737,7 +771,7 @@ do
 		local name = nameCache[npcID]
 		if not name then
 			name = loadingStr
-			local data = C_TooltipInfo.GetHyperlink(format("unit:Creature-0-0-0-0-%d", npcID))
+			local data = C_TooltipInfo_GetHyperlink(string_format("unit:Creature-0-0-0-0-%d", npcID))
 			local lineData = data and data.lines
 			if lineData then
 				name = lineData[1] and lineData[1].leftText
@@ -752,8 +786,11 @@ do
 				nameCache[npcID] = name
 			end
 		end
-		if callback then
+		-- FIX: ONLY fire callback if we've successfully resolved the name!
+		if callback and name ~= loadingStr then
 			callback(name)
+			callbacks[npcID] = nil
+		elseif callback then
 			callbacks[npcID] = callback
 		end
 
@@ -761,7 +798,7 @@ do
 	end
 
 	function K.IsUnknownTransmog(bagID, slotID)
-		local data = C_TooltipInfo.GetBagItem(bagID, slotID)
+		local data = C_TooltipInfo_GetBagItem(bagID, slotID)
 		local lineData = data and data.lines
 		if not lineData then
 			return
@@ -832,6 +869,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
+	-- REASON: Calculates smart tooltip anchoring to keep it strictly on-screen based on quadrant.
 	function K.GetAnchors(frame)
 		local x, y = frame:GetCenter()
 
@@ -1310,8 +1348,8 @@ do
 
 		local value = math_abs(amount)
 		local gold = math_floor(value / 10000)
-		local silver = math_floor(mod(value / 100, 100))
-		local copper = math_floor(mod(value, 100))
+		local silver = math_floor((value / 100) % 100)
+		local copper = math_floor(value % 100)
 
 		if gold > 0 then
 			return string_format("%s%s %02d%s %02d%s", BreakUpLargeNumbers(gold), goldname, silver, silvername, copper, coppername)
@@ -1342,12 +1380,13 @@ function K.WidgetFactory.CreateBackdrop(parent, r, g, b, a)
 end
 
 -- REASON: Creates a styled button with hover effects and consistent theme-aware coloring.
+-- PERF: Constant tables moved out of factory for reuse.
+local ACCENT_COLOR = { K.r, K.g, K.b }
+local TEXT_COLOR = { 0.9, 0.9, 0.9, 1 }
+
 function K.WidgetFactory.CreateButton(parent, text, width, height, onClick)
 	local button = CreateFrame("Button", nil, parent)
 	button:SetSize(width or 120, height or 28)
-
-	local ACCENT_COLOR = { K.r, K.g, K.b }
-	local TEXT_COLOR = { 0.9, 0.9, 0.9, 1 }
 
 	local buttonBg = button:CreateTexture(nil, "BACKGROUND")
 	buttonBg:SetAllPoints()

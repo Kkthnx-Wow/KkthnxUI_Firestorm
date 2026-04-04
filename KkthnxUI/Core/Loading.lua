@@ -1,15 +1,38 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Main addon entry point and module/database loader.
+-- - Design: Handles initialization, schema verification, and module loading sequence.
+-- - Events: ADDON_LOADED, PLAYER_LOGIN, PLAYER_ENTERING_WORLD
+-----------------------------------------------------------------------------]]
+
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local KKUI_AddonLoader = CreateFrame("Frame")
 local KKUI_ModulesEnabled = false
 
 -- PERF: Local caching for speed in hot loops and strict typing.
-local pairs = pairs
+local debugprofilestop = debugprofilestop
 local print = print
 local string_format = string.format
+local type = type
+local pairs = pairs
 
 -- ---------------------------------------------------------------------------
 -- DATABASE HANDLING
 -- ---------------------------------------------------------------------------
+
+local function DeepCopy(src)
+	local dest = {}
+	for k, v in pairs(src) do
+		if type(v) == "table" then
+			dest[k] = DeepCopy(v)
+		else
+			dest[k] = v
+		end
+	end
+	return dest
+end
 
 local function KKUI_CreateDefaults()
 	K.Defaults = {}
@@ -20,7 +43,11 @@ local function KKUI_CreateDefaults()
 		end
 
 		for option, value in pairs(options) do
-			K.Defaults[group][option] = value
+			if type(value) == "table" then
+				K.Defaults[group][option] = DeepCopy(value)
+			else
+				K.Defaults[group][option] = value
+			end
 		end
 	end
 end
@@ -45,10 +72,10 @@ local function KKUI_LoadCustomSettings()
 			for option, value in pairs(options) do
 				if C[group][option] ~= nil then
 					if C[group][option] == value then
-						Settings[group][option] = nil -- NOTE: Value matches default, remove from DB.
+						Settings[group][option] = nil -- REASON: Value matches default, remove from DB.
 					else
 						changeCount = changeCount + 1
-						C[group][option] = value -- NOTE: Overwrite Config with Saved value.
+						C[group][option] = value -- REASON: Overwrite Config with Saved value.
 					end
 				end
 			end
@@ -103,17 +130,17 @@ local function KKUI_VerifyDatabase()
 	KkthnxUIDB.KeystoneInfo = KkthnxUIDB.KeystoneInfo or {}
 	KkthnxUIDB.DisabledAddOns = KkthnxUIDB.DisabledAddOns or {}
 
-	-- NOTE: Explicitly handle booleans for nil protection.
+	-- REASON: Explicitly handle booleans for nil protection.
 	if KkthnxUIDB.ShowSlots == nil then
 		KkthnxUIDB.ShowSlots = false
 	end
 
 	-- 6) Versioning & Changelogs
-	-- NOTE: Ensure these exist in the schema, even if eventually nil.
+	-- REASON: Ensure these exist in the schema, even if eventually nil.
 	KkthnxUIDB.ChangelogVersion = KkthnxUIDB.ChangelogVersion or nil
 	KkthnxUIDB.DetectedVersion = KkthnxUIDB.DetectedVersion or nil
 
-	-- NOTE: Ensure this is a boolean false if nil.
+	-- REASON: Ensure this is a boolean false if nil.
 	KkthnxUIDB.ChangelogHighlightLatest = KkthnxUIDB.ChangelogHighlightLatest or false
 end
 
@@ -129,10 +156,11 @@ local function KKUI_EnableModulesOnce()
 
 	local startTime
 	if K.isDeveloper then
+		startTime = debugprofilestop()
 	end
 
 	-- 1) Enable Main GUI
-	-- NOTE: Prefer checking the nested table structure if it exists.
+	-- REASON: Prefer checking the nested table structure if it exists.
 	if K.GUI and K.GUI.GUI and type(K.GUI.GUI.Enable) == "function" then
 		K.GUI.GUI:Enable()
 	elseif K.GUI and type(K.GUI.Enable) == "function" then
@@ -143,7 +171,7 @@ local function KKUI_EnableModulesOnce()
 	if K.ExtraGUI and type(K.ExtraGUI.Enable) == "function" then
 		K.ExtraGUI:Enable()
 
-		-- NOTE: Attach Cogwheels Logic.
+		-- REASON: Attach Cogwheels Logic.
 		if K.GUI and type(K.GUI.AttachExtraCogwheels) == "function" then
 			K.GUI:AttachExtraCogwheels()
 		elseif K.GUI and K.GUI.GUI and type(K.GUI.GUI.AttachExtraCogwheels) == "function" then
@@ -157,6 +185,7 @@ local function KKUI_EnableModulesOnce()
 	end
 
 	if K.isDeveloper and startTime then
+		local duration = debugprofilestop() - startTime
 		K.Print(string_format("[KKUI_DEV] Modules Enabled in %.3f ms", duration))
 	end
 end
@@ -169,19 +198,21 @@ local function KKUI_OnEvent(self, event, arg1)
 	if event == "ADDON_LOADED" and arg1 == "KkthnxUI" then
 		local startTime
 		if K.isDeveloper then
+			startTime = debugprofilestop()
 		end
 
-		-- NOTE: Initialize Database.
+		-- REASON: Initialize Database.
 		KKUI_VerifyDatabase()
 		KKUI_CreateDefaults()
 		KKUI_LoadCustomSettings()
 
-		-- NOTE: Setup initial scaling.
+		-- REASON: Setup initial scaling.
 		if K.SetupUIScale then
 			K:SetupUIScale(true)
 		end
 
 		if K.isDeveloper and startTime then
+			local duration = debugprofilestop() - startTime
 			K.Print(string_format("[KKUI_DEV] ADDON_LOADED processing in %.3f ms", duration))
 		end
 
@@ -191,7 +222,7 @@ local function KKUI_OnEvent(self, event, arg1)
 		KKUI_EnableModulesOnce()
 		self:UnregisterEvent("PLAYER_LOGIN")
 	elseif event == "PLAYER_ENTERING_WORLD" then
-		-- NOTE: Handle timestamp updates.
+		-- REASON: Handle timestamp updates.
 		if K.UpdateProfileTimestamp then
 			K.UpdateProfileTimestamp()
 		else
@@ -204,7 +235,7 @@ local function KKUI_OnEvent(self, event, arg1)
 	end
 end
 
--- NOTE: Register Events.
+-- REASON: Register Events.
 KKUI_AddonLoader:RegisterEvent("ADDON_LOADED")
 KKUI_AddonLoader:RegisterEvent("PLAYER_LOGIN")
 KKUI_AddonLoader:RegisterEvent("PLAYER_ENTERING_WORLD")

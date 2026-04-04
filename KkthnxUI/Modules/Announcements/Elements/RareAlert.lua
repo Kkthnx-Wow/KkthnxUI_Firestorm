@@ -73,13 +73,8 @@ local lastSig, lastSigAt = nil, 0
 -- ---------------------------------------------------------------------------
 
 local function GetRareCooldown()
-	local a = C and C.Announcements
-	local c = a and a.RareCooldown or (C and C["Announcements"] and C["Announcements"].RareCooldown)
-	local v = tonumber(c)
-	if v and v > 0 then
-		return v
-	end
-	return DEFAULT_RARE_COOLDOWN
+	local cooldown = C["Announcements"].RareCooldown
+	return (cooldown and cooldown > 0) and cooldown or DEFAULT_RARE_COOLDOWN
 end
 
 local function IsUsefulAtlas(info)
@@ -164,10 +159,6 @@ function Module.RareAlert_Update(_, id)
 		return
 	end
 
-	if type(id) == "number" and isIgnoredIDs[id] then
-		return
-	end
-
 	-- REASON: Minimize noise by ignoring world vignettes while inside instances if configured.
 	if C and C["Announcements"] and C["Announcements"].AlertOnlyInWorld and Module.RareInstType ~= "none" then
 		return
@@ -175,6 +166,10 @@ function Module.RareAlert_Update(_, id)
 
 	local info = C_VignetteInfo_GetVignetteInfo(id)
 	if not info or not IsUsefulAtlas(info) then
+		return
+	end
+
+	if info.vignetteID and isIgnoredIDs[info.vignetteID] then
 		return
 	end
 
@@ -236,7 +231,7 @@ function Module.RareAlert_Update(_, id)
 		local nameString = vignetteName
 		if mapID and x01 and y01 then
 			-- NOTE: Uses custom worldmap hyperlink format for clickable coordinates.
-			nameString = string_format(Module.RareString, mapID, x01 * 10000, y01 * 10000, vignetteName, x01 * 100, y01 * 100, "")
+			nameString = string_format(Module.RareString, mapID, math_floor(x01 * 10000), math_floor(y01 * 10000), vignetteName, x01 * 100, y01 * 100, "")
 		end
 
 		K.Print(currentTime .. K.SystemColor .. tex .. L["Rare Spotted"] .. K.InfoColor .. (nameString or "") .. K.SystemColor .. "!")

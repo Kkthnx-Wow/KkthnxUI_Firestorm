@@ -1,15 +1,24 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Swing timer bar for player and target.
+-- - Design: Based on oUF_Swing by p3lim.
+-- - Events: SWING_DAMAGE, SWING_MISSED, UNIT_SPELLCAST_SUCCEEDED, etc.
+-----------------------------------------------------------------------------]]
+
 local K = KkthnxUI[1]
 local oUF = K.oUF
 
--- oUF_Swing, by p3lim
--- KkthnxUI MOD
+-- REASON: Localize frequently used APIs and utilities for performance
+local select = _G.select
 
-local select = select
-
-local GetInventoryItemID = GetInventoryItemID
-local GetTime = GetTime
-local UnitAttackSpeed = UnitAttackSpeed
-local UnitRangedDamage = UnitRangedDamage
+local GetInventoryItemID = _G.GetInventoryItemID
+local GetTime = _G.GetTime
+local UnitAttackSpeed = _G.UnitAttackSpeed
+local UnitRangedDamage = _G.UnitRangedDamage
+local C_Spell_GetSpellInfo = _G.C_Spell.GetSpellInfo
+local UnitCastingInfo = _G.UnitCastingInfo
 
 local meleeing, rangeing, lasthit
 local MainhandID = GetInventoryItemID("player", 16)
@@ -59,7 +68,7 @@ do
 	local checkelapsed = 0
 	local slamelapsed = 0
 	local slamtime = 0
-	local slam = C_Spell.GetSpellInfo(1464)
+	local slam = C_Spell_GetSpellInfo(1464)
 	function OnDurationUpdate(self, elapsed)
 		local now = GetTime()
 

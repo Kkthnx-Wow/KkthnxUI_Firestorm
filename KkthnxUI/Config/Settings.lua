@@ -133,6 +133,7 @@ C["Announcements"] = {
 
 -- Automation
 C["Automation"] = {
+	AutoDelves = false,
 	AutoKeystone = false,
 	-- AutoCollapse = false,
 	AutoDeclineDuels = false,
@@ -360,7 +361,12 @@ C["Nameplate"] = {
 	DPSRevertThreat = false,
 	-- Distance = 42,
 	Enable = true,
-	ExecuteRatio = 0,
+	ExecuteColor = { 0.9, 0.2, 0.2 },
+	ExecuteRatio = 20,
+	QuestIconStyle = 1, -- 1: Default, 2: Enhanced (Skull/Item/Chat)
+	QuestSkullColor = { 1, 0, 0 },
+	QuestItemColor = { 1, 1, 0 },
+	QuestChatColor = { 0, 1, 1 },
 	FriendPlate = false,
 	FriendlyCC = false,
 	FullHealth = false,

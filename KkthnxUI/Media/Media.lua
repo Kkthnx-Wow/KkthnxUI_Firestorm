@@ -47,7 +47,12 @@ C["Media"] = {
 		Spark128Texture = mediaFolder .. "Textures\\Spark_128.tga",
 		Spark16Texture = mediaFolder .. "Textures\\Spark_16.tga",
 		TargetIndicatorTexture = mediaFolder .. "Nameplates\\TargetIndicatorArrow.blp",
+		SkullIcon = mediaFolder .. "Textures\\SkullIcon.tga",
+		BagQuestIcon = mediaFolder .. "Textures\\BagQuestIcon.tga",
+		QuestIcon = mediaFolder .. "Textures\\QuestIcon.tga",
+		ChatBubbleIcon = mediaFolder .. "Textures\\ChatBubbleIcon.tga",
 		White8x8Texture = "Interface\\BUTTONS\\WHITE8X8",
+		StarIcon = mediaFolder .. "Textures\\StarIcon.tga",
 	},
 	["Fonts"] = {
 		BlankFont = mediaFolder .. "Fonts\\Invisible.ttf",

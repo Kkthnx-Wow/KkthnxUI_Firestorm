@@ -1,9 +1,10 @@
 --[[-----------------------------------------------------------------------------
-Addon: KkthnxUI
-Author: Josh "Kkthnx" Russell
-Notes:
-- Purpose: Core API extension framework for WoW UI objects.
-- Combat: Safe for combat use except where explicitly noted (taint hazards).
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Core API extension framework for WoW UI objects.
+-- - Design: Injects KkthnxUI methods into frame metatables for object-oriented usage.
+-- - Events: None
 -----------------------------------------------------------------------------]]
 
 local K, C = KkthnxUI[1], KkthnxUI[2]
@@ -15,9 +16,12 @@ local ADDON_NAME = ...
 
 -- PERF: Cache frequent APIs and globals to reduce table lookups in hot paths.
 local _G = _G
-local type, tonumber, unpack, select, pairs = type, tonumber, unpack, select, pairs
+local ipairs, pairs, select, unpack = ipairs, pairs, select, unpack
 local getmetatable = getmetatable
-local math_min, math_max, math_pi = math.min, math.max, math.pi
+local tonumber = tonumber
+local type = type
+-- PERF: math_rad replaces the hand-rolled local rad() wrapper; math_pi is no longer needed.
+local math_max, math_min, math_rad = math.max, math.min, math.rad
 local CreateFrame, EnumerateFrames = CreateFrame, EnumerateFrames
 local C_AddOns_GetAddOnMetadata = C_AddOns.GetAddOnMetadata
 local RegisterStateDriver = RegisterStateDriver
@@ -32,11 +36,6 @@ local CustomCloseButton = "Interface\\AddOns\\KkthnxUI\\Media\\Textures\\CloseBu
 -- ---------------------------------------------------------------------------
 -- Utility Functions
 -- ---------------------------------------------------------------------------
-
--- Converts degrees to radians for API rotations.
-local function rad(degrees)
-	return degrees * math_pi / 180
-end
 
 -- ---------------------------------------------------------------------------
 -- Frame Hiders
@@ -139,6 +138,7 @@ local function CreateBorder(bFrame, ...)
 	local BorderColor = bColor or Media.Borders.ColorBorder
 
 	-- REASON: Ensure the actual texture object is updated with the correct styling.
+	-- PERF: Use explicit assignments and localized variables.
 	kkui_border:SetSize(BorderSize)
 	kkui_border:SetTexture(BorderTexture)
 	kkui_border:SetOffset(BorderOffset)
@@ -193,6 +193,19 @@ end
 -- ---------------------------------------------------------------------------
 
 -- REASON: Applies a glow/shadow effect using the legacy Backdrop system (BackdropTemplate).
+-- PERF: Pre-defined localized backdrop tables to avoid per-call allocation.
+local shadowBackdrop = {
+	edgeFile = C.Media.Textures.GlowTexture,
+	edgeSize = 3,
+}
+
+local shadowBackdropFull = {
+	bgFile = C.Media.Textures.White8x8Texture,
+	edgeFile = C.Media.Textures.GlowTexture,
+	edgeSize = 3,
+	insets = { left = 3, right = 3, top = 3, bottom = 3 },
+}
+
 local function CreateShadow(frame, useBackdrop)
 	if not frame or type(frame) ~= "table" then
 		return
@@ -207,22 +220,11 @@ local function CreateShadow(frame, useBackdrop)
 	shadow:SetPoint("TOPLEFT", frame, -3, 3)
 	shadow:SetPoint("BOTTOMRIGHT", frame, 3, -3)
 
-	local backdrop = {
-		edgeFile = C["Media"].Textures.GlowTexture,
-		edgeSize = 3,
-	}
-
-	-- Apply background if requested
-	if useBackdrop then
-		backdrop.bgFile = C["Media"].Textures.White8x8Texture
-		backdrop.insets = { left = 3, right = 3, top = 3, bottom = 3 }
-	end
-
-	shadow:SetBackdrop(backdrop)
+	shadow:SetBackdrop(useBackdrop and shadowBackdropFull or shadowBackdrop)
 	shadow:SetFrameLevel(math_max(parentFrame:GetFrameLevel() - 1, 0))
 
 	if useBackdrop then
-		shadow:SetBackdropColor(unpack(C["Media"].Backdrops.ColorBackdrop))
+		shadow:SetBackdropColor(unpack(C.Media.Backdrops.ColorBackdrop))
 	end
 	shadow:SetBackdropBorderColor(0, 0, 0, 0.8)
 
@@ -268,8 +270,7 @@ local blizzTextures = {
 	"_RightSeparator",
 	"_LeftSeparator",
 	"Cover",
-	"Border",
-	"Background",
+	-- REASON: "Border" and "Background" were duplicated earlier in this table; removed to avoid redundant iteration.
 	"TopTex",
 	"TopLeftTex",
 	"TopRightTex",
@@ -288,7 +289,8 @@ local function StripTextures(object, kill)
 	local frameName = object.GetName and object:GetName()
 
 	-- Strip textures from Blizzard frames
-	for _, texture in pairs(blizzTextures) do
+	-- PERF: Use ipairs for array-like table iteration.
+	for _, texture in ipairs(blizzTextures) do
 		local blizzFrame = object[texture] or (frameName and _G[frameName .. texture])
 		if blizzFrame then
 			StripTextures(blizzFrame, kill) -- Recursively strip textures from Blizzard frames
@@ -463,7 +465,8 @@ local function SkinButton(self, override, ...)
 	end
 
 	-- Hide all regions defined in the blizzRegions table
-	for _, region in pairs(blizzRegions) do
+	-- PERF: Use ipairs for array-like table iteration.
+	for _, region in ipairs(blizzRegions) do
 		if self[region] then
 			self[region]:SetAlpha(0)
 			self[region]:Hide()
@@ -602,7 +605,8 @@ local arrowDegree = {
 
 function K.SetupArrow(self, direction)
 	self:SetTexture(C["Media"].Textures.ArrowTexture)
-	self:SetRotation(rad(arrowDegree[direction]))
+	-- REASON: math_rad replaces the removed local rad() wrapper; behaviour is identical.
+	self:SetRotation(math_rad(arrowDegree[direction]))
 end
 
 -- REASON: High-level wrapper to skin an arrow button.

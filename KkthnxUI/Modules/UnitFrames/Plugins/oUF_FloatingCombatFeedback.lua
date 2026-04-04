@@ -1,23 +1,40 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Displays floating combat text on unit frames.
+-- - Design: Animates combat feedback (damage, healing, etc.) similar to Blizzard's floating combat text.
+-- - Events: UNIT_COMBAT, SPELL_DAMAGE, SPELL_HEAL, etc.
+-----------------------------------------------------------------------------]]
+
 local K, C = KkthnxUI[1], KkthnxUI[2]
 local oUF = K.oUF
 
-local select, tremove, tinsert, wipe = select, _G.table.remove, _G.table.insert, _G.table.wipe
-local m_cos, m_sin, m_pi, m_random = math.cos, _G.math.sin, _G.math.pi, _G.math.random
+-- REASON: Localize frequently used APIs and utilities for performance
+local select = _G.select
+local table_remove = _G.table.remove
+local table_insert = _G.table.insert
+local table_wipe = _G.table.wipe
+local math_cos = _G.math.cos
+local math_sin = _G.math.sin
+local math_pi = _G.math.pi
+local math_random = _G.math.random
 
-local UnitGUID = UnitGUID
-local GetSpellTexture = C_Spell.GetSpellTexture
-local BreakUpLargeNumbers = BreakUpLargeNumbers
-local ENTERING_COMBAT = ENTERING_COMBAT
-local LEAVING_COMBAT = LEAVING_COMBAT
-local PET_ATTACK_TEXTURE = PET_ATTACK_TEXTURE
-local SCHOOL_MASK_NONE = SCHOOL_MASK_NONE or 0x00
-local SCHOOL_MASK_PHYSICAL = SCHOOL_MASK_PHYSICAL or 0x01
-local SCHOOL_MASK_HOLY = SCHOOL_MASK_HOLY or 0x02
-local SCHOOL_MASK_FIRE = SCHOOL_MASK_FIRE or 0x04
-local SCHOOL_MASK_NATURE = SCHOOL_MASK_NATURE or 0x08
-local SCHOOL_MASK_FROST = SCHOOL_MASK_FROST or 0x10
-local SCHOOL_MASK_SHADOW = SCHOOL_MASK_SHADOW or 0x20
-local SCHOOL_MASK_ARCANE = SCHOOL_MASK_ARCANE or 0x40
+local BreakUpLargeNumbers = _G.BreakUpLargeNumbers
+local GetSpellTexture = _G.C_Spell.GetSpellTexture
+local ENTERING_COMBAT = _G.ENTERING_COMBAT
+local LEAVING_COMBAT = _G.LEAVING_COMBAT
+local PET_ATTACK_TEXTURE = _G.PET_ATTACK_TEXTURE
+local UnitGUID = _G.UnitGUID
+
+local SCHOOL_MASK_NONE = _G.SCHOOL_MASK_NONE or 0x00
+local SCHOOL_MASK_PHYSICAL = _G.SCHOOL_MASK_PHYSICAL or 0x01
+local SCHOOL_MASK_HOLY = _G.SCHOOL_MASK_HOLY or 0x02
+local SCHOOL_MASK_FIRE = _G.SCHOOL_MASK_FIRE or 0x04
+local SCHOOL_MASK_NATURE = _G.SCHOOL_MASK_NATURE or 0x08
+local SCHOOL_MASK_FROST = _G.SCHOOL_MASK_FROST or 0x10
+local SCHOOL_MASK_SHADOW = _G.SCHOOL_MASK_SHADOW or 0x20
+local SCHOOL_MASK_ARCANE = _G.SCHOOL_MASK_ARCANE or 0x40
 
 local function clamp(v)
 	if v > 1 then
@@ -57,13 +74,13 @@ local schoolColors = {
 	[SCHOOL_MASK_ARCANE] = { r = 1.00, g = 0.50, b = 1.00 }, -- 0x40 or 64
 }
 
-local function removeString(self, i, string)
-	tremove(self.FeedbackToAnimate, i)
-	string:SetText("")
-	string:SetAlpha(0)
-	string:Hide()
+local function removeString(self, i, feedbackText)
+	table_remove(self.FeedbackToAnimate, i)
+	feedbackText:SetText("")
+	feedbackText:SetAlpha(0)
+	feedbackText:Hide()
 
-	return string
+	return feedbackText
 end
 
 local function getAvailableString(self)
@@ -78,7 +95,7 @@ end
 
 local animations = {
 	["fountain"] = function(self)
-		return self.x + self.xDirection * self.radius * (1 - m_cos(m_pi / 2 * self.progress)), self.y + self.yDirection * self.radius * m_sin(m_pi / 2 * self.progress)
+		return self.x + self.xDirection * self.radius * (1 - math_cos(math_pi / 2 * self.progress)), self.y + self.yDirection * self.radius * math_sin(math_pi / 2 * self.progress)
 	end,
 	["vertical"] = function(self)
 		return self.x, self.y + self.yDirection * self.radius * self.progress
@@ -94,7 +111,7 @@ local animations = {
 	end,
 	["random"] = function(self)
 		if self.elapsed == 0 then
-			self.x, self.y = m_random(-self.radius * 0.66, self.radius * 0.66), m_random(-self.radius * 0.66, self.radius * 0.66)
+			self.x, self.y = math_random(-self.radius * 0.66, self.radius * 0.66), math_random(-self.radius * 0.66, self.radius * 0.66)
 		end
 
 		return self.x, self.y
@@ -120,15 +137,15 @@ local yOffsetsByAnimation = {
 }
 
 local function onUpdate(self, elapsed)
-	for index, string in next, self.FeedbackToAnimate do
-		if string.elapsed >= self.scrollTime then
-			removeString(self, index, string)
+	for index, feedbackText in next, self.FeedbackToAnimate do
+		if feedbackText.elapsed >= self.scrollTime then
+			removeString(self, index, feedbackText)
 		else
-			string.progress = string.elapsed / self.scrollTime
-			string:SetPoint("CENTER", self, "CENTER", string:GetXY())
+			feedbackText.progress = feedbackText.elapsed / self.scrollTime
+			feedbackText:SetPoint("CENTER", self, "CENTER", feedbackText:GetXY())
 
-			string.elapsed = string.elapsed + elapsed
-			string:SetAlpha(clamp(1 - (string.elapsed - self.fadeTime) / (self.scrollTime - self.fadeTime)))
+			feedbackText.elapsed = feedbackText.elapsed + elapsed
+			feedbackText:SetAlpha(clamp(1 - (feedbackText.elapsed - self.fadeTime) / (self.scrollTime - self.fadeTime)))
 		end
 	end
 
@@ -138,7 +155,7 @@ local function onUpdate(self, elapsed)
 end
 
 local function flush(self)
-	wipe(self.FeedbackToAnimate)
+	table_wipe(self.FeedbackToAnimate)
 
 	for i = 1, #self do
 		self[i]:SetText("")
@@ -311,24 +328,24 @@ local function Update(self, event, ...)
 
 	if text and texture then
 		local animation = element.defaultMode
-		local string = getAvailableString(element)
+		local feedbackText = getAvailableString(element)
 
-		string:SetFont(element.font, 18 * multiplier, element.fontFlags)
-		string:SetFormattedText(element.format, texture, (critMark and "*" or "") .. text)
-		string:SetTextColor(color.r, color.g, color.b)
-		string.elapsed = 0
-		string.GetXY = animations[animation]
-		string.radius = element.radius
-		string.scrollTime = element.scrollTime
-		string.xDirection = element.xDirection
-		string.yDirection = element.yDirection
-		string.x = element.xDirection * xOffsetsByAnimation[animation] * (critMark and -1 or 1)
-		string.y = element.yDirection * yOffsetsByAnimation[animation]
-		string:SetPoint("CENTER", element, "CENTER", string.x, string.y)
-		string:SetAlpha(0)
-		string:Show()
+		feedbackText:SetFont(element.font, 18 * multiplier, element.fontFlags)
+		feedbackText:SetFormattedText(element.format, texture, (critMark and "*" or "") .. text)
+		feedbackText:SetTextColor(color.r, color.g, color.b)
+		feedbackText.elapsed = 0
+		feedbackText.GetXY = animations[animation]
+		feedbackText.radius = element.radius
+		feedbackText.scrollTime = element.scrollTime
+		feedbackText.xDirection = element.xDirection
+		feedbackText.yDirection = element.yDirection
+		feedbackText.x = element.xDirection * xOffsetsByAnimation[animation] * (critMark and -1 or 1)
+		feedbackText.y = element.yDirection * yOffsetsByAnimation[animation]
+		feedbackText:SetPoint("CENTER", element, "CENTER", feedbackText.x, feedbackText.y)
+		feedbackText:SetAlpha(0)
+		feedbackText:Show()
 
-		tinsert(element.FeedbackToAnimate, string)
+		table_insert(element.FeedbackToAnimate, feedbackText)
 
 		if not element:GetScript("OnUpdate") then
 			element:SetScript("OnUpdate", onUpdate)

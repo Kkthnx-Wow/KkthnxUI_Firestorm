@@ -1,7 +1,24 @@
+--[[-----------------------------------------------------------------------------
+-- Addon: KkthnxUI
+-- Author: Josh "Kkthnx" Russell
+-- Notes:
+-- - Purpose: Skins the Blizzard Static Popup frames.
+-- - Design: Applies custom borders, skins buttons, and restyles input frames.
+-- - Events: N/A
+-----------------------------------------------------------------------------]]
+
 local K, C = KkthnxUI[1], KkthnxUI[2]
 
-local STATICPOPUP_NUMDIALOGS = STATICPOPUP_NUMDIALOGS or 4
+-- REASON: Localize globals for performance and stack safety.
+local _G = _G
+local tinsert = _G.table.insert
+local hooksecurefunc = _G.hooksecurefunc
 
+local STATICPOPUP_NUMDIALOGS = _G.STATICPOPUP_NUMDIALOGS or 4
+local StaticPopupDialogs = _G.StaticPopupDialogs
+local StaticPopup_FindVisible = _G.StaticPopup_FindVisible
+
+-- REASON: Main entry point for Blizzard Static Popup skinning.
 tinsert(C.defaultThemes, function()
 	if not C.Skins.BlizzardFrames then
 		return

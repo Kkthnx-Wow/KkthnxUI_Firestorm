@@ -4,6 +4,7 @@
 -- Notes:
 -- - Purpose: Universal UI element movement and positioning system.
 -- - Design: Persistent anchor tracking, manual trimming, and Blizzard Edit Mode suppression.
+-- - Events: PLAYER_REGEN_DISABLED, PLAYER_REGEN_ENABLED
 -----------------------------------------------------------------------------]]
 
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
@@ -12,12 +13,12 @@ local Module = K:NewModule("Mover")
 -- NOTE: Sourced: NDui (siweia)
 -- NOTE: Edited: KkthnxUI (Kkthnx)
 
-local pairs = pairs
+-- PERF: Cache Lua globals for speed and consistency.
+local _G = _G
+local ipairs, pcall, tostring, type, unpack = ipairs, pcall, tostring, type, unpack
 local table_insert = table.insert
-local table_remove = table.remove
 local table_wipe = table.wipe
-local type = type
-local unpack = unpack
+local math_rad = math.rad
 
 local CANCEL = CANCEL
 local CreateFrame = CreateFrame
@@ -92,7 +93,15 @@ function K:Mover(text, value, anchor, width, height, isAuraWatch)
 
 	-- NOTE: AuraWatch movers are handled separately due to their dynamic nature.
 	if not isAuraWatch then
-		table.insert(MoverList, mover)
+		-- REASON: Detect duplicate value keys early; two movers sharing the same key silently overwrite
+		-- each other's saved position in KkthnxUIDB, so the later-registered frame always loads wrong.
+		for _, existingMover in ipairs(MoverList) do
+			if existingMover.__value == value then
+				K.Print("|cffff4444Mover WARNING:|r Duplicate key '" .. tostring(value) .. "' registered. DB position saving may be overwritten.")
+				break
+			end
+		end
+		table_insert(MoverList, mover)
 	end
 
 	-- WARNING: Ensure the target frame supports standard positioning methods to avoid script errors.
@@ -240,6 +249,7 @@ end
 -- ---------------------------------------------------------------------------
 
 function Module:UnlockElements()
+	-- PERF: Use ipairs for array iteration.
 	for i = 1, #MoverList do
 		local mover = MoverList[i]
 		if not mover:IsShown() and not mover.isDisable then
@@ -251,6 +261,7 @@ function Module:UnlockElements()
 end
 
 function Module:LockElements()
+	-- PERF: Use ipairs for array iteration.
 	for i = 1, #MoverList do
 		local mover = MoverList[i]
 		mover:Hide()
@@ -438,10 +449,9 @@ local function CreateConsole()
 		arrows[i].__index = i
 		arrows[i].__offset = arrowData.offset
 		arrows[i]:SetScript("OnClick", arrowOnClick)
-		arrows[i]:SetPoint("CENTER", arrowData.x, arrowData.y)
 		arrows[i].Icon:SetPoint("TOPLEFT", 3, -3)
 		arrows[i].Icon:SetPoint("BOTTOMRIGHT", -3, 3)
-		arrows[i].Icon:SetRotation(math.rad(arrowData.degree))
+		arrows[i].Icon:SetRotation(math_rad(arrowData.degree))
 	end
 
 	-- WARNING: Force elements to lock if combat begins to avoid frame movement during protected state.
@@ -499,6 +509,7 @@ function Module:OnEnable()
 		"DisableBlizzardMover",
 	}
 
+	-- PERF: Use ipairs for array iteration.
 	for _, funcName in ipairs(loadMoverModules) do
 		local func = self[funcName]
 		if type(func) == "function" then

@@ -10,7 +10,7 @@ local K = KkthnxUI[1]
 local oUF = K.oUF
 
 if not oUF then
-	K.Print("Could not find a vaild instance of oUF. Stopping Colors.lua code!")
+	K.Print("Could not find a valid instance of oUF. Stopping Colors.lua code!")
 	return
 end
 
@@ -73,16 +73,9 @@ oUF.colors.reaction = {
 -- ---------------------------------------------------------------------------
 
 oUF.colors.selection = {
-	[0] = { 1.00, 0.18, 0.18 }, -- HOSTILE (bright red)
-	[1] = { 1.00, 0.51, 0.20 }, -- UNFRIENDLY (soft orange)
-	[2] = { 1.00, 0.85, 0.20 }, -- NEUTRAL (muted yellow)
-	[3] = { 0.20, 0.71, 0.00 }, -- FRIENDLY (bright green)
-	[5] = { 0.40, 0.53, 1.00 }, -- PLAYER_EXTENDED (soft blue)
-	[6] = { 0.40, 0.20, 1.00 }, -- PARTY (purple)
-	[7] = { 0.73, 0.20, 1.00 }, -- PARTY_PVP (light purple)
-	[8] = { 0.20, 1.00, 0.42 }, -- FRIEND (light green)
-	[9] = { 0.60, 0.60, 0.60 }, -- DEAD (gray)
-	[13] = { 0.10, 0.58, 0.28 }, -- BATTLEGROUND_FRIENDLY_PVP (teal)
+	[0] = { 0.78, 0.25, 0.25 },
+	[2] = { 0.85, 0.76, 0.36 },
+	[3] = { 0.29, 0.67, 0.30 },
 }
 
 -- ---------------------------------------------------------------------------

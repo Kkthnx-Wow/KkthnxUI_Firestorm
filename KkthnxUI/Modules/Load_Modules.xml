@@ -132,6 +132,7 @@
    <Script file="Announcements\Elements\Sapped.lua" />
    <!-- Automation -->
    <Script file="Automation\Core.lua" />
+   <Script file="Automation\Elements\AutoDelves.lua" />
    <Script file="Automation\Elements\AutoHideTracker.lua" />
    <Script file="Automation\Elements\AutoKeystone.lua" />
    <Script file="Automation\Elements\BadBuffs.lua" />

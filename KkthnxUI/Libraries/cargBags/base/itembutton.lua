@@ -22,10 +22,8 @@ local cargBags = ns.cargBags
 
 -- Cache globals for performance
 local setmetatable = setmetatable
-local string_format = string.format
 local table_insert = table.insert
 local table_remove = table.remove
-local type = type
 
 local AccountBankPanel = AccountBankPanel
 local BankFrame = BankFrame

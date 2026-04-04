@@ -1,11 +1,24 @@
-local K, C = KkthnxUI[1], KkthnxUI[2]
-
 --[[-----------------------------------------------------------------------------
 -- Addon: KkthnxUI
 -- Author: Josh "Kkthnx" Russell
--- Functions: Skinning Blizzard's Cooldown Viewer (Cooldown Manager)
--- Build: 11.1.5 (TWW)
+-- Notes:
+-- - Purpose: Skins the Blizzard Cooldown Viewer (Cooldown Manager).
+-- - Design: Hooks CooldownViewerMixin to apply KkthnxUI border and status bar styling.
+-- - Events: N/A
 -----------------------------------------------------------------------------]]
+
+local K, C = KkthnxUI[1], KkthnxUI[2]
+
+-- REASON: Localize globals for performance and stack safety.
+local _G = _G
+local ipairs = _G.ipairs
+local hooksecurefunc = _G.hooksecurefunc
+
+local CooldownViewerMixin = _G.CooldownViewerMixin
+local EssentialCooldownViewer = _G.EssentialCooldownViewer
+local UtilityCooldownViewer = _G.UtilityCooldownViewer
+local BuffIconCooldownViewer = _G.BuffIconCooldownViewer
+local BuffBarCooldownViewer = _G.BuffBarCooldownViewer
 
 local function ReskinCooldownViewerItem(item)
 	if not item or item.styled then
@@ -67,21 +80,20 @@ end
 -- BLIZZARD_COOLDOWNVIEWER REGISTRATION
 -- ---------------------------------------------------------------------------
 
+-- REASON: Main entry point for Blizzard Cooldown Viewer skinning.
 C.themes["Blizzard_CooldownViewer"] = function()
 	if not C["Skins"].BlizzardFrames then
 		return
 	end
 
-	-- REASON: Standardize the main cooldown viewer frame containers.
-	-- Blizzard_CooldownViewer uses a pool system in CooldownViewerMixin.
+	-- REASON: Standardize the main cooldown viewer frame containers via mixin hook.
 	if CooldownViewerMixin then
-		-- NOTE: Hooking OnAcquireItemFrame ensures every new or recycled button gets skinned.
 		hooksecurefunc(CooldownViewerMixin, "OnAcquireItemFrame", function(self, itemFrame)
 			ReskinCooldownViewerItem(itemFrame)
 		end)
 	end
 
-	-- NOTE: Catch any already-existing frames if the addon was loaded mid-session.
+	-- REASON: Catch any already-existing frames if the addon was loaded mid-session.
 	local viewers = {
 		EssentialCooldownViewer,
 		UtilityCooldownViewer,

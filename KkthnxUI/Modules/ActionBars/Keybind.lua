@@ -33,7 +33,7 @@ local SaveBindings = _G.SaveBindings
 local SetBinding = _G.SetBinding
 local SpellBook_GetSpellBookSlot = _G.SpellBook_GetSpellBookSlot
 local UIErrorsFrame = _G.UIErrorsFrame
-local format = _G.format
+local string_format = _G.string.format
 local hooksecurefunc = _G.hooksecurefunc
 local strfind = _G.strfind
 local strupper = _G.strupper
@@ -237,7 +237,11 @@ function Module:Bind_Update(button, spellmacro)
 	end
 
 	-- NOTE: Refresh tooltips to show updated binding info.
-	frame:GetScript("OnEnter")
+	-- FIX: GetScript returns a function reference; it must be invoked to actually refresh the tooltip.
+	local onEnter = frame:GetScript("OnEnter")
+	if onEnter then
+		onEnter(frame)
+	end
 end
 
 local ignoreKeys = {
@@ -265,7 +269,7 @@ function Module:Bind_Listener(key)
 				SetBinding(frame.bindings[i])
 			end
 		end
-		K.Print(format(L["Clear Binds"], frame.tipName or frame.name))
+		K.Print(string_format(L["Clear Binds"], frame.tipName or frame.name))
 
 		Module:Bind_Update(frame.button, frame.spellmacro)
 		return
