@@ -28,6 +28,7 @@
    <Script file="Chat\Core.lua" />
    <Script file="Chat\Elements\Copy.lua" />
    <Script file="Chat\Elements\Emojis.lua" />
+   <Script file="Chat\Elements\Highlight.lua" />
    <Script file="Chat\Elements\History.lua" />
    <Script file="Chat\Elements\ILevel.lua" />
    <Script file="Chat\Elements\Rename.lua" />

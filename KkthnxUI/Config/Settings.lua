@@ -237,6 +237,8 @@ C["Chat"] = {
 	WhisperColor = true,
 	Width = 400,
 	TimestampFormat = 1,
+	HighlightPlayer = true,
+	HighlightGuild = true,
 }
 
 -- Datatext

@@ -441,6 +441,8 @@ local function CreateChatCategory()
 	GUI:CreateSwitch(behaviorChatSection, "Chat.ChatMenu", L["Show Chat Menu Buttons"], L["ChatMenu Desc"])
 	GUI:CreateSwitch(behaviorChatSection, "Chat.Sticky", L["Stick On Channel If Whispering"], L["Sticky Desc"])
 	GUI:CreateSwitch(behaviorChatSection, "Chat.WhisperColor", L["Differ Whisper Colors"], "Use different colors for incoming and outgoing whispers")
+	GUI:CreateSwitch(behaviorChatSection, "Chat.HighlightPlayer", L["Highlight Your Name"], L["Highlight Your Name Desc"], nil, true)
+	GUI:CreateSwitch(behaviorChatSection, "Chat.HighlightGuild", L["Highlight Guild Tags"], L["Highlight Guild Tags Desc"], nil, true)
 
 	-- Sizes
 	local sizesChatSection = GUI:AddSection(chatCategory, L["Sizes"])
