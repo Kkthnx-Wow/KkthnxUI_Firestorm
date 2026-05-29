@@ -13,7 +13,6 @@ local K = KkthnxUI[1]
 local _G = _G
 local C_ContentTracking = _G.C_ContentTracking
 local C_GossipInfo_SelectOption = _G.C_GossipInfo and _G.C_GossipInfo.SelectOption
-local C_Minimap = _G.C_Minimap
 local C_QuestLog = _G.C_QuestLog
 local C_SuperTrack = _G.C_SuperTrack
 local CreateFrame = _G.CreateFrame

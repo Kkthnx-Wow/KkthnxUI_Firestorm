@@ -49,7 +49,6 @@ local UIParent = _G.UIParent
 local date = date
 local ipairs = ipairs
 local math_floor = math.floor
-local math_max = math.max
 local mod = mod
 local next = next
 local pairs = pairs
@@ -59,7 +58,6 @@ local string_format = string.format
 local string_match = string.match
 local time = time
 local tonumber = tonumber
-local unpack = unpack
 
 -- ---------------------------------------------------------------------------
 -- State & Constants
@@ -69,7 +67,6 @@ local isTimeWalker = false
 local walkerTexture
 local onUpdateTimer = 3
 local currentTime
-local isMoverSized = false
 
 local DELVES_KEYS = { 91175, 91176, 91177, 91178 }
 local keyInfo = C_CurrencyInfo_GetCurrencyInfo(3028)

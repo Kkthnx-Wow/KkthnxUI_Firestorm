@@ -11,7 +11,6 @@ local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 local Module = K:GetModule("Miscellaneous")
 
 -- PERF: Localize global functions and environment for faster lookups.
-local ipairs = _G.ipairs
 local pairs = _G.pairs
 local string_format = _G.string.format
 local strsplit = _G.strsplit

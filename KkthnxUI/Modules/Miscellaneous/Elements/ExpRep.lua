@@ -12,7 +12,6 @@ local Module = K:GetModule("Miscellaneous")
 
 -- PERF: Localize global functions and environment for faster lookups.
 local ipairs = _G.ipairs
-local math_floor = _G.math.floor
 local math_huge = _G.math.huge
 local math_min = _G.math.min
 local string_find = _G.string.find

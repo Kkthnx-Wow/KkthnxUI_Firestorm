@@ -13,7 +13,6 @@ local oUF = K.oUF
 -- REASON: Localize C-functions (Snake Case)
 local select = _G.select
 local string_find = _G.string.find
-local string_format = _G.string.format
 
 -- REASON: Localize Globals
 local AFK = _G.AFK

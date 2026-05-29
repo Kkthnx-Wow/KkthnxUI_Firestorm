@@ -15,13 +15,11 @@ local math_floor = _G.math.floor
 local math_min = _G.math.min
 local string_format = _G.string.format
 local string_upper = _G.string.upper
-local tonumber = _G.tonumber
 local unpack = _G.unpack
 
 -- REASON: Localize Globals
 local GetTime = _G.GetTime
 local IsPlayerSpell = _G.IsPlayerSpell
-local UnitCanAttack = _G.UnitCanAttack
 local UnitClass = _G.UnitClass
 local UnitExists = _G.UnitExists
 local UnitInVehicle = _G.UnitInVehicle

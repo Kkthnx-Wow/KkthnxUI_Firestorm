@@ -17,7 +17,6 @@ local UIParent = _G.UIParent
 local GroupLootContainer = _G.GroupLootContainer
 local AlertFrame = _G.AlertFrame
 local hooksecurefunc = hooksecurefunc
-local ipairs = ipairs
 local select = select
 local table_remove = table.remove
 

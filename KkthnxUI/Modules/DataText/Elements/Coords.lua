@@ -26,7 +26,6 @@ local UIParent = _G.UIParent
 local UnitExists = _G.UnitExists
 local UnitIsPlayer = _G.UnitIsPlayer
 local UnitName = _G.UnitName
-local ipairs = ipairs
 local math_ceil = math.ceil
 local math_floor = math.floor
 local math_max = math.max

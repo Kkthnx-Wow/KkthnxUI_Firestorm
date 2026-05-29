@@ -13,7 +13,6 @@ local Module = K:NewModule("WorldMap")
 -- PERF: Localize global functions and environment for faster lookups.
 local pcall = _G.pcall
 local select = _G.select
-local strmatch = _G.strmatch
 local tostring = _G.tostring
 local type = _G.type
 

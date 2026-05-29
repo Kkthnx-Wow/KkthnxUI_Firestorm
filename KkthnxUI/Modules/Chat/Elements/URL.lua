@@ -12,7 +12,6 @@ local Module = K:GetModule("Chat")
 
 -- PERF: Localize globals and API functions to minimize lookup overhead.
 local _G = _G
-local ChatEdit_ClearChat = _G.ChatEdit_ClearChat
 local ItemRefTooltip = _G.ItemRefTooltip
 local NUM_CHAT_WINDOWS = _G.NUM_CHAT_WINDOWS or 10
 local hooksecurefunc = hooksecurefunc

@@ -35,14 +35,10 @@ local UIParent = _G.UIParent
 local ipairs = ipairs
 local math_max = math.max
 local pairs = pairs
-local print = print
 local string_format = string.format
 local string_gsub = string.gsub
-local table_sort = table.sort
 local table_unpack = unpack
 local table_wipe = table.wipe
-local tostring = tostring
-local type = type
 
 -- ---------------------------------------------------------------------------
 -- State & Constants

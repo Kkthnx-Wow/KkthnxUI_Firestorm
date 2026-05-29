@@ -44,7 +44,6 @@ local UnitInRaid = _G.UnitInRaid
 local ipairs = ipairs
 local math_max = math.max
 local math_min = math.min
-local pairs = pairs
 local string_format = string.format
 local table_sort = table.sort
 local table_wipe = table.wipe

@@ -12,7 +12,6 @@ local Module = K:GetModule("Bags")
 
 -- PERF: Localize global functions to avoid hashtable lookups in high-frequency loops.
 local table_wipe = table.wipe
-local string_format = string.format
 
 local C_Container_GetContainerItemInfo = C_Container.GetContainerItemInfo
 local C_Container_GetContainerNumSlots = C_Container.GetContainerNumSlots

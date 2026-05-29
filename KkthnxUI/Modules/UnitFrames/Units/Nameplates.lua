@@ -11,7 +11,6 @@ local Module = K:GetModule("Unitframes")
 
 -- Lua functions
 local math_rad = math.rad
-local math_floor = math.floor
 local pairs = pairs
 local ipairs = ipairs
 local select = select

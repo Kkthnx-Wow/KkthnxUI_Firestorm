@@ -13,7 +13,6 @@ local Module = K:NewModule("Tooltip")
 -- REASON: Localize globals for performance and stack safety.
 local _G = _G
 local ipairs = _G.ipairs
-local next = _G.next
 local pairs = _G.pairs
 local pcall = _G.pcall
 local select = _G.select
@@ -23,7 +22,6 @@ local string_gsub = _G.string.gsub
 local string_len = _G.string.len
 local string_upper = _G.string.upper
 local type = _G.type
-local unpack = _G.unpack
 
 local AFK = _G.AFK
 local BOSS = _G.BOSS
@@ -69,7 +67,6 @@ local PLAYER_OFFLINE = _G.PLAYER_OFFLINE
 local PVP = _G.PVP
 local ROLE = _G.ROLE
 local SPECIALIZATION = _G.SPECIALIZATION
-local STATICPOPUP_NUMDIALOGS = _G.STATICPOPUP_NUMDIALOGS
 local TANK = _G.TANK
 local TARGET = _G.TARGET
 local TooltipComparisonManager = _G.TooltipComparisonManager

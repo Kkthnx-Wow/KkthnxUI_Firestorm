@@ -21,7 +21,6 @@ local GetAuraDataByIndex = _G.C_UnitAuras.GetAuraDataByIndex
 local ForEachAura = _G.AuraUtil.ForEachAura
 local debuffColor = _G.DebuffTypeColor
 local pairs = pairs
-local ipairs = ipairs
 local table_wipe = table.wipe
 
 -- Timer throttle for text updates (seconds)

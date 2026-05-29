@@ -28,7 +28,6 @@ local pairs = pairs
 local string_format = string.format
 local string_gsub = string.gsub
 local table_sort = table.sort
-local unpack = unpack
 
 -- ---------------------------------------------------------------------------
 -- State & Constants

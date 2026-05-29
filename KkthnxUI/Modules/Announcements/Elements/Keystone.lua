@@ -14,7 +14,6 @@ local Module = K:GetModule("Announcements")
 -- ---------------------------------------------------------------------------
 
 -- PERF: Cache API references for bag scanning and Mythic+ lookups.
-local gsub = string.gsub
 local strlower = string.lower
 local format = string.format
 local C_Container_GetContainerNumSlots = C_Container.GetContainerNumSlots
@@ -27,7 +26,6 @@ local IsInGroup = IsInGroup
 local IsPartyLFG = IsPartyLFG
 local SendChatMessage = SendChatMessage
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
-local ipairs = ipairs
 
 -- NOTE: Small cache table to track the last observed keystone to prevent duplicate announcements.
 local keystoneCache = { mapID = 0, level = 0 }

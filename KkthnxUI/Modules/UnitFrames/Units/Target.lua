@@ -12,12 +12,10 @@ local Module = K:GetModule("Unitframes")
 
 -- PERF: Localize C-functions (Snake Case)
 local select = _G.select
-local unpack = _G.unpack
 
 -- PERF: Localize Globals
 local CreateFrame = _G.CreateFrame
 local SetCVar = _G.SetCVar
-local C_AddOns = _G.C_AddOns
 local UIParent = _G.UIParent
 
 function Module:CreateTarget()

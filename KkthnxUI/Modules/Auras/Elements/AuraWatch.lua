@@ -16,7 +16,6 @@ local ipairs, next, pairs, select, type = _G.ipairs, _G.next, _G.pairs, _G.selec
 local math_floor = _G.math.floor
 local string_find = _G.string.find
 local string_format = _G.string.format
-local string_match = _G.string.match
 local table_insert = _G.table.insert
 local table_remove = _G.table.remove
 local table_wipe = _G.table.wipe

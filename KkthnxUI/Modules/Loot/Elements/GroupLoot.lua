@@ -13,7 +13,6 @@ local Module = K:GetModule("Loot")
 -- PERF: Localize global functions and environment for faster lookups.
 local _G = _G
 local format = _G.string.format
-local math_ceil = _G.math.ceil
 local next = _G.next
 local pairs = _G.pairs
 local table_insert = _G.table.insert
@@ -27,10 +26,7 @@ local GetLootRollItemLink = _G.GetLootRollItemLink
 local GetLootRollTimeLeft = _G.GetLootRollTimeLeft
 local IsModifiedClick = _G.IsModifiedClick
 local RollOnLoot = _G.RollOnLoot
-local hooksecurefunc = _G.hooksecurefunc
 local ipairs = _G.ipairs
-local select = _G.select
-local strmatch = _G.strmatch
 local tostring = _G.tostring
 
 -- REASON: Constants for loot quality and localized strings.

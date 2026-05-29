@@ -27,11 +27,9 @@ local tonumber = _G.tonumber
 local type = _G.type
 
 local _G = _G
-local C_AddOns_IsAddOnLoaded = _G.C_AddOns.IsAddOnLoaded
 local C_AzeriteEmpoweredItem_IsPowerSelected = _G.C_AzeriteEmpoweredItem.IsPowerSelected
 local C_Item_GetItemInfoInstant = _G.C_Item.GetItemInfoInstant
 local C_Spell_GetSpellInfo = _G.C_Spell.GetSpellInfo
-local C_Spell_GetSpellName = _G.C_Spell.GetSpellName
 local CreateFrame = _G.CreateFrame
 local GetCurrentGuildBankTab = _G.GetCurrentGuildBankTab
 local GetGuildBankItemLink = _G.GetGuildBankItemLink

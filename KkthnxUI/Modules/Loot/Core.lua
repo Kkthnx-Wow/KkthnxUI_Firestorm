@@ -12,7 +12,6 @@ local Module = K:NewModule("Loot")
 
 -- PERF: Localize global functions and environment for faster lookups in high-frequency loot events.
 local math_max = math.max
-local string_format = string.format
 local table_insert = table.insert
 
 local _G = _G

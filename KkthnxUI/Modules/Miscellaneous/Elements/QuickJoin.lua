@@ -17,7 +17,6 @@ local gsub = _G.string.gsub
 local IsAltKeyDown = _G.IsAltKeyDown
 local table_insert = _G.table.insert
 local tostring = _G.tostring
-local type = _G.type
 
 local _G = _G
 local C_LFGList_GetActivityInfoTable = _G.C_LFGList.GetActivityInfoTable

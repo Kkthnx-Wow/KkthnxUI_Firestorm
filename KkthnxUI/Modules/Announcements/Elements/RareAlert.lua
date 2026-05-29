@@ -16,8 +16,6 @@ local Module = K:GetModule("Announcements")
 -- PERF: Cache Lua and WoW API globals for frequent vignette processing.
 local pairs = pairs
 local tostring = tostring
-local tonumber = tonumber
-local type = type
 
 local date = date
 local strfind = string.find

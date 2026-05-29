@@ -11,7 +11,6 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 
 -- REASON: Localize globals for performance and stack safety.
 local _G = _G
-local type = _G.type
 
 -- Cache frequently accessed values
 -- REASON: Constants for Collections skinning.

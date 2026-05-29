@@ -12,7 +12,6 @@ local Module = K:GetModule("Unitframes")
 
 -- REASON: Localize C-functions (Snake Case)
 local select = _G.select
-local unpack = _G.unpack
 
 -- REASON: Localize Globals
 local CreateFrame = _G.CreateFrame

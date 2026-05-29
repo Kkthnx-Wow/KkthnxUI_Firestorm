@@ -11,7 +11,6 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 
 -- REASON: Localize globals for performance and stack safety.
 local _G = _G
-local ipairs = _G.ipairs
 local pairs = _G.pairs
 local hooksecurefunc = _G.hooksecurefunc
 
