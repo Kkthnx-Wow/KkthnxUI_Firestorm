@@ -228,6 +228,7 @@ function Module:CreateTarget()
 
 		Castbar.Time = timer
 		Castbar.Text = name
+		Castbar.timeToHold = 0.5
 		Castbar.OnUpdate = Module.OnCastbarUpdate
 		Castbar.PostCastStart = Module.PostCastStart
 		Castbar.PostCastUpdate = Module.PostCastUpdate

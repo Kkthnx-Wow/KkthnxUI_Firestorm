@@ -62,7 +62,14 @@ local function handlePlayerChoice()
 
 		-- Print confirmation message
 		local spellLink = string_format("|Hspell:%d:0|h[%s]|h", spellID, header)
-		local coloredText = _G.ColorManager.GetFormattedStringForItemQuality(spellLink, quality)
+		local coloredText
+		if _G.ColorManager and _G.ColorManager.GetFormattedStringForItemQuality then
+			coloredText = _G.ColorManager.GetFormattedStringForItemQuality(spellLink, quality)
+		else
+			local color = K.QualityColors[quality] or K.QualityColors[1]
+			local hex = K.RGBToHex(color.r, color.g, color.b)
+			coloredText = hex .. spellLink .. "|r"
+		end
 		K.Print(string_format("%s %s", L["Auto Selected"], coloredText))
 	end
 end

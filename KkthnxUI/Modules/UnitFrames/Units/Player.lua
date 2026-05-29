@@ -130,7 +130,7 @@ function Module:CreatePlayer()
 	-- REASON: Portrait Setup (2D/3D support)
 	if playerPortraitStyle ~= 0 then
 		if playerPortraitStyle == 4 then
-			self.Portrait = CreateFrame("PlayerModel", nil, self)
+			self.Portrait = CreateFrame("PlayerModel", "PlayerPortrait", self)
 			self.Portrait:SetFrameStrata(self:GetFrameStrata())
 			self.Portrait:SetPoint("TOPLEFT", self.Health, "TOPLEFT", 1, -1)
 			self.Portrait:SetPoint("BOTTOMRIGHT", self.Health, "BOTTOMRIGHT", -1, 1)
@@ -252,6 +252,7 @@ function Module:CreatePlayer()
 
 		Castbar.Time = timer
 		Castbar.Text = name
+		Castbar.timeToHold = 0.5
 		Castbar.OnUpdate = Module.OnCastbarUpdate
 		Castbar.PostCastStart = Module.PostCastStart
 		Castbar.PostCastUpdate = Module.PostCastUpdate

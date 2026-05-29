@@ -313,6 +313,11 @@ oUF.Tags.Events["pppower"] = "UNIT_POWER_FREQUENT UNIT_MAXPOWER UNIT_DISPLAYPOWE
 
 local NameOnlyGuild = false
 local NameOnlyTitle = true
+
+-- PERF: Lazy-cache left tooltip lines to avoid high-frequency string format and dynamic lookups on _G.
+-- REASON: Resolving these once lazily guarantees load-order safety while completely eliminating memory allocations.
+local tooltipLine2, tooltipLine3
+
 -- REASON: Displays guild for players or title for NPCs on nameplates when in NameOnly mode.
 oUF.Tags.Methods["npctitle"] = function(unit)
 	local isPlayer = UnitIsPlayer(unit)
@@ -325,7 +330,12 @@ oUF.Tags.Methods["npctitle"] = function(unit)
 		scanTip:SetOwner(K.UIFrameHider, "ANCHOR_NONE")
 		scanTip:SetUnit(unit)
 
-		local textLine = _G[string_format("KKUI_ScanTooltipTextLeft%d", GetCVarBool("colorblindmode") and 3 or 2)]
+		if not tooltipLine2 then
+			tooltipLine2 = _G.KKUI_ScanTooltipTextLeft2
+			tooltipLine3 = _G.KKUI_ScanTooltipTextLeft3
+		end
+
+		local textLine = GetCVarBool("colorblindmode") and tooltipLine3 or tooltipLine2
 		local title = textLine and textLine:GetText()
 		if title and not string_find(title, "^" .. LEVEL) then
 			return title

@@ -102,6 +102,13 @@ C["ActionBar"] = {
 	BarFadeCasting = true,
 	BarFadeHealth = true,
 	BarFadeVehicle = true,
+
+	PulseCD = false,
+	PulseCDSize = 75,
+	PulseCDAnimScale = 1.5,
+	PulseCDHoldTime = 0.5,
+	PulseCDThreshold = 3,
+	PulseCDSound = false,
 }
 
 -- Announcements
@@ -135,7 +142,7 @@ C["Announcements"] = {
 C["Automation"] = {
 	AutoDelves = false,
 	AutoKeystone = false,
-	-- AutoCollapse = false,
+
 	AutoDeclineDuels = false,
 	AutoDeclinePetDuels = false,
 	AutoGoodbye = false,
@@ -231,6 +238,7 @@ C["Chat"] = {
 	Height = 170,
 	Lock = true,
 	LogMax = 0,
+	LootIcons = true,
 	OldChatNames = false,
 	RollButton = true,
 	Sticky = false,
@@ -420,6 +428,7 @@ C["Nameplate"] = {
 -- Skins
 C["Skins"] = {
 	Bartender4 = false,
+	BigDebuffs = false,
 	BigWigs = false,
 	BlizzardFrames = true,
 	ButtonForge = false,
@@ -443,6 +452,7 @@ C["Skins"] = {
 
 -- Tooltip
 C["Tooltip"] = {
+	Achievements = true,
 	ClassColor = false,
 	CombatHide = false,
 	Cursor = false,
@@ -453,6 +463,7 @@ C["Tooltip"] = {
 	HideRealm = true,
 	HideTitle = true,
 	Icons = true,
+	InstanceLock = true,
 	LFDRole = false,
 	MDScore = true,
 	ShowIDs = false,

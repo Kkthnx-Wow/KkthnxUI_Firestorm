@@ -368,7 +368,6 @@ function K:NewModule(name, noReport)
 	return module
 end
 
-
 function K:GetModule(name)
 	if not modules[name] then
 		print(string_format("|cffff0000KkthnxUI:|r Module <%s> does not exist.", name))
@@ -443,9 +442,10 @@ function K:SetupUIScale(init)
 	local scale = C["General"].UIScale
 	if init then
 		-- REASON: Pre-calculate the coordinate multiplier for pixel-perfect positioning.
+		-- Stored on C (Config table) to match NDui's C.mult pattern and be accessible to all modules.
 		local pixel = 1
 		local ratio = 768 / K.ScreenHeight
-		K.Mult = (pixel / scale) - ((pixel - ratio) / scale)
+		C.Mult = (pixel / scale) - ((pixel - ratio) / scale)
 		return
 	end
 
@@ -466,6 +466,15 @@ local function UpdatePixelScale(event)
 		return
 	end
 
+	-- REASON: Always refresh screen dimensions and recalculate C.Mult immediately, even
+	-- during combat. Only UIParent:SetScale is protected by combat lockdown and must be
+	-- deferred. Matches NDui's pattern where B:SetupUIScale(true) runs unconditionally.
+	if event == "UI_SCALE_CHANGED" then
+		K.ScreenWidth, K.ScreenHeight = GetPhysicalScreenSize()
+	end
+	K:SetupUIScale(true)
+
+	-- WARNING: UIParent:SetScale is a protected call; defer past combat lockdown.
 	if InCombatLockdown() then
 		if not pendingScaleApply then
 			pendingScaleApply = true
@@ -475,14 +484,7 @@ local function UpdatePixelScale(event)
 	end
 
 	isScaling = true
-
-	if event == "UI_SCALE_CHANGED" then
-		K.ScreenWidth, K.ScreenHeight = GetPhysicalScreenSize()
-	end
-
-	K:SetupUIScale(true)
 	K:SetupUIScale()
-
 	isScaling = false
 end
 

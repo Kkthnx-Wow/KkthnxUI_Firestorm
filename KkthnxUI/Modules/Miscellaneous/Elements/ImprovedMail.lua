@@ -336,6 +336,7 @@ end
 do
 	local ERR_INV_FULL = _G.ERR_INV_FULL
 	local ERR_ITEM_NOT_FOUND = _G.ERR_ITEM_NOT_FOUND
+	local ERR_ITEM_MAX_COUNT = _G.ERR_ITEM_MAX_COUNT
 	local mailErrorFrame = CreateFrame("Frame")
 	mailErrorFrame:RegisterEvent("UI_ERROR_MESSAGE")
 	mailErrorFrame:SetScript("OnEvent", function(_, _, _, errorMessage)
@@ -347,7 +348,7 @@ do
 			return
 		end
 
-		if errorMessage == ERR_ITEM_NOT_FOUND then
+		if errorMessage == ERR_ITEM_NOT_FOUND or errorMessage == ERR_ITEM_MAX_COUNT then
 			local openMailID = _G.InboxFrame and _G.InboxFrame.openMailID
 			if openMailID then
 				attachmentBlacklist[openMailID] = attachmentBlacklist[openMailID] or {}
@@ -439,14 +440,16 @@ function _G.OpenAllMail:AdvanceToNextItem()
 
 	-- REASON: Iterate every mail/attachment combination without recursion; terminates when all slots are exhausted.
 	while self.mailIndex <= maxIndex do
-		local _, _, _, _, _, codAmount, _, _, _, _, _, _, isGM = GetInboxHeaderInfo(self.mailIndex)
-		local _, itemID = GetInboxItem(self.mailIndex, self.attachmentIndex)
+		local _, _, _, _, money, codAmount, _, hasItem, _, _, _, _, isGM = GetInboxHeaderInfo(self.mailIndex)
+		local itemID = select(2, GetInboxItem(self.mailIndex, self.attachmentIndex))
 		local isBlacklisted = self:IsItemBlacklisted(itemID)
 		local hasCOD = codAmount and codAmount > 0
-		local hasMoneyOrItem = _G.C_Mail.HasInboxMoney(self.mailIndex) or _G.HasInboxItem(self.mailIndex, self.attachmentIndex)
 
-		if not isBlacklisted and not isGM and not hasCOD and hasMoneyOrItem then
-			return true
+		if not isGM and not hasCOD then
+			-- Follow Blizzard's standard logic for skipping blacklisted items
+			if (money > 0 and not hasItem) or (hasItem and itemID and not isBlacklisted) then
+				return true
+			end
 		end
 
 		-- REASON: Exhaust all attachments on current mail before advancing to the next one.

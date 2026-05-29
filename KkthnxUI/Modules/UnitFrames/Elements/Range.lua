@@ -12,10 +12,10 @@ local oUF = ns.oUF
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
 
 local _FRAMES = {}
-local OnRangeFrame
+local rangeTimer
 
 -- REASON: Localize C-functions (Snake Case)
-local strfind = _G.string.find
+local string_find = _G.string.find
 -- REASON: table_remove removed; Disable() uses O(1) swap-remove, making this import unnecessary.
 local table_insert = _G.table.insert
 local tonumber = _G.tonumber
@@ -24,8 +24,8 @@ local select = _G.select
 
 -- REASON: Localize Globals
 local C_Spell = _G.C_Spell
+local C_Timer = _G.C_Timer
 local CheckInteractDistance = _G.CheckInteractDistance
-local CreateFrame = _G.CreateFrame
 local GetNumGroupMembers = _G.GetNumGroupMembers
 local InCombatLockdown = _G.InCombatLockdown
 local IsInRaid = _G.IsInRaid
@@ -45,22 +45,37 @@ local UnitPhaseReason = _G.UnitPhaseReason
 local IsSpellInRange = C_Spell.IsSpellInRange
 local myClass = select(2, UnitClass("player"))
 
+-- PERF: Pre-cache group unit tokens to avoid high-frequency string concatenations on every update frame.
+-- REASON: This completely eliminates string allocations and subsequent GC overhead during group scanning.
+local groupUnits = {
+	party = {},
+	raid = {},
+}
+for i = 1, 4 do
+	groupUnits.party[i] = "party" .. i
+end
+for i = 1, 40 do
+	groupUnits.raid[i] = "raid" .. i
+end
+
 -- REASON: Returns the unit token (partyN/raidN) for a given unit GUID/name if they are in your group.
 local function GetGroupUnit(unit)
 	if UnitIsUnit(unit, "player") then
 		return
 	end
 
-	if strfind(unit, "party") or strfind(unit, "raid") then
+	if string_find(unit, "party") or string_find(unit, "raid") then
 		return unit
 	end
 
 	-- REASON: Only scan group if unit isn't already a token.
 	if UnitInParty(unit) or UnitInRaid(unit) then
 		local isInRaid = IsInRaid()
+		local prefix = isInRaid and "raid" or "party"
+		local tokens = groupUnits[prefix]
 		for i = 1, GetNumGroupMembers() do
-			local groupUnit = (isInRaid and "raid" or "party") .. i
-			if UnitIsUnit(unit, groupUnit) then
+			local groupUnit = tokens[i]
+			if groupUnit and UnitIsUnit(unit, groupUnit) then
 				return groupUnit
 			end
 		end
@@ -296,34 +311,34 @@ local function Update(self, event)
 		return
 	end
 
-	if not unit then
-		unit = self.unit
-	end
+	-- PERF: Cache alpha fallback values locally to reduce hash lookups and logic evaluation.
+	local maxAlpha = element.MaxAlpha or element.insideAlpha
+	local minAlpha = element.MinAlpha or element.outsideAlpha
 
 	if self.forceInRange or unit == "player" then
-		element.RangeAlpha = element.MaxAlpha or element.insideAlpha
+		element.RangeAlpha = maxAlpha
 	elseif self.forceNotInRange then
-		element.RangeAlpha = element.MinAlpha or element.outsideAlpha
+		element.RangeAlpha = minAlpha
 	elseif unit then
 		if UnitIsDeadOrGhost(unit) then
-			element.RangeAlpha = UnitInSpellsRange(unit, 3) == true and (element.MaxAlpha or element.insideAlpha) or (element.MinAlpha or element.outsideAlpha)
+			element.RangeAlpha = UnitInSpellsRange(unit, 3) == true and maxAlpha or minAlpha
 		elseif UnitCanAttack("player", unit) then
-			element.RangeAlpha = UnitInSpellsRange(unit, 1) and (element.MaxAlpha or element.insideAlpha) or (element.MinAlpha or element.outsideAlpha)
+			element.RangeAlpha = UnitInSpellsRange(unit, 1) and maxAlpha or minAlpha
 		elseif UnitIsUnit("pet", unit) then
-			element.RangeAlpha = UnitInSpellsRange(unit, 4) and (element.MaxAlpha or element.insideAlpha) or (element.MinAlpha or element.outsideAlpha)
+			element.RangeAlpha = UnitInSpellsRange(unit, 4) and maxAlpha or minAlpha
 		elseif UnitIsConnected(unit) then
-			element.RangeAlpha = FriendlyInRange(unit) and (element.MaxAlpha or element.insideAlpha) or (element.MinAlpha or element.outsideAlpha)
+			element.RangeAlpha = FriendlyInRange(unit) and maxAlpha or minAlpha
 		else
-			element.RangeAlpha = element.MinAlpha or element.outsideAlpha
+			element.RangeAlpha = minAlpha
 		end
 	else
-		element.RangeAlpha = element.MaxAlpha or element.insideAlpha
+		element.RangeAlpha = maxAlpha
 	end
 
 	self:SetAlpha(element.RangeAlpha)
 
 	if element.PostUpdate then
-		return element:PostUpdate(self, element.RangeAlpha == (element.MaxAlpha or element.insideAlpha))
+		return element:PostUpdate(self, element.RangeAlpha == maxAlpha)
 	end
 end
 
@@ -333,18 +348,14 @@ local function Path(self, ...)
 end
 
 -- REASON: Internal throttled update loop (0.2s).
-local timer = 0
-local function OnRangeUpdate(_, elapsed)
-	timer = timer + elapsed
-
-	if timer >= 0.20 then
-		for _, object in next, _FRAMES do
-			if object:IsShown() then
-				Path(object, "OnUpdate")
-			end
+-- PERF: Use numerical loop iteration over sequential _FRAMES table instead of next pairs.
+-- PERF: Use C_Timer.NewTicker instead of OnUpdate to avoid per-frame execution overhead.
+local function OnRangeUpdate()
+	for i = 1, #_FRAMES do
+		local object = _FRAMES[i]
+		if object and object:IsShown() then
+			Path(object, "OnUpdate")
 		end
-
-		timer = 0
 	end
 end
 
@@ -364,13 +375,11 @@ local function Enable(self)
 			UpdateRangeSpells()
 		end
 
-		if not OnRangeFrame then
-			OnRangeFrame = CreateFrame("Frame")
-			OnRangeFrame:SetScript("OnUpdate", OnRangeUpdate)
+		if not rangeTimer then
+			rangeTimer = C_Timer.NewTicker(0.2, OnRangeUpdate)
 		end
 
 		table_insert(_FRAMES, self)
-		OnRangeFrame:Show()
 
 		return true
 	end
@@ -390,8 +399,9 @@ local function Disable(self)
 		end
 		self:SetAlpha(element.MaxAlpha or element.insideAlpha)
 
-		if #_FRAMES == 0 then
-			OnRangeFrame:Hide()
+		if #_FRAMES == 0 and rangeTimer then
+			rangeTimer:Cancel()
+			rangeTimer = nil
 		end
 	end
 end

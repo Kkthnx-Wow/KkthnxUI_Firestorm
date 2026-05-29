@@ -647,6 +647,7 @@ function Module:OnEnable()
 		"CreateEmojis",
 		"CreateVoiceActivity",
 		"CreateChatHighlight",
+		"CreateLootIcons",
 	}
 
 	for _, funcName in ipairs(loadChatModulesList) do

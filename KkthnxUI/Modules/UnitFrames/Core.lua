@@ -13,6 +13,8 @@ local AuraModule = K:GetModule("Auras")
 local oUF = K.oUF
 
 -- Lua functions
+local ipairs = ipairs
+local next = next
 local pairs = pairs
 local string_format = string.format
 local unpack = unpack
@@ -24,9 +26,12 @@ local math_floor = math.floor
 local CLASS_ICON_TCOORDS = CLASS_ICON_TCOORDS
 local CreateFrame = CreateFrame
 local GetRuneCooldown = GetRuneCooldown
+local hooksecurefunc = hooksecurefunc
+local InCombatLockdown = InCombatLockdown
 local IsInInstance = IsInInstance
 local PlaySound = PlaySound
 local SOUNDKIT = SOUNDKIT
+local tinsert = tinsert
 local UIParent = UIParent
 local RegisterStateDriver = RegisterStateDriver
 local UnitClass = UnitClass
@@ -143,7 +148,7 @@ function Module:UpdateAllHeaders()
 		end
 	end
 
-	for _, header in _G.ipairs(self.headers) do
+	for _, header in ipairs(self.headers) do
 		local vis
 		if header.groupType == "party" then
 			vis = self:GetPartyVisibility()
@@ -475,12 +480,6 @@ function Module:ToggleCastBarLatency(frame)
 end
 
 -- Auras Helpers (oUF-style callbacks)
-
-local next = next
-
-local CreateFrame = CreateFrame
-local UnitIsPlayer = UnitIsPlayer
-local hooksecurefunc = hooksecurefunc
 
 -- Aura Icon Size Cache
 
@@ -1093,7 +1092,7 @@ local textScaleFrames = {
 -- REASON: Updates the text scale for all unit frame elements (Health, Power, Names, etc.).
 function Module:UpdateTextScale()
 	local scale = C["Unitframe"].AllTextScale
-	for _, frame in _G.ipairs(oUF.objects) do
+	for _, frame in ipairs(oUF.objects) do
 		local style = frame.mystyle
 		if style and textScaleFrames[style] then
 			if frame.Name then

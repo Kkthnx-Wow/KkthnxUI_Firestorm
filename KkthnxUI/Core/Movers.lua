@@ -449,6 +449,7 @@ local function CreateConsole()
 		arrows[i].__index = i
 		arrows[i].__offset = arrowData.offset
 		arrows[i]:SetScript("OnClick", arrowOnClick)
+		arrows[i]:SetPoint("CENTER", arrowData.x, arrowData.y)
 		arrows[i].Icon:SetPoint("TOPLEFT", 3, -3)
 		arrows[i].Icon:SetPoint("BOTTOMRIGHT", -3, 3)
 		arrows[i].Icon:SetRotation(math_rad(arrowData.degree))

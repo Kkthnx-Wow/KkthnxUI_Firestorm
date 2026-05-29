@@ -11,6 +11,7 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 local oUF = K.oUF
 
 -- REASON: Localize frequently used APIs and utilities for performance
+local pairs = _G.pairs
 local select = _G.select
 local table_remove = _G.table.remove
 local table_insert = _G.table.insert
@@ -136,8 +137,11 @@ local yOffsetsByAnimation = {
 	["vertical"] = 8,
 }
 
+-- PERF: Use backwards numeric loop instead of next() pairs iterator for array iteration.
+-- FIX: Iterating with next() while removing items from an array can lead to skipped items.
 local function onUpdate(self, elapsed)
-	for index, feedbackText in next, self.FeedbackToAnimate do
+	for index = #self.FeedbackToAnimate, 1, -1 do
+		local feedbackText = self.FeedbackToAnimate[index]
 		if feedbackText.elapsed >= self.scrollTime then
 			removeString(self, index, feedbackText)
 		else

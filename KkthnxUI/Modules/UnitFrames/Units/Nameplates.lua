@@ -16,7 +16,6 @@ local pairs = pairs
 local ipairs = ipairs
 local select = select
 local string_format = string.format
-local strmatch = string.match
 local table_wipe = table.wipe
 local tonumber = tonumber
 local tostring = tostring
@@ -126,9 +125,9 @@ function Module:UpdatePlateCVars()
 
 	local settings = {
 		namePlateMinScale = C["Nameplate"].MinScale,
-		namePlateMaxScale = C["Nameplate"].MinScale,
+		namePlateMaxScale = C["Nameplate"].MaxScale,
 		nameplateMinAlpha = C["Nameplate"].MinAlpha,
-		nameplateMaxAlpha = C["Nameplate"].MinAlpha,
+		nameplateMaxAlpha = C["Nameplate"].MaxAlpha,
 		nameplateOverlapV = C["Nameplate"].VerticalSpacing,
 		nameplateShowOnlyNames = C["Nameplate"].CVarOnlyNames and 1 or 0,
 		nameplateShowFriendlyNPCs = C["Nameplate"].CVarShowNPCs and 1 or 0,
@@ -536,7 +535,7 @@ function Module:UpdateColor(_, unit)
 	local useExecuteColor = not isFriendly and executeRatio > 0 and healthPerc <= executeRatio
 	if useExecuteColor ~= self._lastExecuteColor then
 		self._lastExecuteColor = useExecuteColor
-		self.nameText:SetTextColor(useExecuteColor and 1 or 1, useExecuteColor and 0 or 1, useExecuteColor and 0 or 1)
+		self.nameText:SetTextColor(1, useExecuteColor and 0 or 1, useExecuteColor and 0 or 1)
 	end
 end
 
@@ -598,7 +597,7 @@ function Module:UpdateTargetChange()
 
 	-- REASON: Immediately update threat color for the new target for responsive visual feedback.
 	-- This ensures that the target color or style filter applied to the target is updated instantly.
-	Module.UpdateThreatColor(self, _, unit)
+	Module.UpdateThreatColor(self, nil, unit)
 end
 
 function Module:UpdateTargetIndicator()
@@ -1148,6 +1147,7 @@ function Module:CreatePlates()
 	self.Castbar.Text = K.CreateFontString(self.Castbar, 12, "", "", false, "LEFT", 0, -1)
 	self.Castbar.Text:SetPoint("RIGHT", self.Castbar.Time, "LEFT", -5, 0)
 	self.Castbar.Text:SetJustifyH("LEFT")
+	self.Castbar.timeToHold = 0.5
 
 	self.Castbar.Icon = self.Castbar:CreateTexture(nil, "ARTWORK")
 	self.Castbar.Icon:SetSize(self:GetHeight() * 2 + 10, self:GetHeight() * 2 + 10)
@@ -1224,11 +1224,11 @@ function Module:CreatePlates()
 		absorbBar:SetFrameLevel(frameLevel)
 		absorbBar:SetAlpha(0.5)
 		absorbBar:Hide()
-		local tex = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
-		tex:SetAllPoints(absorbBar:GetStatusBarTexture())
-		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-		tex:SetHorizTile(true)
-		tex:SetVertTile(true)
+		local tex1 = absorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex1:SetAllPoints(absorbBar:GetStatusBarTexture())
+		tex1:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex1:SetHorizTile(true)
+		tex1:SetVertTile(true)
 
 		local overAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		overAbsorbBar:SetAllPoints()
@@ -1237,11 +1237,11 @@ function Module:CreatePlates()
 		overAbsorbBar:SetFrameLevel(frameLevel)
 		overAbsorbBar:SetAlpha(0.35)
 		overAbsorbBar:Hide()
-		local tex = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
-		tex:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
-		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-		tex:SetHorizTile(true)
-		tex:SetVertTile(true)
+		local tex2 = overAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex2:SetAllPoints(overAbsorbBar:GetStatusBarTexture())
+		tex2:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex2:SetHorizTile(true)
+		tex2:SetVertTile(true)
 
 		local healAbsorbBar = CreateFrame("StatusBar", nil, frame)
 		healAbsorbBar:SetPoint("TOP")
@@ -1253,11 +1253,11 @@ function Module:CreatePlates()
 		healAbsorbBar:SetFrameLevel(frameLevel)
 		healAbsorbBar:SetAlpha(0.35)
 		healAbsorbBar:Hide()
-		local tex = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
-		tex:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
-		tex:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
-		tex:SetHorizTile(true)
-		tex:SetVertTile(true)
+		local tex3 = healAbsorbBar:CreateTexture(nil, "ARTWORK", nil, 1)
+		tex3:SetAllPoints(healAbsorbBar:GetStatusBarTexture())
+		tex3:SetTexture("Interface\\RaidFrame\\Shield-Overlay", true, true)
+		tex3:SetHorizTile(true)
+		tex3:SetVertTile(true)
 
 		local overAbsorb = self.Health:CreateTexture(nil, "OVERLAY", nil, 2)
 		overAbsorb:SetWidth(8)
@@ -1402,7 +1402,7 @@ function Module:UpdateNameplateSize()
 	self.nameText:UpdateTag()
 end
 
-function Module:RefreshNameplats()
+function Module:RefreshNameplates()
 	-- REASON: Iterate through all active nameplates to apply global setting changes.
 	for nameplate in pairs(platesList) do
 		Module.UpdateNameplateSize(nameplate)
@@ -1415,7 +1415,7 @@ function Module:RefreshNameplats()
 end
 
 function Module:RefreshAllPlates()
-	Module:RefreshNameplats()
+	Module:RefreshNameplates()
 	Module:ResizeTargetPower()
 end
 

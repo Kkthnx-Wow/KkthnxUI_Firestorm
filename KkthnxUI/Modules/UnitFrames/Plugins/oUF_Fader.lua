@@ -34,6 +34,12 @@ local UnitPower = _G.UnitPower
 local UnitPowerMax = _G.UnitPowerMax
 local UnitPowerType = _G.UnitPowerType
 
+local IsStealthed = _G.IsStealthed
+local IsFlying = _G.IsFlying
+local IsResting = _G.IsResting
+local InCombatLockdown = _G.InCombatLockdown
+local ipairs = _G.ipairs
+
 local eventFrame = CreateFrame("Frame")
 local objects = {}
 local timer = 0
@@ -157,7 +163,19 @@ function eventFrame:RegisterCondition(name, func, event)
 	events[name] = event
 end
 
+-- REASON: Reusable static hover handlers to avoid dynamic function closure allocations in UpdateAlpha.
+local function Fader_OnEnter(self)
+	self:SetAlpha(1)
+	_G.UnitFrame_OnEnter(self)
+end
+
+local function Fader_OnLeave(self)
+	self:SetAlpha(self.faderAlpha or self.NormalAlpha or 1)
+	_G.UnitFrame_OnLeave(self)
+end
+
 -- Update the Alpha or obj
+-- PERF: Avoid re-creating function closures for OnEnter/OnLeave. Storing 'alpha' as 'obj.faderAlpha'.
 local function UpdateAlpha(obj)
 	local alpha
 	for _, tbl in ipairs(obj.Fader) do
@@ -178,18 +196,13 @@ local function UpdateAlpha(obj)
 		obj.outsideRangeAlpha = alpha * obj.outsideRangeAlphaPerc
 	end
 
-	obj:SetAlpha(alpha)
-	obj:SetScript("OnEnter", function(self)
-		self:SetAlpha(1)
-		_G.UnitFrame_OnEnter(obj)
-	end)
-
-	obj:SetScript("OnLeave", function(self)
-		self:SetAlpha(alpha)
-		_G.UnitFrame_OnLeave(obj)
-	end)
+	obj.faderAlpha = alpha
+	if not obj:IsMouseOver() then
+		obj:SetAlpha(alpha)
+	end
 end
 
+-- PERF: Use fast numerical loop to iterate over objects.
 local function OnUpdate(addon, elasped) -- I do this because it's easier than passing events to conditions
 	if not C["Unitframe"].CombatFade then
 		return
@@ -198,8 +211,8 @@ local function OnUpdate(addon, elasped) -- I do this because it's easier than pa
 	timer = timer + elasped
 	if timer > 0.1 then
 		timer = 0
-		for _, v in ipairs(objects) do
-			UpdateAlpha(v)
+		for i = 1, #objects do
+			UpdateAlpha(objects[i])
 		end
 		addon:Hide()
 	end
@@ -218,6 +231,11 @@ oUF:RegisterInitCallback(function(obj)
 
 		obj.NormalAlpha = obj.NormalAlpha or obj:GetAlpha()
 		obj.outsideRangeAlphaPerc = obj.outsideRangeAlphaPerc or obj.outsideRangeAlpha
+
+		-- Set scripts once during initialization to avoid dynamic allocations
+		obj:SetScript("OnEnter", Fader_OnEnter)
+		obj:SetScript("OnLeave", Fader_OnLeave)
+
 		UpdateAlpha(obj)
 		objects[#objects + 1] = obj
 	end

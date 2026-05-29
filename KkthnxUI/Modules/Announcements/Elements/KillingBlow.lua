@@ -4,6 +4,7 @@
 -- Notes:
 -- - Purpose: Provides visual and social feedback for PvP killing blows.
 -- - Design: Hijacks Blizzard's BossBanner to display victim names and optionally performs emotes.
+-- - Events: COMBAT_LOG_EVENT_UNFILTERED
 -----------------------------------------------------------------------------]]
 
 local K, C = KkthnxUI[1], KkthnxUI[2]
@@ -98,8 +99,9 @@ end
 -- EVENT HANDLERS
 -- ---------------------------------------------------------------------------
 
-function Announcements:OnCombatLogEvent()
-	local _, eventType, _, _, caster, _, _, _, targetName, targetFlags = CombatLogGetCurrentEventInfo()
+-- REASON: Handle combat log event for PVP killing blows.
+-- PERF: Use passed varargs directly to avoid redundant CombatLogGetCurrentEventInfo calls.
+function Announcements.OnCombatLogEvent(_, _, eventType, _, _, caster, _, _, _, targetName, targetFlags)
 
 	-- REASON: Filters for 'PARTY_KILL' where the player is the source (caster).
 	if eventType == "PARTY_KILL" and caster == K.Name then

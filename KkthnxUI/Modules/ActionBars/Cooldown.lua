@@ -30,6 +30,13 @@ local hideNumbers = {}
 local active = {}
 local hooked = {}
 
+-- PERF: Pre-computed format strings. K.MyClassColor is a constant that does not change at
+-- runtime; building these once at OnEnable eliminates 3x string concatenations per
+-- FormattedTimer call (which runs every frame for every active cooldown).
+local FMT_DAY
+local FMT_HOUR
+local FMT_MIN
+
 -- ---------------------------------------------------------------------------
 -- HELPER FUNCTIONS
 -- ---------------------------------------------------------------------------
@@ -38,14 +45,14 @@ local hooked = {}
 -- Includes color coding for urgency (Red for < 3s, Yellow for < 10s).
 function Module.FormattedTimer(s, modRate)
 	if s >= day then
-		return format("%d" .. K.MyClassColor .. "d", s / day + 0.5), s % day
+		return format(FMT_DAY, s / day + 0.5), s % day
 	elseif s > hour then
-		return format("%d" .. K.MyClassColor .. "h", s / hour + 0.5), s % hour
+		return format(FMT_HOUR, s / hour + 0.5), s % hour
 	elseif s >= minute then
 		if s < C["ActionBar"]["MmssTH"] then
 			return format("%d:%.2d", s / minute, s % minute), s - floor(s)
 		else
-			return format("%d" .. K.MyClassColor .. "m", s / minute + 0.5), s % minute
+			return format(FMT_MIN, s / minute + 0.5), s % minute
 		end
 	else
 		local colorStr = (s < 3 and "|cffff0000") or (s < 10 and "|cffffff00") or "|cffcccc33"
@@ -253,6 +260,11 @@ function Module:OnEnable()
 	if not C["ActionBar"]["Cooldown"] then
 		return
 	end
+
+	-- PERF: Build format strings once now that K.MyClassColor is available.
+	FMT_DAY  = "%d" .. K.MyClassColor .. "d"
+	FMT_HOUR = "%d" .. K.MyClassColor .. "h"
+	FMT_MIN  = "%d" .. K.MyClassColor .. "m"
 
 	-- REASON: Hook the metatable of standard ActionButton cooldowns to catch all instances.
 	local cooldownIndex = getmetatable(ActionButton1Cooldown).__index

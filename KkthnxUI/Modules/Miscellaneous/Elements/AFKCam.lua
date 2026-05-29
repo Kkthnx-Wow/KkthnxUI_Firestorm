@@ -143,6 +143,7 @@ local STAT_IDS = {
 	8278, -- Pet Battles won at max level
 }
 
+local loopAnimations
 local function isValueInArgs(val, ...)
 	for i = 1, select("#", ...) do
 		if val == select(i, ...) then
@@ -208,7 +209,6 @@ local function updateLogOff(self)
 	end
 end
 
-
 local function createRandomStatMessage()
 	local statID = STAT_IDS[math_random(#STAT_IDS)]
 	local _, name = GetAchievementInfo(statID)
@@ -243,12 +243,18 @@ local function setAFKMode(self, isEnabling)
 		end
 
 		self.bottomFrame.model.curAnimation = "wave"
-		self.bottomFrame.model.startTime = GetTime()
-		self.bottomFrame.model.duration = 2.3
 		self.bottomFrame.model:SetUnit("player")
-		self.bottomFrame.model.isIdle = nil
 		self.bottomFrame.model:SetAnimation(67)
-		self.bottomFrame.model.idleDuration = 30
+
+		if self.animTimer then
+			self.animTimer:Cancel()
+		end
+		self.animTimer = C_Timer_NewTimer(2.3, function()
+			self.bottomFrame.model:SetAnimation(0)
+			self.animTimer = C_Timer_NewTimer(30, function()
+				loopAnimations(self.bottomFrame.model, self)
+			end)
+		end)
 
 		self.bottomFrame.modelPet:SetUnit("pet")
 		self.bottomFrame.modelPet:SetAnimation(0)
@@ -434,14 +440,16 @@ local function chatOnEvent(self, event, arg1, arg2, arg3, arg4, arg5, arg6, arg7
 	self:AddMessage(body, chatInfo.r, chatInfo.g, chatInfo.b, chatInfo.id, false, accessID, typeID)
 end
 
-local function loopAnimations(self)
-	if self.curAnimation == "wave" then
-		self:SetAnimation(69)
-		self.curAnimation = "dance"
-		self.startTime = GetTime()
-		self.duration = 300
-		self.isIdle = false
-		self.idleDuration = 120
+loopAnimations = function(model, afkFrame)
+	if model.curAnimation == "wave" then
+		model:SetAnimation(69)
+		model.curAnimation = "dance"
+		afkFrame.animTimer = C_Timer_NewTimer(300, function()
+			model:SetAnimation(0)
+			afkFrame.animTimer = C_Timer_NewTimer(120, function()
+				loopAnimations(model, afkFrame)
+			end)
+		end)
 	end
 end
 
@@ -679,16 +687,6 @@ function Module:CreateAFKCam()
 	afkModeFrame.bottomFrame.model:SetSize(GetScreenWidth() * 2, GetScreenHeight() * 2)
 	afkModeFrame.bottomFrame.model:SetCamDistanceScale(4.5)
 	afkModeFrame.bottomFrame.model:SetFacing(6)
-	afkModeFrame.bottomFrame.model:SetScript("OnUpdate", function(self)
-		local timeSinceStart = GetTime() - self.startTime
-		if timeSinceStart > self.duration and not self.isIdle then
-			self:SetAnimation(0)
-			self.isIdle = true
-			afkModeFrame.animTimer = C_Timer_NewTimer(self.idleDuration, function()
-				loopAnimations(self)
-			end)
-		end
-	end)
 
 	afkModeFrame.bottomFrame.modelPetHolder = CreateFrame("Frame", nil, afkModeFrame.bottomFrame)
 	afkModeFrame.bottomFrame.modelPetHolder:SetSize(150, 150)

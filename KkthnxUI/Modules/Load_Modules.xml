@@ -33,6 +33,7 @@
    <Script file="Chat\Elements\ILevel.lua" />
    <Script file="Chat\Elements\Rename.lua" />
    <Script file="Chat\Elements\URL.lua" />
+   <Script file="Chat\Elements\LootIcons.lua" />
    <!-- Inventory -->
    <Script file="Inventory\Core.lua" />
    <Script file="Inventory\Elements\Filters.lua" />
@@ -52,6 +53,7 @@
    <Script file="ActionBars\ButtonStyle.lua" />
    <Script file="ActionBars\Cooldown.lua" />
    <Script file="ActionBars\Fader.lua" />
+   <Script file="ActionBars\Elements\PulseCD.lua" />
    <!-- Auras -->
    <Include file="Auras\AuraTemplate.xml" />
    <Script file="Auras\Core.lua" />
@@ -95,6 +97,8 @@
    <Script file="UnitFrames\Groups\Raid.lua" />
    <!-- Tooltip -->
    <Script file="Tooltip\Core.lua" />
+   <Script file="Tooltip\Elements\Achievement.lua" />
+   <Script file="Tooltip\Elements\InstanceLockCompare.lua" />
    <Script file="Tooltip\Elements\Hover.lua" />
    <Script file="Tooltip\Elements\ID.lua" />
    <Script file="Tooltip\Elements\Icons.lua" />
@@ -144,7 +148,7 @@
    <Script file="Automation\Elements\PartySync.lua" />
    <Script file="Automation\Elements\Quest.lua" />
    <Script file="Automation\Elements\Release.lua" />
-   <Script file="Automation\Elements\Resurrect.lua" />      
+   <Script file="Automation\Elements\Resurrect.lua" />
    <Script file="Automation\Elements\ScreenShot.lua" />
    <Script file="Automation\Elements\SetRole.lua" />
    <Script file="Automation\Elements\SkipCinematic.lua" />
@@ -182,7 +186,9 @@
    <Script file="Skins\Blizzard\FrameXML\UIWidgets.lua" />
    <!-- Skins AddOns -->
    <Script file="Skins\Addons\Bartender4.lua" />
+   <Script file="Skins\Addons\BigDebuffs.lua" />
    <Script file="Skins\Addons\BigWigs.lua" />
+   <Script file="Skins\Addons\BugSack.lua" />
    <Script file="Skins\Addons\ButtonForge.lua" />
    <Script file="Skins\Addons\ChocolateBar.lua" />
    <Script file="Skins\Addons\DeadlyBossMods.lua" />

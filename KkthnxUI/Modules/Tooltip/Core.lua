@@ -644,6 +644,8 @@ function Module:OnEnable()
 		"CreateTooltipIcons",
 		"CreateTooltipID",
 		"CreateMountSource",
+		"CreateAchievementStatus",
+		"CreateInstanceLockCompare",
 	}
 
 	for _, funcName in ipairs(loadTooltipModules) do

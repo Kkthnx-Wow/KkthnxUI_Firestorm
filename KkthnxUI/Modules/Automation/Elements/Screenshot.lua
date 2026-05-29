@@ -3,7 +3,7 @@
 -- Author: Josh "Kkthnx" Russell
 -- Notes:
 -- - Purpose: Automatically takes a screenshot when the player earns a new achievement.
--- - Design: Hooks ACHIEVEMENT_EARNED and uses a hidden frame's OnUpdate to introduce a slight delay.
+-- - Design: Hooks ACHIEVEMENT_EARNED and uses C_Timer.After for a clean 1-second delay.
 -- - Events: ACHIEVEMENT_EARNED
 -----------------------------------------------------------------------------]]
 
@@ -11,40 +11,21 @@ local K, C = KkthnxUI[1], KkthnxUI[2]
 local Module = K:GetModule("Automation")
 
 -- PERF: Localize globals and API functions to reduce lookup overhead.
-local CreateFrame = CreateFrame
 local Screenshot = Screenshot
-
--- ---------------------------------------------------------------------------
--- State
--- ---------------------------------------------------------------------------
-local screenShotFrame
+local C_Timer_After = C_Timer.After
 
 -- ---------------------------------------------------------------------------
 -- Internal Logic
 -- ---------------------------------------------------------------------------
-local function onUpdate(self, elapsed)
-	-- REASON: Introduces a 1-second delay to allow the achievement toast to fully display before capturing.
-	self.delay = self.delay - elapsed
-	if self.delay < 0 then
-		Screenshot()
-		self:Hide()
-	end
-end
-
 local function screenshotOnEvent(_, alreadyEarned)
 	-- REASON: Only take screenshots for achievements earned for the first time by the character/account.
 	if alreadyEarned then
 		return
 	end
 
-	if not screenShotFrame then
-		screenShotFrame = CreateFrame("Frame")
-		screenShotFrame:Hide()
-		screenShotFrame:SetScript("OnUpdate", onUpdate)
-	end
-
-	screenShotFrame.delay = 1
-	screenShotFrame:Show()
+	-- PERF: C_Timer.After replaces the old OnUpdate-based delay pattern, eliminating a hidden
+	-- frame that ran every frame for 1 second just to fire a single Screenshot() call.
+	C_Timer_After(1, Screenshot)
 end
 
 -- ---------------------------------------------------------------------------
@@ -55,9 +36,6 @@ function Module:CreateAutoScreenshot()
 	if C["Automation"].AutoScreenshot then
 		K:RegisterEvent("ACHIEVEMENT_EARNED", screenshotOnEvent)
 	else
-		if screenShotFrame then
-			screenShotFrame:Hide()
-		end
 		K:UnregisterEvent("ACHIEVEMENT_EARNED", screenshotOnEvent)
 	end
 end

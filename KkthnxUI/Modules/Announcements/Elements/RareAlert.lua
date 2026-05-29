@@ -122,6 +122,10 @@ local function CacheRemove(key)
 	end
 end
 
+-- PERF: Pre-allocated sort buffer — reused across PruneCache calls instead of allocating
+-- a new table each time the cache overflows.
+local pruneSortBuf = {}
+
 -- REASON: Periodic cleanup to prevent the memory used by the dedupe table from growing indefinitely.
 local function PruneCache(now)
 	for key, ts in pairs(RareAlertCache) do
@@ -131,18 +135,19 @@ local function PruneCache(now)
 	end
 
 	if RareCacheSize > RARE_CACHE_MAX then
-		local tmp = {}
+		-- PERF: Wipe the reusable sort buffer rather than creating a new table each call.
+		table_wipe(pruneSortBuf)
 		for key, ts in pairs(RareAlertCache) do
-			tmp[#tmp + 1] = { key, ts or 0 }
+			pruneSortBuf[#pruneSortBuf + 1] = { key, ts or 0 }
 		end
 
-		table_sort(tmp, function(a, b)
+		table_sort(pruneSortBuf, function(a, b)
 			return a[2] < b[2]
 		end)
 
 		local removeCount = RareCacheSize - RARE_CACHE_MAX
 		for i = 1, removeCount do
-			local k = tmp[i] and tmp[i][1]
+			local k = pruneSortBuf[i] and pruneSortBuf[i][1]
 			if k then
 				CacheRemove(k)
 			end

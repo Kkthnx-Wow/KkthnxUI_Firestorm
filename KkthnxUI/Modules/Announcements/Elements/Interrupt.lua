@@ -4,6 +4,7 @@
 -- Notes:
 -- - Purpose: Announces interrupts, dispels, and broken crowd control to chat.
 -- - Design: Monitors COMBAT_LOG_EVENT_UNFILTERED (CLEU) and filters based on group affiliation.
+-- - Events: COMBAT_LOG_EVENT_UNFILTERED
 -----------------------------------------------------------------------------]]
 
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
@@ -153,13 +154,10 @@ function Module:IsAllyPet(sourceFlags)
 end
 
 -- WARNING: This function is called frequently during CLEU bursts. Logic must remain lightweight.
+-- PERF: Use passed varargs (...) directly to avoid redundant CombatLogGetCurrentEventInfo calls.
+-- REASON: In Init.lua, the central dispatcher already queries CombatLogGetCurrentEventInfo and forwards it.
 function Module:InterruptAlert_Update(...)
-	local eventType, sourceGUID, sourceName, sourceFlags, destName, spellID, extraSpellID, auraType
-	if CombatLogGetCurrentEventInfo then
-		_, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraSpellID, _, _, auraType = CombatLogGetCurrentEventInfo()
-	else
-		_, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraSpellID, _, _, auraType = ...
-	end
+	local _, eventType, _, sourceGUID, sourceName, sourceFlags, _, _, destName, _, _, spellID, _, _, extraSpellID, _, _, auraType = ...
 
 	local infoText = eventType and infoType[eventType]
 	if not infoText or not sourceGUID or not sourceName or not destName or sourceName == destName then

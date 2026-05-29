@@ -65,28 +65,34 @@ local cooldownTable = {}
 
 -- Data conversion
 -- REASON: Normalizes mixed-format aura data into a consistent internal structure.
+-- PERF: Constructor-form allocation avoids blank-table-then-fill pattern, reducing intermediate
+-- allocations. Each call still returns a new table (entries are stored persistently in myTable).
 local function DataAnalyze(v)
-	local newTable = {}
+	local newTable
 	if type(v[1]) == "number" then
-		newTable.IntID = v[1]
-		newTable.Duration = v[2]
+		newTable = {
+			IntID    = v[1],
+			Duration = v[2],
+			UnitID   = v[4],
+			ItemID   = v[5],
+		}
 		if v[3] == "OnCastSuccess" then
 			newTable.OnSuccess = true
 		elseif v[3] == "UnitCastSucceed" then
 			newTable.CastSucceed = true
 		end
-		newTable.UnitID = v[4]
-		newTable.ItemID = v[5]
 	else
-		newTable[v[1]] = v[2]
-		newTable.UnitID = v[3]
-		newTable.Caster = v[4]
-		newTable.Stack = v[5]
-		newTable.Value = v[6]
-		newTable.Timeless = v[7]
-		newTable.Combat = v[8]
-		newTable.Text = v[9]
-		newTable.Flash = v[10]
+		newTable = {
+			[v[1]]   = v[2],
+			UnitID   = v[3],
+			Caster   = v[4],
+			Stack    = v[5],
+			Value    = v[6],
+			Timeless = v[7],
+			Combat   = v[8],
+			Text     = v[9],
+			Flash    = v[10],
+		}
 	end
 	return newTable
 end
@@ -128,8 +134,9 @@ local function ConvertTable()
 	end
 
 	local auraWatchList = C.AuraWatchList[K.Class]
-	-- PERF: Use ipairs for array-like table iteration.
-	for _, v in ipairs(auraWatchList) do
+	-- PERF: Use numeric loop for array-like table iteration.
+	for i = 1, #auraWatchList do
+		local v = auraWatchList[i]
 		if v.Name == "Special Aura" then
 			InsertData(1, v.List)
 		elseif v.Name == "Focus Aura" then
@@ -140,8 +147,9 @@ local function ConvertTable()
 	end
 
 	local allAuras = C.AuraWatchList["ALL"]
-	-- PERF: Use ipairs for array-like table iteration.
-	for i, v in ipairs(allAuras) do
+	-- PERF: Use backwards numeric loop to safely remove items during iteration.
+	for i = #allAuras, 1, -1 do
+		local v = allAuras[i]
 		if v.Name == "Enchant Aura" then
 			InsertData(5, v.List)
 		elseif v.Name == "Raid Buff" then
@@ -159,25 +167,32 @@ local function ConvertTable()
 end
 
 -- REASON: Aggregates class-specific and global auras into a single master list for monitoring.
+-- PERF: Wipe and re-fill the pre-allocated table instead of abandoning it to GC with = {}.
 local function BuildAuraList()
-	auraList = {}
+	table_wipe(auraList)
 
-	auraList = C.AuraWatchList["ALL"] or {}
-	local classAuras = C.AuraWatchList[K.Class]
-	-- PERF: Use ipairs for array-like table iteration.
-	for _, value in ipairs(classAuras) do
-		table_insert(auraList, value)
+	local allAuras = C.AuraWatchList["ALL"] or {}
+	for i = 1, #allAuras do
+		table_insert(auraList, allAuras[i])
 	end
 
-	C.AuraWatchList = {}
+	local classAuras = C.AuraWatchList[K.Class] or {}
+	-- PERF: Use numeric loop for array-like table iteration.
+	for i = 1, #classAuras do
+		table_insert(auraList, classAuras[i])
+	end
+
+	table_wipe(C.AuraWatchList)
 end
 
 -- PERF: Pre-calculated lookup table for UnitIDs to avoid iterating full aura lists during UNIT_AURA.
+-- PERF: Wipe in-place instead of abandoning the table to GC.
 local function BuildUnitIDTable()
-	unitIDTable = {}
+	table_wipe(unitIDTable)
 
-	-- PERF: Use ipairs for master aura list iteration.
-	for _, VALUE in ipairs(auraList) do
+	-- PERF: Use numeric loop for master aura list iteration.
+	for i = 1, #auraList do
+		local VALUE = auraList[i]
 		if VALUE.List then
 			for _, value in pairs(VALUE.List) do
 				if value.UnitID then
@@ -188,11 +203,13 @@ local function BuildUnitIDTable()
 	end
 end
 
+-- PERF: Wipe in-place instead of abandoning the table to GC.
 local function BuildCooldownTable()
-	cooldownTable = {}
+	table_wipe(cooldownTable)
 
-	-- PERF: Use ipairs for master aura list iteration.
-	for KEY, VALUE in ipairs(auraList) do
+	-- PERF: Use numeric loop for master aura list iteration.
+	for KEY = 1, #auraList do
+		local VALUE = auraList[KEY]
 		if VALUE.List then
 			for spellID, value in pairs(VALUE.List) do
 				if (value.SpellID and IsPlayerSpell(value.SpellID)) or value.ItemID or value.SlotID or value.TotemID then
@@ -348,8 +365,9 @@ end
 -- ---------------------------------------------------------------------------
 -- REASON: Dynamically creates and positions aura frames based on configuration.
 local function BuildAura()
-	-- PERF: Use ipairs for master aura list iteration.
-	for key, value in ipairs(auraList) do
+	-- PERF: Use numeric loop for master aura list iteration.
+	for key = 1, #auraList do
+		local value = auraList[key]
 		local frameTable = {}
 		for i = 1, maxFrames do
 			if value.Mode == "ICON" then
@@ -373,7 +391,8 @@ local function BuildAura()
 end
 
 local function SetupAnchor()
-	for key, VALUE in pairs(frameList) do
+	for key = 1, #frameList do
+		local VALUE = frameList[key]
 		local value = auraList[key]
 		local direction, interval = value.Direction, value.Interval
 		-- check whether using CENTER direction
@@ -411,15 +430,16 @@ local function SetupAnchor()
 	end
 end
 
--- Add proper cleanup function for global tables
+-- PERF: Wipe all pre-allocated module tables in-place to avoid GC churn on re-init.
 local function CleanupGlobalTables()
-	-- Properly clear all global tables for reuse
-	auraList = {}
-	frameList = {}
-	unitIDTable = {}
-	intTable = {}
-	intCD = {}
-	cooldownTable = {}
+	table_wipe(auraList)
+	table_wipe(frameList)
+	table_wipe(unitIDTable)
+	table_wipe(intTable)
+	if type(intCD) == "table" then
+		table_wipe(intCD)
+	end
+	table_wipe(cooldownTable)
 end
 
 local function InitSetup()
@@ -453,8 +473,11 @@ function Module:AuraWatch_UpdateTimer(elapsed)
 	end
 
 	local timer = self.timerValue
+	local nextTextUpdate = (self.nextTextUpdate or 0) - (elapsed or 0)
+
 	if timer < 0 then
 		self:SetScript("OnUpdate", nil)
+		self.nextTextUpdate = 0
 		if self.isIntCD then
 			self:Hide()
 			table_remove(intTable, self.ID)
@@ -468,18 +491,30 @@ function Module:AuraWatch_UpdateTimer(elapsed)
 			self.Statusbar.Spark:Hide()
 		end
 	elseif timer < 60 then
-		if self.Time then
-			self.Time:SetFormattedText("%.1f", timer)
+		if nextTextUpdate <= 0 then
+			if self.Time then
+				self.Time:SetFormattedText("%.1f", timer)
+			end
+			self.nextTextUpdate = 0.1
+		else
+			self.nextTextUpdate = nextTextUpdate
 		end
+
 		self.Statusbar:SetMinMaxValues(0, self.duration)
 		self.Statusbar:SetValue(timer)
 		self.Statusbar.Spark:Show()
 	else
-		if self.Time then
-			local mins = math_floor(timer / 60)
-			local secs = math_floor(timer - mins * 60)
-			self.Time:SetFormattedText("%d:%02d", mins, secs)
+		if nextTextUpdate <= 0 then
+			if self.Time then
+				local mins = math_floor(timer / 60)
+				local secs = math_floor(timer - mins * 60)
+				self.Time:SetFormattedText("%d:%02d", mins, secs)
+			end
+			self.nextTextUpdate = 1
+		else
+			self.nextTextUpdate = nextTextUpdate
 		end
+
 		self.Statusbar:SetMinMaxValues(0, self.duration)
 		self.Statusbar:SetValue(timer)
 		self.Statusbar.Spark:Show()
@@ -664,8 +699,9 @@ function Module:AuraWatch_UpdateAura(unit, index, filter, name, icon, count, dur
 		return
 	end
 
-	-- PERF: Use ipairs for master aura list iteration.
-	for KEY, VALUE in ipairs(auraList) do
+	-- PERF: Use numeric loop for hot path iteration.
+	for KEY = 1, #auraList do
+		local VALUE = auraList[KEY]
 		local value = VALUE.List[spellID]
 		if value and value.AuraID and value.UnitID == unit then
 			if value.Combat and not inCombat then
@@ -945,7 +981,8 @@ local function ResetAuraFrame(frame)
 end
 
 function Module:AuraWatch_Cleanup()
-	for _, value in ipairs(frameList) do
+	for k = 1, #frameList do
+		local value = frameList[k]
 		for i = 1, maxFrames do
 			ResetAuraFrame(value[i])
 		end
@@ -954,13 +991,15 @@ function Module:AuraWatch_Cleanup()
 end
 
 function Module:AuraWatch_PreCleanup()
-	for _, value in ipairs(frameList) do
+	for k = 1, #frameList do
+		local value = frameList[k]
 		value.Index = 1
 	end
 end
 
 function Module:AuraWatch_PostCleanup()
-	for _, value in ipairs(frameList) do
+	for k = 1, #frameList do
+		local value = frameList[k]
 		local currentIndex = value.Index == maxFrames and maxFrames + 1 or value.Index
 		for i = currentIndex, maxFrames do
 			ResetAuraFrame(value[i])
@@ -1021,7 +1060,7 @@ function Module:AuraWatch_Centralize(force)
 		return
 	end
 
-	-- PERF: Use ipairs for frame list iteration.
+	-- PERF: Use numeric loop for frame list iteration.
 	for i = 1, #frameList do
 		local frames = frameList[i]
 		local frame1 = frames and frames[1]
@@ -1094,8 +1133,9 @@ SlashCmdList.AuraWatch = function(msg)
 	if msg:lower() == "move" then
 		auraWatchUpdater:SetScript("OnUpdate", nil)
 		auraWatchUpdater.moving = true
-		-- PERF: Use ipairs for frame list iteration.
-		for _, value in ipairs(frameList) do
+		-- PERF: Use numeric loop for frame list iteration.
+		for k = 1, #frameList do
+			local value = frameList[k]
 			for i = 1, 6 do
 				if value[i] then
 					value[i]:SetScript("OnUpdate", nil)
@@ -1158,9 +1198,9 @@ SlashCmdList.AuraWatch = function(msg)
 		end
 	elseif msg:lower() == "lock" then
 		Module:AuraWatch_Cleanup()
-		-- PERF: Use ipairs for frame list iteration.
-		for _, value in ipairs(frameList) do
-			value[1].MoveHandle:Hide()
+		-- PERF: Use numeric loop for frame list iteration.
+		for k = 1, #frameList do
+			frameList[k][1].MoveHandle:Hide()
 		end
 		auraWatchUpdater.moving = nil
 		Module:AuraWatch_RequestUpdate()

@@ -1848,7 +1848,7 @@ function Module:OnEnable()
 			bagFrames.reagent:SetShown(idx == 2)
 			bagFrames.accountbank:SetShown(idx == 3)
 			if _G["KKUI_BankPurchaseButton"] then
-				_G["KKUI_BankPurchaseButton"]:SetShown(idx == 3 and _G.C_Bank.CanPurchaseBankTab(_G.ACCOUNT_BANK_TYPE))
+				_G["KKUI_BankPurchaseButton"]:SetShown(idx == 3 and C_Bank_CanPurchaseBankTab(ACCOUNT_BANK_TYPE))
 			end
 		end
 	end)

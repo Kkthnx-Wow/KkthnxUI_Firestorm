@@ -24,7 +24,9 @@ local C_GossipInfo_SelectOption = C_GossipInfo.SelectOption
 local C_Item_GetItemInfo = C_Item.GetItemInfo
 local C_Minimap_IsFilteredOut = C_Minimap.IsFilteredOut
 local C_Minimap_IsTrackingHiddenQuests = C_Minimap.IsTrackingHiddenQuests
+local C_QuestLog_GetLogIndexForQuestID = C_QuestLog.GetLogIndexForQuestID
 local C_QuestLog_GetQuestTagInfo = C_QuestLog.GetQuestTagInfo
+local C_QuestLog_IsPushableQuest = C_QuestLog.IsPushableQuest
 local C_QuestLog_IsQuestFlaggedCompletedOnAccount = C_QuestLog.IsQuestFlaggedCompletedOnAccount
 local C_QuestLog_IsQuestTrivial = C_QuestLog.IsQuestTrivial
 local C_QuestLog_IsWorldQuest = C_QuestLog.IsWorldQuest
@@ -48,8 +50,11 @@ local GetQuestItemLink = GetQuestItemLink
 local GetQuestReward = GetQuestReward
 local GetQuestIsFromAreaTrigger = QuestIsFromAreaTrigger
 local IsAltKeyDown = IsAltKeyDown
+local IsInGroup = IsInGroup
+local IsInRaid = IsInRaid
 local IsQuestCompletable = IsQuestCompletable
 local IsShiftKeyDown = IsShiftKeyDown
+local QuestLogPushQuest = QuestLogPushQuest
 local RemoveAutoQuestPopUp = RemoveAutoQuestPopUp
 local SelectActiveQuest = SelectActiveQuest
 local SelectAvailableQuest = SelectAvailableQuest
@@ -295,10 +300,19 @@ end)
 
 QuickQuest:Register("QUEST_ACCEPT_CONFIRM", AcceptQuest)
 
-QuickQuest:Register("QUEST_ACCEPTED", function()
+QuickQuest:Register("QUEST_ACCEPTED", function(questID)
 	-- REASON: Auto-closes the quest frame if the quest was automatically accepted.
 	if _G.QuestFrame:IsShown() and GetQuestGetAutoAccept() then
 		CloseQuest()
+	end
+
+	if C["Automation"].AutoShareQuest and questID then
+		if IsInGroup() and not IsInRaid() then
+			local logIndex = C_QuestLog_GetLogIndexForQuestID(questID)
+			if logIndex and logIndex > 0 and C_QuestLog_IsPushableQuest(questID) then
+				QuestLogPushQuest(logIndex)
+			end
+		end
 	end
 end)
 

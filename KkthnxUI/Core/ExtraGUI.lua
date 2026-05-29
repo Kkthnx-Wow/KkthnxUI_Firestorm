@@ -282,12 +282,11 @@ local function AddResetToDefaultFunctionality(widget, label, configPath, cleanTe
 	undoIcon:SetAlpha(0.7)
 
 	-- Try to set the atlas, with fallback
-	local success = pcall(function()
+	local atlasInfo = C_Texture.GetAtlasInfo("common-icon-undo")
+	if atlasInfo then
 		undoIcon:SetAtlas("common-icon-undo", true)
 		undoIcon:SetSize(16, 16)
-	end)
-
-	if not success then
+	else
 		-- Fallback to a texture if atlas fails
 		undoIcon:SetTexture("Interface\\Buttons\\UI-RefreshButton")
 		undoIcon:SetTexCoord(0, 1, 0, 1)

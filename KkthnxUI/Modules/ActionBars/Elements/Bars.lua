@@ -425,6 +425,7 @@ function Module:OnEnable()
 		"UpdateAllSize",
 		"HideBlizz",
 		"CreateBarFadeGlobal",
+		"CreatePulseCD",
 	}
 
 	for _, funcName in ipairs(loadActionBarModules) do

@@ -66,6 +66,7 @@ local floor, max, min = math.floor, math.max, math.min
 local format, gsub = string.format, string.gsub
 local ipairs, pairs, type = ipairs, pairs, type
 local tinsert, tremove = table.insert, table.remove
+local wipe = table.wipe
 
 -- WoW API
 local CreateFrame = CreateFrame
@@ -217,7 +218,7 @@ end
 -- Clear reload queue
 function ReloadTracker:ClearQueue()
 	DebugLog("Clearing reload queue")
-	self.PendingReloads = {}
+	wipe(self.PendingReloads)
 	self.IsShowing = false
 end
 
@@ -284,12 +285,9 @@ local function ExecuteUpdateHooks(configPath, newValue, oldValue)
 		for i, hookFunc in ipairs(GUI.UpdateHooks[configPath]) do
 			if type(hookFunc) == "function" then
 				DebugLog("Executing hook " .. i .. " for " .. configPath)
-				local success, err = pcall(hookFunc, newValue, oldValue, configPath)
-				if not success then
-					DebugLog("Hook " .. i .. " failed for " .. configPath .. ": " .. tostring(err))
-				else
-					DebugLog("Hook " .. i .. " executed successfully for " .. configPath)
-				end
+				DebugLog("Executing hook " .. i .. " for " .. configPath)
+				hookFunc(newValue, oldValue, configPath)
+				DebugLog("Hook " .. i .. " executed successfully for " .. configPath)
 			else
 				DebugLog("Hook " .. i .. " is not a function for " .. configPath .. " (type: " .. type(hookFunc) .. ")")
 			end
@@ -666,12 +664,11 @@ local function AddResetToDefaultFunctionality(widget, label, configPath, cleanTe
 	undoIcon:SetAlpha(0.7)
 
 	-- Try to set the atlas, with fallback
-	local success = pcall(function()
+	local atlasInfo = C_Texture.GetAtlasInfo("common-icon-undo")
+	if atlasInfo then
 		undoIcon:SetAtlas("common-icon-undo", true)
 		undoIcon:SetSize(16, 16)
-	end)
-
-	if not success then
+	else
 		-- Fallback to a texture if atlas fails
 		undoIcon:SetTexture("Interface\\Buttons\\UI-RefreshButton")
 		undoIcon:SetTexCoord(0, 1, 0, 1)

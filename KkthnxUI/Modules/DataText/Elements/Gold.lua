@@ -4,7 +4,7 @@
 -- Notes:
 -- - Purpose: Tracks and displays player gold across characters and session profit/loss.
 -- - Design: Persistent database for multi-char tracking, session-based delta calculations, and bag slot hybrid mode.
--- - Events: PLAYER_ENTERING_WORLD, PLAYER_MONEY, PLAYER_TRADE_MONEY, BAG_UPDATE, etc.
+-- - Events: PLAYER_ENTERING_WORLD, PLAYER_MONEY, PLAYER_TRADE_MONEY, BAG_UPDATE_DELAYED, etc.
 -----------------------------------------------------------------------------]]
 
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
@@ -167,13 +167,10 @@ local function onEvent(_, event, arg1)
 		if goldDataText then
 			goldDataText:UnregisterEvent(event)
 			if _G.KkthnxUIDB.ShowSlots then
-				goldDataText:RegisterEvent("BAG_UPDATE")
+				-- REASON: BAG_UPDATE_DELAYED fires once after all bag changes settle, preventing
+				-- the event storm that BAG_UPDATE causes (fires per-slot per-bag).
+				goldDataText:RegisterEvent("BAG_UPDATE_DELAYED")
 			end
-		end
-	elseif event == "BAG_UPDATE" then
-		-- REASON: Only process primary bag updates to avoid redundant processing on sub-bag changes.
-		if arg1 < 0 or arg1 > 4 then
-			return
 		end
 	end
 
@@ -381,9 +378,9 @@ local function onMouseUp(self, btn)
 		else
 			_G.KkthnxUIDB.ShowSlots = not _G.KkthnxUIDB.ShowSlots
 			if _G.KkthnxUIDB.ShowSlots then
-				goldDataText:RegisterEvent("BAG_UPDATE")
+				goldDataText:RegisterEvent("BAG_UPDATE_DELAYED")
 			else
-				goldDataText:UnregisterEvent("BAG_UPDATE")
+				goldDataText:UnregisterEvent("BAG_UPDATE_DELAYED")
 			end
 			onEvent()
 		end

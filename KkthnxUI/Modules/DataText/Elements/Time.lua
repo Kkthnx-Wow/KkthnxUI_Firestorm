@@ -106,8 +106,8 @@ local mapAreaPoiIDs = {
 	[864] = 5970,
 	[896] = 5964,
 	[942] = 5966,
-	[104] = 5896, -- Note: 104 was [895] in original, wait, 895? Let me check
-} -- Original was [895] = 5896. Line 104. Fixed.
+	[895] = 5896,
+}
 
 local QUEST_LIST = {
 	{ name = L["Feast of Winter Veil"], id = 6983 },
@@ -204,6 +204,11 @@ end
 local function getInvasionInfo(mapID)
 	-- REASON: Retrieves time left and zone name for a specific map's invasion point.
 	local areaPoiID = mapAreaPoiIDs[mapID]
+	if not areaPoiID then
+		-- NOTE: Guard against mapIDs not present in mapAreaPoiIDs to prevent
+		-- C_AreaPoiInfo_GetAreaPOISecondsLeft crashing with a nil argument.
+		return nil, nil
+	end
 	local secondsLeft = C_AreaPoiInfo_GetAreaPOISecondsLeft(areaPoiID)
 	local mapData = C_Map_GetMapInfo(mapID)
 	return secondsLeft, mapData and mapData.name

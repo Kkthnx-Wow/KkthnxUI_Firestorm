@@ -4,7 +4,7 @@
 -- Notes:
 -- - Purpose: Displays guild leadership rankings and Mythic+ weekly records in the Challenges frame.
 -- - Design: Hooks Blizzard's Challenges UI, integrates with AngryKeystones and Details Keystones, and tracks account-wide keystone info.
--- - Events: ADDON_LOADED, BAG_UPDATE, CHALLENGE_MODE_LEADERS_UPDATE
+-- - Events: ADDON_LOADED, BAG_UPDATE_DELAYED, CHALLENGE_MODE_LEADERS_UPDATE
 -----------------------------------------------------------------------------]]
 
 local K, C, L = KkthnxUI[1], KkthnxUI[2], KkthnxUI[3]
@@ -369,7 +369,9 @@ function Module:CreateGuildBest()
 	end
 
 	Module:updateAccountKeystoneData()
-	K:RegisterEvent("BAG_UPDATE", Module.updateAccountKeystoneData)
+	-- REASON: BAG_UPDATE_DELAYED fires once after all bag changes settle; sufficient for
+	-- keystone ownership detection and avoids the per-slot event storm of raw BAG_UPDATE.
+	K:RegisterEvent("BAG_UPDATE_DELAYED", Module.updateAccountKeystoneData)
 end
 
 Module:RegisterMisc("MDGuildBest", Module.CreateGuildBest)

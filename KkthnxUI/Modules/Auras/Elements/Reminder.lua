@@ -43,6 +43,8 @@ local isRegistered = false
 local itemsMerged = false
 local activeBuffs = {}
 local state = {}
+-- PERF: Pre-allocated lookup table for Reminder_AddItemGroup; reused across calls.
+local addedItems = {}
 
 -- REASON: Ensure the class table exists; some client forks can omit a class key.
 local groups = C.SpellReminderBuffs[K.Class]
@@ -245,22 +247,22 @@ function Module:Reminder_AddItemGroup()
 		return
 	end
 
-	-- REASON: Prevent duplicating item entries if CreateReminder is called multiple times.
-	local added = {}
+	-- PERF: Wipe the pre-allocated table instead of creating a new one each call.
+	table_wipe(addedItems)
 
 	-- PERF: Use ipairs for array iteration.
 	for _, cfg in ipairs(groups) do
 		if cfg and cfg.itemID then
-			added[cfg.itemID] = true
+			addedItems[cfg.itemID] = true
 		end
 	end
 
 	-- PERF: Use ipairs for array iteration.
 	for _, value in ipairs(C.SpellReminderBuffs["ITEMS"]) do
-		if value and not value.disable and value.itemID and not added[value.itemID] and (C_Item_GetItemCount(value.itemID) > 0) then
+		if value and not value.disable and value.itemID and not addedItems[value.itemID] and (C_Item_GetItemCount(value.itemID) > 0) then
 			value.texture = value.texture or C_Item_GetItemIconByID(value.itemID)
 			table_insert(groups, value)
-			added[value.itemID] = true
+			addedItems[value.itemID] = true
 		end
 	end
 
